@@ -1,10 +1,13 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { FcGoogle } from "react-icons/fc";
-import { FaFacebook} from "react-icons/fa";
+import { FaFacebook, FaRegHeart} from "react-icons/fa";
 import { PiEyeLight, PiEyeSlash } from "react-icons/pi";
 import { LuLock } from "react-icons/lu";
 import { HiOutlineMail } from "react-icons/hi";
+import { CiHeart } from "react-icons/ci";
+import { TbStethoscope } from "react-icons/tb";
+import { MdOutlineShield } from "react-icons/md";
 
 export default function LoginPage() {
 
@@ -31,20 +34,31 @@ export default function LoginPage() {
 
                 <div className="flex flex-wrap justify-between mt-[6px]">
                   
-                  <div>
-                    <button className="min-w-[120px] h-[70px] p-[12px] border border-[#E2E8F0] text-secondary text-[11.2px] rounded-lg">Pet Owner/Farmer</button>
+                  <div className="min-w-[120px] h-[70px]" >
+                    <button className="min-w-[120px] h-[70px] border border-[#E2E8F0] text-secondary text-[11.2px] rounded-lg text-center flex flex-col justify-center items-center">
+                      <div className="w-[25px] h-[25px] bg-accent flex justify-center items-center rounded-[10px] shadow-md mb-[8px]"><CiHeart className="h-[20px] w-[20px] text-white"/></div>
+                      Pet Owner / Farmer
+                    </button>
                   </div>
 
-                  <div>
-                    <button className="min-w-[120px] h-[70px] p-[12px] border border-[#E2E8F0] text-secondary text-[11.2px] rounded-lg">Veterinary Doctor</button>
+                  <div className="min-w-[120px] h-[70px]" >
+                    <button className="min-w-[120px] h-[70px] border border-[#E2E8F0] text-secondary text-[11.2px] rounded-lg text-center flex flex-col justify-center items-center">
+                      <div className="w-[25px] h-[25px] bg-accent flex justify-center items-center rounded-[10px] shadow-md mb-[8px]"><TbStethoscope className="h-[20px] w-[20px] text-white"/></div>
+                      Veterinary Doctor
+                    </button>
                   </div>
 
-                  <div>
-                    <button className="min-w-[120px] h-[70px] p-[12px] border border-[#E2E8F0] text-secondary text-[11.2px] rounded-lg">Administrator</button>
+                  <div className="min-w-[120px] h-[70px]" >
+                    <button className="min-w-[120px] h-[70px] border border-[#E2E8F0] text-secondary text-[11.2px] rounded-lg text-center flex flex-col justify-center items-center">
+                      <div className="w-[25px] h-[25px] bg-accent flex justify-center items-center rounded-[10px] shadow-md mb-[8px]"><MdOutlineShield className="h-[20px] w-[20px] text-white"/></div>
+                      Administrator
+                    </button>
                   </div>
+                  
 
                 </div>
 
+                {/* Email Input */}
                 <p className="text-secondary mt-[20px] font-[Inter] font-medium text-[14px] mb-[8.5px]">Email Address</p>
 
                 <div className="relative w-full">
@@ -59,12 +73,20 @@ export default function LoginPage() {
                               {
                                   setEmail(e.target.value);
                           }}   
-                      placeholder="Your Email" 
+                      placeholder="Enter Your Email" 
                       className="w-full h-[40px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-secondary/80" 
                   />
                 </div>
-
-                <p className="text-secondary mt-[20px] font-[Inter] font-medium text-[14px] mb-[8.5px]">Password</p>
+                
+                {/* Password Field */}
+                <div className="flex flex-row justify-between items-center font-[Inter] font-medium text-[14px] mt-[20px] mb-[8.5px]">
+                  <p className="text-secondary">Password</p>
+                  <p className="text-gray italic">
+                          <Link to="/forgot-password" className="text-accent font-normal hover:underline">
+                          Forgot Password?
+                          </Link>
+                  </p>
+                </div>
 
                 <div className="relative w-full">
 
@@ -100,7 +122,7 @@ export default function LoginPage() {
                 </div>
 
 
-                <button className="w-full h-[40px] bg-accent text-[16px] font-Inter font-medium text-white rounded-[25px]">
+                <button className="w-full h-[40px] bg-accent text-[16px] font-Inter font-medium text-white rounded-[25px] cursor-pointer">
                           Login to Dashboard
                 </button>
 
