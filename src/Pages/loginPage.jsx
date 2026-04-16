@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { FcGoogle } from "react-icons/fc";
 import { FaFacebook, FaRegHeart} from "react-icons/fa";
 import { PiEyeLight, PiEyeSlash } from "react-icons/pi";
@@ -14,6 +14,42 @@ export default function LoginPage() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
+    const navigate = useNavigate();
+    const [role, setRole] = useState(null);
+
+    const buttonStyle = (value) => `
+    group min-w-[120px] h-[70px] border text-[11.2px] rounded-lg 
+    flex flex-col justify-center items-center text-center
+    transition-all duration-300 active:scale-95
+
+    ${
+      role === value
+        ? "border-green-500 text-green-600 bg-green-50 shadow-lg scale-105"
+        : "border-[#E2E8F0] text-secondary hover:border-green-500 hover:text-green-600 hover:bg-green-50 hover:shadow-md"
+    }
+  `;
+
+  const iconStyle = (value) => `
+    w-[25px] h-[25px] flex justify-center items-center rounded-[10px] 
+    shadow-md mb-[8px] transition-all duration-300
+
+    ${
+      role === value
+        ? "bg-green-600"
+        : "bg-[#afb1b3] group-hover:bg-green-600"
+    }`;
+
+    function handleLogin() {
+      if (role === "farmer") {
+        navigate("/farmer-dashboard");
+      } else if (role === "doctor") {
+        navigate("/doctor-dashboard");
+      } else if (role === "admin") {
+        navigate("/admin-dashboard");
+      } else {
+        alert("Please select a role");
+      }
+    }
 
     return (
     <div className='w-full h-screen bg-primary flex'>
@@ -32,30 +68,34 @@ export default function LoginPage() {
 
                 <p className="text-[#45556C] text-[14px] font-[Inter] font-normal mt-[10px]">Sign in as</p>
 
-                <div className="flex flex-wrap justify-between mt-[6px]">
-                  
+                {/* user section */}
+                <div className="flex flex-wrap justify-between mt-[6px]">  
                   <div className="min-w-[120px] h-[70px]" >
-                    <button className="group min-w-[120px] h-[70px] border border-[#E2E8F0] text-secondary text-[11.2px] rounded-lg text-center flex flex-col justify-center items-center transition-all duration-300 hover:border-green-500 hover:text-green-600 hover:bg-green-50 hover:shadow-md">
-                      <div className="w-[25px] h-[25px] bg-[#afb1b3] flex justify-center items-center rounded-[10px] shadow-md mb-[8px] transition-all duration-300 group-hover:bg-green-600"><CiHeart className="h-[20px] w-[20px] text-white"/></div>
-                        Pet Owner / Farmer
+                    <button onClick={() => setRole("farmer")} className={buttonStyle("farmer")}>
+                      <div className={iconStyle("farmer")}>
+                        <CiHeart className="h-[20px] w-[20px] text-white" />
+                      </div>
+                      Pet Owner / Farmer
                     </button>
                   </div>
 
                   <div className="min-w-[120px] h-[70px]" >
-                    <button className="group min-w-[120px] h-[70px] border border-[#E2E8F0] text-secondary text-[11.2px] rounded-lg text-center flex flex-col justify-center items-center transition-all duration-300 hover:border-green-500 hover:text-green-600 hover:bg-green-50 hover:shadow-md">
-                      <div className="w-[25px] h-[25px] bg-[#afb1b3] flex justify-center items-center rounded-[10px] shadow-md mb-[8px] transition-all duration-30 group-hover:bg-green-600"><TbStethoscope className="h-[20px] w-[20px] text-white"/></div>
+                    <button onClick={() => setRole("doctor")} className={buttonStyle("doctor")}>
+                      <div className={iconStyle("doctor")}>
+                        <TbStethoscope className="h-[18px] w-[18px] text-white" />
+                      </div>
                       Veterinary Doctor
                     </button>
                   </div>
 
                   <div className="min-w-[120px] h-[70px]" >
-                    <button className="group min-w-[120px] h-[70px] border border-[#E2E8F0] text-secondary text-[11.2px] rounded-lg text-center flex flex-col justify-center items-center transition-all duration-300 hover:border-green-500 hover:text-green-600 hover:bg-green-50 hover:shadow-md">
-                      <div className="w-[25px] h-[25px] bg-[#afb1b3] flex justify-center items-center rounded-[10px] shadow-md mb-[8px] transition-all duration-300 group-hover:bg-green-600"><MdOutlineShield className="h-[20px] w-[20px] text-white"/></div>
+                    <button onClick={() => setRole("admin")} className={buttonStyle("admin")}>
+                      <div className={iconStyle("admin")}>
+                        <MdOutlineShield className="h-[20px] w-[20px] text-white" />
+                      </div>
                       Administrator
                     </button>
-                  </div>
-                  
-
+                  </div> 
                 </div>
 
                 {/* Email Input */}
@@ -122,7 +162,7 @@ export default function LoginPage() {
                 </div>
 
 
-                <button className="w-full h-[40px] bg-accent text-[16px] font-Inter font-medium text-white rounded-[25px] cursor-pointer">
+                <button onClick={handleLogin} className="w-full h-[40px] bg-accent text-[16px] font-Inter font-medium text-white rounded-[25px] cursor-pointer">
                           Login to Dashboard
                 </button>
 
