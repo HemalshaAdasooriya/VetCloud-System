@@ -60,7 +60,10 @@ export default function LoginPage() {
       <div className="w-[50%] h-full bg-primary flex items-center justify-center">
         <div className='w-[77%] h-[96%] backdrop-blur-lg rounded-lg shadow-2xl flex flex-col items-center justify-center'>
             <div className="w-[80%] flex flex-col">
-                <div className="text-secondary text-[24px] font-bold font-[Inter] text-left">VetCloud</div>
+                <div className="text-secondary text-[24px] font-bold font-[Inter] text-left flex items-center">
+                  <img src="/public/Logo.png" className="w-[50px] h-[35px] mr-1" />
+                  VetCloud
+                </div>
 
                 <div className="text-secondary text-[30px] font-bold ">Welcome back!</div>
 
