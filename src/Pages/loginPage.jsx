@@ -35,22 +35,22 @@ export default function LoginPage() {
                 <div className="flex flex-wrap justify-between mt-[6px]">
                   
                   <div className="min-w-[120px] h-[70px]" >
-                    <button className="min-w-[120px] h-[70px] border border-[#E2E8F0] text-secondary text-[11.2px] rounded-lg text-center flex flex-col justify-center items-center">
-                      <div className="w-[25px] h-[25px] bg-accent flex justify-center items-center rounded-[10px] shadow-md mb-[8px]"><CiHeart className="h-[20px] w-[20px] text-white"/></div>
-                      Pet Owner / Farmer
+                    <button className="group min-w-[120px] h-[70px] border border-[#E2E8F0] text-secondary text-[11.2px] rounded-lg text-center flex flex-col justify-center items-center transition-all duration-300 hover:border-green-500 hover:text-green-600 hover:bg-green-50 hover:shadow-md">
+                      <div className="w-[25px] h-[25px] bg-[#afb1b3] flex justify-center items-center rounded-[10px] shadow-md mb-[8px] transition-all duration-300 group-hover:bg-green-600"><CiHeart className="h-[20px] w-[20px] text-white"/></div>
+                        Pet Owner / Farmer
                     </button>
                   </div>
 
                   <div className="min-w-[120px] h-[70px]" >
-                    <button className="min-w-[120px] h-[70px] border border-[#E2E8F0] text-secondary text-[11.2px] rounded-lg text-center flex flex-col justify-center items-center">
-                      <div className="w-[25px] h-[25px] bg-accent flex justify-center items-center rounded-[10px] shadow-md mb-[8px]"><TbStethoscope className="h-[20px] w-[20px] text-white"/></div>
+                    <button className="group min-w-[120px] h-[70px] border border-[#E2E8F0] text-secondary text-[11.2px] rounded-lg text-center flex flex-col justify-center items-center transition-all duration-300 hover:border-green-500 hover:text-green-600 hover:bg-green-50 hover:shadow-md">
+                      <div className="w-[25px] h-[25px] bg-[#afb1b3] flex justify-center items-center rounded-[10px] shadow-md mb-[8px] transition-all duration-30 group-hover:bg-green-600"><TbStethoscope className="h-[20px] w-[20px] text-white"/></div>
                       Veterinary Doctor
                     </button>
                   </div>
 
                   <div className="min-w-[120px] h-[70px]" >
-                    <button className="min-w-[120px] h-[70px] border border-[#E2E8F0] text-secondary text-[11.2px] rounded-lg text-center flex flex-col justify-center items-center">
-                      <div className="w-[25px] h-[25px] bg-accent flex justify-center items-center rounded-[10px] shadow-md mb-[8px]"><MdOutlineShield className="h-[20px] w-[20px] text-white"/></div>
+                    <button className="group min-w-[120px] h-[70px] border border-[#E2E8F0] text-secondary text-[11.2px] rounded-lg text-center flex flex-col justify-center items-center transition-all duration-300 hover:border-green-500 hover:text-green-600 hover:bg-green-50 hover:shadow-md">
+                      <div className="w-[25px] h-[25px] bg-[#afb1b3] flex justify-center items-center rounded-[10px] shadow-md mb-[8px] transition-all duration-300 group-hover:bg-green-600"><MdOutlineShield className="h-[20px] w-[20px] text-white"/></div>
                       Administrator
                     </button>
                   </div>
@@ -74,7 +74,7 @@ export default function LoginPage() {
                                   setEmail(e.target.value);
                           }}   
                       placeholder="Enter Your Email" 
-                      className="w-full h-[40px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-secondary/80" 
+                      className="w-full h-[40px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" 
                   />
                 </div>
                 
@@ -98,7 +98,7 @@ export default function LoginPage() {
                     type={showPassword ? "text" : "password"}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Your Password"
-                    className="w-full h-[40px] rounded-[14px] border border-gray-300 shadow-sm pl-[40px] pr-[40px] text-[14px] focus:outline-none focus:ring-2 focus:ring-secondary/80"
+                    className="w-full h-[40px] rounded-[14px] border border-gray-300 shadow-sm pl-[40px] pr-[40px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
 
                   <span
