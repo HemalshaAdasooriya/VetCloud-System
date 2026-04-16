@@ -8,6 +8,7 @@ import { HiOutlineMail } from "react-icons/hi";
 import { CiHeart } from "react-icons/ci";
 import { TbStethoscope } from "react-icons/tb";
 import { MdOutlineShield } from "react-icons/md";
+import toast from "react-hot-toast";
 
 export default function LoginPage() {
 
@@ -47,7 +48,7 @@ export default function LoginPage() {
       } else if (role === "admin") {
         navigate("/admin-dashboard");
       } else {
-        alert("Please select a role");
+        toast.error("Please select a role");
       }
     }
 
