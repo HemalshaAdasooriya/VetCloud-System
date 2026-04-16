@@ -53,15 +53,20 @@ export default function LoginPage() {
 
     return (
     <div className='w-full h-screen bg-primary flex'>
-      <div className="w-[50%] h-full bg-gradient-to-br from-[rgba(0,166,62,0.80)] to-[rgba(28,57,142,0.90)] ">
-
+      <div className="w-[50%] h-full bg-gradient-to-br from-[rgba(0,166,62,0.80)] to-[rgba(28,57,142,0.90)] relative">
+        <div className="w-[512px] h-[202px] backdrop-blur-md bg-white/15 border border-white/30 rounded-[16px] shadow-lg absolute bottom-[48px] left-[48px]">
+          <div className="w-full h-full p-[33px] flex flex-col justify-center">
+            <h1 className="font-Inter text-[28px] text-white font-medium leading-[36px] mb-[17px]">Empowering Animal Health</h1>
+            <p className="text-left text-[#F0FDF4] font-Inter font-light leading-[28px]">Connect with certified veterinary professionals<br /> instantly. The best care for your livestock and pets<br /> is just a click away.</p>
+          </div>
+        </div>
       </div>
 
       <div className="w-[50%] h-full bg-primary flex items-center justify-center">
         <div className='w-[77%] h-[96%] backdrop-blur-lg rounded-lg shadow-2xl flex flex-col items-center justify-center'>
             <div className="w-[80%] flex flex-col">
                 <div className="text-secondary text-[24px] font-bold font-[Inter] text-left flex items-center">
-                  <img src="/public/Logo.png" className="w-[50px] h-[35px] mr-1" />
+                  <img src="/public/Logo.png" className="w-[50px] h-[35px] mr-1 object-fill" />
                   VetCloud
                 </div>
 
