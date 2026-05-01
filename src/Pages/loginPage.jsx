@@ -66,7 +66,7 @@ export default function LoginPage() {
       <div className="w-[50%] h-full bg-primary flex items-center justify-center">
         <div className='w-[77%] h-[96%] backdrop-blur-lg rounded-lg shadow-2xl flex flex-col items-center justify-center'>
             <div className="w-[80%] flex flex-col">
-                <div className="text-secondary text-[24px] font-bold font-[Inter] text-left flex items-center">
+                <div className="text-secondary text-[24px] font-bold font-[Inter] text-left flex items-center mb-[25px]">
                   <img src="/public/Logo.png" className="w-[50px] h-[35px] mr-1 object-fill" />
                   VetCloud
                 </div>
@@ -123,7 +123,7 @@ export default function LoginPage() {
                                   setEmail(e.target.value);
                           }}   
                       placeholder="Enter Your Email" 
-                      className="w-full h-[40px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" 
+                      className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" 
                   />
                 </div>
                 
@@ -147,7 +147,7 @@ export default function LoginPage() {
                     type={showPassword ? "text" : "password"}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Your Password"
-                    className="w-full h-[40px] rounded-[14px] border border-gray-300 shadow-sm pl-[40px] pr-[40px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500"
+                    className="w-full h-[50px] rounded-[14px] border border-gray-300 shadow-sm pl-[40px] pr-[40px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
 
                   <span

@@ -6,7 +6,7 @@
     --color-secondary: #0F172B;
     --color-accent: #00A63E;
     --color-gradient : linear-gradient(135deg, rgba(0, 166, 62, 0.80) 0%, rgba(28, 57, 142, 0.90) 100%);
-    --font-Inter: 'Inter', sans-serif;
+    --font-Inter: 'Inter';
 
     
 }
