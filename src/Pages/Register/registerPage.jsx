@@ -10,8 +10,22 @@ export default function RegisterPage(){
     const [phone, setPhone] = useState("");
     const [email, setEmail] = useState("");
     const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [password, setPassword] = useState("");
     
+
+    // Calculate password strength
+  const getPasswordStrength = () => {
+    if (!password) return 0;
+    let strength = 0;
+    if (password.length >= 8) strength += 1;
+    if (/[A-Z]/.test(password)) strength += 1;
+    if (/[0-9]/.test(password) && /[^A-Za-z0-9]/.test(password)) strength += 1;
+    return strength;
+  };
+  const strength = getPasswordStrength();
+
+  
 
     const buttonStyle = (value) => `
     group min-w-[320px] h-[90px] border text-[11.2px] rounded-lg 
@@ -105,46 +119,49 @@ export default function RegisterPage(){
                             <span className="bg-slate-100 text-slate-600 w-6 h-6 rounded-full flex items-center justify-center text-xs">1</span>
                             Basic Information
                         </h3>
-
+                        {/* Inputs */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            {/* Full name */}
                             <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1.5">Full Name</label>
-                            <div className="relative">
-                                <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                                <input type="text"
-                                    id="name-input"
-                                    value={fullName}
-                                    onChange={
-                                        (e)=>
-                                            {
-                                                setFullName(e.target.value);
-                                            }}   
-                                    placeholder="Enter Your Full Name" 
-                                    className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" 
-                                />
+                                <label className="block text-sm font-medium text-slate-700 mb-1.5">Full Name</label>
+                                <div className="relative">
+                                    <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                                    <input type="text"
+                                        id="name-input"
+                                        value={fullName}
+                                        onChange={
+                                            (e)=>
+                                                {
+                                                    setFullName(e.target.value);
+                                                }}   
+                                        placeholder="Enter Your Full Name" 
+                                        className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" 
+                                    />
+                                </div>
                             </div>
-                            </div>
-
+                            
+                            {/* Contact number */}
                             <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1.5">Contact Number</label>
-                            <div className="relative">
-                                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                                <input type="tel"
-                                    id="phone"
-                                    value={phone}
-                                    onChange={
-                                        (e)=>
-                                            {
-                                                const value = e.target.value.replace(/\D/g, "");
-                                                setPhone(value);
-                                            }}   
-                                    placeholder="+1 (555) 000-0000" 
-                                    pattern="[0-9]{10}"
-                                    className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" 
-                                />
+                                <label className="block text-sm font-medium text-slate-700 mb-1.5">Contact Number</label>
+                                <div className="relative">
+                                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                                    <input type="tel"
+                                        id="phone"
+                                        value={phone}
+                                        onChange={
+                                            (e)=>
+                                                {
+                                                    const value = e.target.value.replace(/\D/g, "");
+                                                    setPhone(value);
+                                                }}   
+                                        placeholder="+1 (555) 000-0000" 
+                                        pattern="[0-9]{10}"
+                                        className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" 
+                                    />
+                                </div>
                             </div>
-                            </div>
-
+                            
+                            {/* email */}
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Email Address</label>
                                 <div className="relative">
@@ -161,35 +178,67 @@ export default function RegisterPage(){
                                 </div>
                             </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1.5">Password</label>
-                                <div className="relative">
-                                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                                    <input 
-                                    type={showPassword ? "text" : "password"}
-                                    id="password"
-                                    value={password}
-                                    onChange={
-                                        (e)=>
-                                            {
-                                                setPassword(e.target.value);
-                                            }}   
-                                    placeholder="Create a password" 
-                                    className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" 
-                                />
-                                    
-                                </div>
-                                {/* Password Strength Indicator */}
-                                {/* {password && (
-                                    <div className="mt-2 flex gap-1 h-1.5 w-full">
-                                    <div className={`flex-1 rounded-full ${strength >= 1 ? (strength === 1 ? 'bg-red-400' : strength === 2 ? 'bg-amber-400' : 'bg-green-500') : 'bg-slate-200'}`}></div>
-                                    <div className={`flex-1 rounded-full ${strength >= 2 ? (strength === 2 ? 'bg-amber-400' : 'bg-green-500') : 'bg-slate-200'}`}></div>
-                                    <div className={`flex-1 rounded-full ${strength >= 3 ? 'bg-green-500' : 'bg-slate-200'}`}></div>
+                            {/* password */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Password</label>
+                                    <div className="relative">
+                                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                                        <input 
+                                        type={showPassword ? "text" : "password"}
+                                        id="password"
+                                        value={password}
+                                        onChange={
+                                            (e)=>
+                                                {
+                                                    setPassword(e.target.value);
+                                                }}   
+                                        placeholder="Create a password" 
+                                        className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" 
+                                        />
+                                        <button 
+                                            type="button"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none"
+                                            >
+                                            {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                                        </button>   
                                     </div>
-                                )} */}
-                            </div>
-                        </div>    
+                                    {/* Password Strength Indicator */}
+                                    {password && (
+                                        <div className="mt-2 flex gap-1 h-1.5 w-full">
+                                        <div className={`flex-1 rounded-full ${strength >= 1 ? (strength === 1 ? 'bg-red-400' : strength === 2 ? 'bg-amber-400' : 'bg-green-500') : 'bg-slate-200'}`}></div>
+                                        <div className={`flex-1 rounded-full ${strength >= 2 ? (strength === 2 ? 'bg-amber-400' : 'bg-green-500') : 'bg-slate-200'}`}></div>
+                                        <div className={`flex-1 rounded-full ${strength >= 3 ? 'bg-green-500' : 'bg-slate-200'}`}></div>
+                                        </div>
+                                    )}
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Confirm Password</label>
+                                    <div className="relative">
+                                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                                        <input 
+                                        type={showConfirmPassword ? "text" : "password"}
+                                        id="password"
+                                        value={password}
+                                        onChange={
+                                            (e)=>
+                                                {
+                                                    setPassword(e.target.value);
+                                                }}   
+                                        placeholder="Create a password" 
+                                        className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" 
+                                    />
+                                        <button 
+                                        type="button"
+                                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                        className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none"
+                                        >
+                                        {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>    
 
 
                         </div>
