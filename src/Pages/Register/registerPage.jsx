@@ -298,7 +298,7 @@ export default function RegisterPage(){
                                 <CheckCircle2 className="absolute text-white w-3 h-3 opacity-0 peer-checked:opacity-100 transition-opacity" />
                             </div>
                             <span className="text-sm text-slate-600 leading-relaxed">
-                            I agree to the <a href="#" className="text-green-600 font-semibold hover:underline">Terms & Conditions</a> and <a href="#" className="text-green-600 font-semibold hover:underline">Privacy Policy</a>, and consent to the processing of my data.
+                            I agree to the <Link to="#" className="text-green-600 font-semibold hover:underline">Terms & Conditions</Link> and <Link to="#" className="text-green-600 font-semibold hover:underline">Privacy Policy</Link>, and consent to the processing of my data.
                             </span>
                         </label>
 
@@ -308,7 +308,7 @@ export default function RegisterPage(){
 
                 <p className="mt-8 text-center text-sm text-slate-600">
                     Already have an account?{' '}
-                    <Link to="/login" className={`font-semibold ${role === 'vet' ? 'from-blue-600/80 to-slate-900/90' : 'from-green-600/80 to-blue-900/90'}`}>
+                    <Link to="/login" className={`font-semibold ${role === 'vet' ? 'text-blue-600 hover:text-blue-700 focus:ring-blue-500' : 'text-green-600 hover:text-green-700 focus:ring-green-500'}`}>
                     Log in here
                     </Link>
                 </p>
