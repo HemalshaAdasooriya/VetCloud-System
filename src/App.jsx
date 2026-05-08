@@ -3,7 +3,8 @@ import './App.css'
 import HomePage from './Pages/homePage'
 import LoginPage from './Pages/loginPage'
 import { Toaster } from 'react-hot-toast'
-import RegisterPage from './Pages/Register/registerPage'
+import RegisterPage from './Pages/registerPage'
+import ConsultationPage from './Pages/consultationPage'
 
 function App() {
   
@@ -16,6 +17,9 @@ function App() {
             <Route path='/*' element={<HomePage />} />
             <Route path='/login' element={<LoginPage />} /> 
             <Route path='/register' element={<RegisterPage />}/>
+            <Route path= '/consultation' element={<ConsultationPage />}/>
+            {/* <Route path= '/diseases' element={<DiseasesPage />}/>
+            <Route path= '/clinics' element={<ClinicsPage />}/> */}
           </Routes>
         </div>
     </BrowserRouter>

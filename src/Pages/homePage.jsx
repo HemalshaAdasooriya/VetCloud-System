@@ -1,8 +1,234 @@
+import { ArrowRight, CalendarCheck, CalendarCheck2, FileText, HeartPulse, HeartPulseIcon, LucideHeartPulse, MapPin, Phone, Play, ShieldCheck, Star, Stethoscope, StethoscopeIcon, Video, VideoIcon } from "lucide-react";
+import { Button, Card } from "../components/Ui/ui";
+import { Link } from "react-router-dom";
+import Navigation from "../layouts/navigation";
+import Footer from "../layouts/footer";
+import { FaInstagram } from "react-icons/fa6";
+import { BsFacebook, BsInstagram, BsTwitter } from "react-icons/bs";
+
+
 export default function HomePage() {
     return (
-        <div className='w-full h-screen bg-gradient-to-r from-green-400 to-blue-500'>
-            <h1 className='text-4xl font-bold text-white text-center mt-20'>Welcome to VetCloud</h1>
-            <p className='text-xl text-white text-center mt-4'>Your one-stop solution for veterinary practice management</p>
+        <div className="flex flex-col">
+            <Navigation />
+            {/* Hero Section */}
+            <section className="relative overflow-hidden bg-gradient-to-t from-green-100 via-green-100 to-sky-50 py-12 lg:py-10">
+                <div className="container mx-auto px-4">
+                    <div className="relative overflow-hidden bg-gradient-to-br from-cyan-50 to-green-200 rounded-[60px] p-8 lg:p-16 shadow-xl border border-slate-200">
+                        
+                        {/* Social Icons - Right Side */}
+                        <div className="hidden lg:flex absolute right-8 top-1/2 -translate-y-1/2 flex-col gap-4 z-20">
+                            <Link to="#" className="w-10 h-10 rounded-full bg-slate-100 shadow-md flex items-center justify-center text-slate-600 hover:text-green-600 hover:bg-green-50 hover:shadow-lg transition-all">
+                                <BsInstagram size={20} />
+                            </Link>
+                            <Link to="#" className="w-10 h-10 rounded-full bg-slate-100 shadow-md flex items-center justify-center text-slate-600 hover:text-green-600 hover:bg-green-50 hover:shadow-lg transition-all">
+                                <BsTwitter size={20} />
+                            </Link>
+                            <Link to="#" className="w-10 h-10 rounded-full bg-slate-100 shadow-md flex items-center justify-center text-slate-600 hover:text-green-600 hover:bg-green-50 hover:shadow-lg transition-all">
+                                <BsFacebook size={20} />
+                            </Link>
+                        </div>
+
+                        <div className="grid lg:grid-cols-2 gap-12 items-center relative">
+                            {/* Left Content */}
+                            <div className="z-10">
+                                <div className="inline-flex items-center gap-2 bg-green-50 px-4 py-2 rounded-full shadow-sm mb-6 border border-green-100">
+                                    <HeartPulse className="text-green-600" size={18} />
+                                    <span className="text-sm font-semibold text-green-700">Best Animal Vet</span>
+                                </div>
+
+                                <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-slate-900 leading-tight mb-6">
+                                    Compassionate vet <br />
+                                    at your <span className="text-green-600">Doorstep</span>
+                                </h1>
+
+                                <p className="text-lg text-slate-600 mb-8 max-w-md leading-relaxed">
+                                    Animal care starts in the animal's condition, what treatment requires such as advance service, best medicine.
+                                </p>
+
+                                <div className="flex items-center gap-4 mb-10">
+                                    <Button size="lg" className="bg-green-600 hover:bg-green-700 text-white shadow-lg">
+                                        Read More
+                                    </Button>
+                                    <button className="w-14 h-14 rounded-full bg-slate-100 shadow-lg flex items-center justify-center text-green-600 hover:bg-green-50 transition-all">
+                                        <Play size={24} fill="currentColor" />
+                                    </button>
+                                </div>
+
+                               {/* Service Icons */}
+                                <div className="flex items-center gap-4">
+                                    <div className="w-14 h-14 rounded-full bg-emerald-100 shadow-lg flex items-center justify-center text-emerald-600">
+                                        <Stethoscope size={24} />
+                                    </div>
+                                    <div className="w-14 h-14 rounded-full bg-rose-100 shadow-lg flex items-center justify-center text-rose-600">
+                                        <HeartPulse size={24} />
+                                    </div>
+                                    <div className="w-14 h-14 rounded-full bg-blue-100 shadow-lg flex items-center justify-center text-blue-600">
+                                        <Video size={24} />
+                                    </div>
+                                    <div className="w-14 h-14 rounded-full bg-amber-100 shadow-lg flex items-center justify-center text-amber-600">
+                                        <CalendarCheck size={24} />
+                                    </div>
+                                </div> 
+                            </div>
+
+                            <div className="relative z-10">
+                                <div className="relative">
+                                    {/* Organic Background Shape */}
+                                    <div className="absolute inset-0 bg-gradient-to-br from-green-400 to-green-700 rounded-[100px] transform rotate-6 scale-105"></div>
+
+                                    {/* Image Container */}
+                                    <div className="relative rounded-[80px] overflow-hidden shadow-2xl">
+                                        <img
+                                        src="/public/home.jpg"
+                                        alt="Veterinarian with cat"
+                                        className="w-full h-[450px] object-cover"
+                                        />
+                                    </div>
+
+                                    {/* 30% Off Badge */}
+                                    <div className="absolute -top-4 -left-4 w-32 h-32 bg-slate-900 rounded-full flex items-center justify-center shadow-xl">
+                                        <div className="text-center">
+                                        <p className="text-3xl font-bold text-white">30%</p>
+                                        <p className="text-xs text-white/90 font-medium">OFF</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Emergency Hotline */}
+                                    <div className="absolute -bottom-6 right-8 bg-green-600 px-6 py-4 rounded-full shadow-2xl">
+                                        <div className="text-center text-white">
+                                            <p className="text-xs font-medium mb-1">Emergency hotline</p>
+                                            <div className="flex items-center gap-2">
+                                                <Phone size={18} />
+                                                <p className="text-lg font-bold">+1234567890</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Decorative elements */}
+                        <div className="absolute bottom-8 left-8 opacity-10">
+                            <HeartPulse size={60} className="text-green-600" />
+                        </div>
+                        <div className="absolute top-16 right-32 opacity-10">
+                            <Stethoscope size={50} className="text-green-600" />
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            
+
+            {/* Quick Access Services */}
+            <section className="py-20 px-5 bg-white">
+                <div className="container mx-auto px-4">
+                    <div className="text-center max-w-2xl mx-auto mb-16">
+                        <h2 className="text-3xl font-bold text-slate-900 mb-4">Our Core Services</h2>
+                        <p className="text-slate-600">Access everything you need to keep your animals healthy, all from one easy-to-use platform.</p>
+                    </div>
+                </div>
+
+                <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {[
+                    { title: 'Online Consultation', desc: 'Video or chat with certified vets.', icon: Video, color: 'bg-blue-100 text-blue-600', link: '/consultation' },
+                    { title: 'Disease Information', desc: 'Search our comprehensive animal health database.', icon: FileText, color: 'bg-emerald-100 text-emerald-600', link: '/diseases' },
+                    { title: 'Emergency Clinics', desc: 'GPS locator for the nearest open vet clinics.', icon: MapPin, color: 'bg-rose-100 text-rose-600', link: '/clinics' },
+                    { title: 'Appointment Booking', desc: 'Schedule farm visits or clinic checkups.', icon: CalendarCheck, color: 'bg-amber-100 text-amber-600', link: '/consultation' },
+                    ].map((service, idx) => (
+                    <Link to={service.link} key={idx}>
+                        <Card className="h-full p-6 hover:shadow-md transition-shadow border-slate-100 hover:border-green-200 group cursor-pointer">
+                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-6 ${service.color}`}>
+                                <service.icon size={24} />
+                            </div>
+                            <h3 className="text-xl font-semibold text-slate-800 mb-2 group-hover:text-green-600 transition-colors">{service.title}</h3>
+                            <p className="text-slate-500 text-sm mb-4 leading-relaxed">{service.desc}</p>
+                            <div className="flex items-center text-sm font-medium text-green-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                                Learn more <ArrowRight size={16} className="ml-1" />
+                            </div>
+                        </Card>
+                    </Link>
+                    ))}
+                </div>
+            </section>
+
+            {/* Mission Section */}
+            <section className="py-20 bg-slate-900 text-white">
+                <div className="container mx-auto px-4 grid lg:grid-cols-2 gap-16 items-center">
+                <div>
+                    <h2 className="text-3xl lg:text-4xl font-bold mb-6">Bridging the Gap in Veterinary Care</h2>
+                    <p className="text-slate-300 mb-6 text-lg leading-relaxed">
+                    For farmers in rural areas and pet owners with busy schedules, getting access to quality veterinary care can be challenging. VetCloud was built to solve this.
+                    </p>
+                    <ul className="space-y-4 mb-8">
+                    {[
+                        'Instant access to licensed professionals',
+                        'Affordable consultation rates',
+                        'Easy-to-understand health guides',
+                        'Secure and private health records'
+                    ].map((item, i) => (
+                        <li key={i} className="flex items-center gap-3 text-slate-200">
+                        <div className="bg-green-500/20 p-1 rounded-full text-green-400">
+                            <HeartPulse size={16} />
+                        </div>
+                        {item}
+                        </li>
+                    ))}
+                    </ul>
+                    <Button variant="primary" size="lg">Read Our Story</Button>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                    <img src="https://images.unsplash.com/photo-1596531398867-0c1453258c73?q=80&w=2070&auto=format&fit=crop" alt="Cows on farm" className="rounded-2xl h-64 object-cover w-full" />
+                    <img src="https://images.unsplash.com/photo-1576201836106-db1758fd1c97?q=80&w=2070&auto=format&fit=crop" alt="Vet examining dog" className="rounded-2xl h-64 object-cover w-full translate-y-8" />
+                </div>
+                </div>
+            </section>
+
+            {/* Testimonials */}
+            <section className="py-20 bg-slate-50">
+                <div className="container mx-auto px-4">
+                <div className="text-center max-w-2xl mx-auto mb-16">
+                    <h2 className="text-3xl font-bold text-slate-900 mb-4">Trusted by Farmers & Pet Owners</h2>
+                    <p className="text-slate-600">See what our community has to say about their experience with VetCloud.</p>
+                </div>
+                
+                <div className="grid md:grid-cols-3 gap-8">
+                    {[
+                    {
+                        text: "VetCloud saved my calf's life. Being able to video call a vet at 2 AM from my barn was incredible.",
+                        name: "John Davis", role: "Dairy Farmer",
+                        img: "https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=1974&auto=format&fit=crop"
+                    },
+                    {
+                        text: "I used to drive 45 minutes to the nearest clinic for basic checkups. Now I just use the app!",
+                        name: "Sarah Jenkins", role: "Pet Owner",
+                        img: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=1976&auto=format&fit=crop"
+                    },
+                    {
+                        text: "The disease database helps me spot early signs of illness in my flock before it spreads.",
+                        name: "Miguel Torres", role: "Poultry Farmer",
+                        img: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=1974&auto=format&fit=crop"
+                    }
+                    ].map((t, i) => (
+                    <Card key={i} className="p-8 bg-white">
+                        <div className="flex gap-1 text-amber-400 mb-4">
+                        {[...Array(5)].map((_, j) => <Star key={j} size={18} fill="currentColor" />)}
+                        </div>
+                        <p className="text-slate-700 italic mb-6">"{t.text}"</p>
+                        <div className="flex items-center gap-4">
+                        <img src={t.img} alt={t.name} className="w-12 h-12 rounded-full object-cover" />
+                        <div>
+                            <h4 className="font-semibold text-slate-900">{t.name}</h4>
+                            <p className="text-sm text-slate-500">{t.role}</p>
+                        </div>
+                        </div>
+                    </Card>
+                    ))}
+                </div>
+                </div>
+            </section>
+            <Footer />
         </div>
     )
 }
