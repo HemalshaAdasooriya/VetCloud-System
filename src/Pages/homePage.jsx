@@ -81,7 +81,7 @@ export default function HomePage() {
                                     <div className="relative rounded-[80px] overflow-hidden shadow-2xl">
                                         <img
                                         src="/public/home.jpg"
-                                        alt="Veterinarian with cat"
+                                        alt="Veterinarian with Dog"
                                         className="w-full h-[450px] object-cover"
                                         />
                                     </div>
@@ -100,7 +100,7 @@ export default function HomePage() {
                                             <p className="text-xs font-medium mb-1">Emergency hotline</p>
                                             <div className="flex items-center gap-2">
                                                 <Phone size={18} />
-                                                <p className="text-lg font-bold">+1234567890</p>
+                                                <p className="text-lg font-bold">+94 765763241</p>
                                             </div>
                                         </div>
                                     </div>
@@ -114,6 +114,9 @@ export default function HomePage() {
                         </div>
                         <div className="absolute top-16 right-32 opacity-10">
                             <Stethoscope size={50} className="text-green-600" />
+                        </div>
+                        <div className="absolute bottom-70 left-50 opacity-10">
+                            <Video size={50} className="text-green-600" />
                         </div>
                     </div>
                 </div>
