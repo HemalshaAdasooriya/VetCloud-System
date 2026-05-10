@@ -51,9 +51,13 @@ export default function Navigation() {
 
                 <div className="flex items-center gap-3">
                     <Link to="/login">
-                    <Button variant="ghost" className="hidden md:inline-flex gap-2">
-                        <LogIn size={18} />
+                    <Button variant="outline" className="hidden md:inline-flex gap-2">
                         Login
+                    </Button>
+                    </Link>
+                    <Link to="/register">
+                    <Button variant="outline" className="hidden md:inline-flex gap-2">
+                        Sign Up
                     </Button>
                     </Link>
                     <Link to="/consultation">

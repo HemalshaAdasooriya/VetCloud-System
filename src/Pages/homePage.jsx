@@ -112,11 +112,11 @@ export default function HomePage() {
                         <div className="absolute bottom-8 left-8 opacity-10">
                             <HeartPulse size={60} className="text-green-600" />
                         </div>
-                        <div className="absolute top-16 right-32 opacity-10">
+                        <div className="absolute top-14 right-32 opacity-10">
                             <Stethoscope size={50} className="text-green-600" />
                         </div>
-                        <div className="absolute bottom-70 left-50 opacity-10">
-                            <Video size={50} className="text-green-600" />
+                        <div className="absolute bottom-50 left-40 opacity-15">
+                            <img src="/public/Logo.png" alt="logo" className="w-100 h-65 object-cover" />
                         </div>
                     </div>
                 </div>
@@ -182,7 +182,7 @@ export default function HomePage() {
                     <Button variant="primary" size="lg">Read Our Story</Button>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                    <img src="https://images.unsplash.com/photo-1596531398867-0c1453258c73?q=80&w=2070&auto=format&fit=crop" alt="Cows on farm" className="rounded-2xl h-64 object-cover w-full" />
+                    <img src="/public/Cows on farm.jpg" alt="Cows on farm" className="rounded-2xl h-64 object-cover w-full" />
                     <img src="https://images.unsplash.com/photo-1576201836106-db1758fd1c97?q=80&w=2070&auto=format&fit=crop" alt="Vet examining dog" className="rounded-2xl h-64 object-cover w-full translate-y-8" />
                 </div>
                 </div>
