@@ -1,6 +1,6 @@
 const db = require("../config/db");
 
-const creteUser = (userData, callback) => {
+const createUser = (userData, callback) => {
     const sql = `INSERT INTO users
     (
         email,
@@ -41,7 +41,7 @@ const getUserByEmail = (email, callback) => {
 };
 
 module.exports = {
-    creteUser,
+    createUser,
     getAllUsers,
     getUserByEmail
 };
