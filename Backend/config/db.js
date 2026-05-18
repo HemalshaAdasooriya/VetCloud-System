@@ -1,19 +1,21 @@
-const mysql = require("mysql2");
+import mysql from "mysql2";
 
-const connection = mysql.createConnection({
+const db = mysql.createConnection({
     host: "localhost",
     user: "root",
     password: "",
     database: "vetcloud"
 });
 
-connection.connect((err) => {
+db.connect((err) => {
+
     if(err){
         console.log("Database connection failed");
         console.log(err);
     }else{
         console.log("MySQL Connected");
     }
+
 });
 
-module.exports = connection;
+export default db;
