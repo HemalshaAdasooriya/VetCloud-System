@@ -81,3 +81,23 @@ export const checkEmailExists = (email, callback) => {
 
     db.query(sql, [email, email], callback);
 };
+
+// 4. Fetch User for Login Verification
+export const getUserByEmailAndRole = (email, role, callback) => {
+    let tableName = "";
+
+    // Map frontend roles to database tables
+    if (role === "farmer") {
+        tableName = "pet_owners";
+    } else if (role === "doctor") {
+        tableName = "veterinarians";
+    } else if (role === "admin") {
+        tableName = "admins"; // You will need to create this table in MySQL!
+    } else {
+        return callback({ message: "Invalid role selected" }, null);
+    }
+
+    const sql = `SELECT * FROM ${tableName} WHERE email = ?`;
+    
+    db.query(sql, [email], callback);
+};
