@@ -11,9 +11,11 @@ export const createPetOwner = (userData, callback) => {
             fullName, 
             contact_No, 
             address, 
-            numberOfAnimals
+            numberOfAnimals,
+            image,
+            provider
         )
-        VALUES (?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     db.query(
@@ -24,7 +26,9 @@ export const createPetOwner = (userData, callback) => {
             userData.fullName,
             userData.contact_No,
             userData.address || "",
-            userData.numberOfAnimals || 0
+            userData.numberOfAnimals || 0,
+            userData.image || "/default.jpg",
+            userData.provider || "local"
         ],
         callback
     );
@@ -42,9 +46,11 @@ export const createVeterinarian = (userData, callback) => {
             license_number, 
             specialization, 
             years_of_experience, 
-            consultation_fee
+            consultation_fee,
+            image,
+            provider
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     db.query(
@@ -57,7 +63,9 @@ export const createVeterinarian = (userData, callback) => {
             userData.license_number,
             userData.specialization,
             userData.years_of_experience || 0,
-            userData.consultation_fee || 0.00
+            userData.consultation_fee || 0.00,
+            userData.image || "/default.jpg",
+            userData.provider || "local"
         ],
         callback
     );

@@ -1,6 +1,10 @@
 // controllers/userController.js
 import { createPetOwner, createVeterinarian, checkEmailExists } from "../models/user.js";
 import bcrypt from "bcryptjs";
+import { OAuth2Client } from "google-auth-library";
+import axios from "axios";
+
+const googleClient = new OAuth2Client(process.env.VITE_GOOGLE_CLIENT_ID);
 
 export function registerUser(req, res) {
     const data = req.body;
@@ -37,7 +41,8 @@ export function registerUser(req, res) {
                         fullName: data.fullName, 
                         contact_No: data.contact_No,
                         address: data.address,
-                        numberOfAnimals: data.numberOfAnimals // Matched to frontend payload exactly
+                        numberOfAnimals: data.numberOfAnimals, // Matched to frontend payload exactly
+                        provider: 'local'
                     },
                     (err, result) => {
                         if (err) return res.status(500).json(err);
@@ -56,7 +61,8 @@ export function registerUser(req, res) {
                         license_number: data.license_number,
                         specialization: data.specialization,
                         years_of_experience: data.years_of_experience,
-                        consultation_fee: data.consultation_fee
+                        consultation_fee: data.consultation_fee,
+                        provider: 'local'
                     },
                     (err, result) => {
                         if (err) {
@@ -77,6 +83,67 @@ export function registerUser(req, res) {
 
         } catch (hashError) {
             return res.status(500).json({ message: "Internal server error during processing." });
+        }
+    });
+}
+
+// 2. GOOGLE LOGIN / REGISTRATION
+export async function googleLogin(req, res) {
+    const { token, role } = req.body;
+
+    try {
+        const ticket = await googleClient.verifyIdToken({
+            idToken: token,
+            audience: process.env.VITE_GOOGLE_CLIENT_ID, 
+        });
+        const payload = ticket.getPayload();
+        
+        handleSocialLogin(res, payload.email, payload.name, payload.picture, role, 'google');
+    } catch (error) {
+        return res.status(401).json({ message: "Invalid Google Token" });
+    }
+}
+
+
+// 3. FACEBOOK LOGIN / REGISTRATION
+export async function facebookLogin(req, res) {
+    const { accessToken, role } = req.body;
+
+    try {
+        // Fetch user details from Facebook Graph API using the token
+        const fbResponse = await axios.get(`https://graph.facebook.com/me?fields=id,name,email,picture.type(large)&access_token=${accessToken}`);
+        const { email, name, picture } = fbResponse.data;
+        const imageUrl = picture?.data?.url || "/default.jpg";
+
+        handleSocialLogin(res, email, name, imageUrl, role, 'facebook');
+    } catch (error) {
+        return res.status(401).json({ message: "Invalid Facebook Token" });
+    }
+}
+
+// --- Helper Function to avoid repeating code for Social Logins ---
+function handleSocialLogin(res, email, name, image, role, provider) {
+    checkEmailExists(email, (err, results) => {
+        if (err) return res.status(500).json(err);
+
+        if (results.length > 0) {
+            // User already exists in DB -> Log them in!
+            return res.status(200).json({ message: "Login successful", email, role });
+        } else {
+            // New user -> Register them instantly
+            const userData = { email, password: null, fullName: name, image, provider };
+            
+            if (role === "Farmer/PetOwner") {
+                createPetOwner(userData, (err, result) => {
+                    if (err) return res.status(500).json(err);
+                    return res.status(201).json({ message: `Registered via ${provider}` });
+                });
+            } else if (role === "Veterinary Doctor") {
+                createVeterinarian(userData, (err, result) => {
+                    if (err) return res.status(500).json(err);
+                    return res.status(201).json({ message: `Registered via ${provider}` });
+                });
+            }
         }
     });
 }
