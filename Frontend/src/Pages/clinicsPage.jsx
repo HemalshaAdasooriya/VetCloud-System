@@ -34,7 +34,7 @@ export default function ClinicsPage() {
         try {
             // Calls your backend proxy → backend calls Google Places API
             const res = await fetch(
-                `http://localhost:3000/api/places?lat=${lat}&lng=${lng}`
+                `${import.meta.env.VITE_BACKEND_URL}/api/map/places?lat=${lat}&lng=${lng}`
             );
 
             if (!res.ok) throw new Error(`Server error: ${res.status}`);
@@ -116,7 +116,7 @@ export default function ClinicsPage() {
         try {
             // ✅ calls backend proxy instead of Nominatim directly
             const res = await fetch(
-                `http://localhost:3000/api/search?q=${encodeURIComponent(query)}`
+                `${import.meta.env.VITE_BACKEND_URL}/api/map/search?q=${encodeURIComponent(query)}`
             );
             if (!res.ok) throw new Error("Search error");
             const data = await res.json();
