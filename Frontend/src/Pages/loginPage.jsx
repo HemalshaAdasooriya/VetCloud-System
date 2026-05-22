@@ -108,7 +108,7 @@ export default function LoginPage() {
                 </div>
 
                 {/* Email Input */}
-                <p className="text-secondary mt-[20px] font-[Inter] font-medium text-[14px] mb-[8.5px]">Email Address</p>
+                <p className="text-secondary mt-[10px] font-[Inter] font-medium text-[14px] mb-[8.5px]">Email Address</p>
 
                 <div className="relative w-full">
 
@@ -128,7 +128,7 @@ export default function LoginPage() {
                 </div>
                 
                 {/* Password Field */}
-                <div className="flex flex-row justify-between items-center font-[Inter] font-medium text-[14px] mt-[20px] mb-[8.5px]">
+                <div className="flex flex-row justify-between items-center font-[Inter] font-medium text-[14px] mt-[10px] mb-[5px]">
                   <p className="text-secondary">Password</p>
                   <p className="text-gray italic">
                           <Link to="/forgot-password" className="text-accent font-normal hover:underline">
@@ -159,13 +159,13 @@ export default function LoginPage() {
 
                 </div>
 
-                <div className="flex items-center my-4">
+                <div className="flex items-center my-3">
                   <div className="flex-grow border-t border-gray-300"></div>
                   <span className="mx-3 text-gray-500 font-[Inter] font-normal text-[12px]">or continue with</span>
                   <div className="flex-grow border-t border-gray-300"></div>
                 </div>
 
-                <div className="w-full flex flex-wrap justify-between mb-[20px]">
+                <div className="w-full flex flex-wrap justify-between mb-[10px]">
                   <button className="w-[48%] h-[40px] border  border-[#E2E8F0] text-[#314158] font-Inter font-normal text-[14px] rounded-[14px] flex justify-center items-center"><FcGoogle className="w-[18px] h-[18px] mr-[9px]" />Google</button>  
                   <button className="w-[48%] h-[40px] border  border-[#E2E8F0] text-[#314158] font-Inter font-normal text-[14px] rounded-[14px] flex justify-center items-center"><FaFacebook className="w-[18px] h-[18px] mr-[9px]" />Facebook</button>
                 </div>
@@ -175,7 +175,7 @@ export default function LoginPage() {
                           Login to Dashboard
                 </button>
 
-                <p className="mt-[10px] text-gray flex justify-center items-center text-[14px] font-[Inter] font-normal">
+                <p className="mt-[5px] text-gray flex justify-center items-center text-[14px] font-[Inter] font-normal">
                         Don't have an account? 
                         <Link to="/register" className="text-accent font-normal hover:underline ml-1">
                         Register here
