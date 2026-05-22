@@ -6,6 +6,7 @@ import { Toaster } from 'react-hot-toast'
 import RegisterPage from './Pages/registerPage'
 import ConsultationPage from './Pages/consultationPage'
 import ClinicsPage from './Pages/clinicsPage'
+import DiseasesPage from './Pages/diseasesPage'
 
 function App() {
   
@@ -19,7 +20,7 @@ function App() {
             <Route path='/login' element={<LoginPage />} /> 
             <Route path='/register' element={<RegisterPage />}/>
             <Route path= '/consultation' element={<ConsultationPage />}/>
-            {/* <Route path= '/diseases' element={<DiseasesPage />}/> */}
+            <Route path= '/diseases' element={<DiseasesPage />}/>
             <Route path= '/clinics' element={<ClinicsPage />}/>
           </Routes>
         </div>
