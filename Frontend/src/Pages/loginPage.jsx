@@ -40,16 +40,52 @@ export default function LoginPage() {
         : "bg-[#afb1b3] group-hover:bg-green-600"
     }`;
 
-    function handleLogin() {
-      if (role === "farmer") {
-        navigate("/farmer-dashboard");
-      } else if (role === "doctor") {
-        navigate("/doctor-dashboard");
-      } else if (role === "admin") {
-        navigate("/admin-dashboard");
-      } else {
-        toast.error("Please select a role");
-      }
+    // function handleLogin() {
+    //   if (role === "farmer") {
+    //     navigate("/farmer-dashboard");
+    //   } else if (role === "doctor") {
+    //     navigate("/doctor-dashboard");
+    //   } else if (role === "admin") {
+    //     navigate("/admin-dashboard");
+    //   } else {
+    //     toast.error("Please select a role");
+    //   }
+    // }
+
+    async function handleLogin() {
+        if (!role) {
+            return toast.error("Please select a role");
+        }
+        if (!email || !password) {
+            return toast.error("Please enter email and password");
+        }
+
+        try {
+            const response = await fetch("http://localhost:5000/api/users/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, password, role })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                toast.success("Login Successful!");
+                
+                // Store the JWT token securely in localStorage or a state manager
+                localStorage.setItem("token", data.token);
+
+                // Navigate based on role
+                if (role === "farmer") navigate("/farmer-dashboard");
+                if (role === "doctor") navigate("/doctor-dashboard");
+                if (role === "admin") navigate("/admin-dashboard");
+            } else {
+                toast.error(data.message || "Login failed");
+            }
+        } catch (error) {
+            console.error("Login error:", error);
+            toast.error("Server connection failed");
+        }
     }
 
     return (
