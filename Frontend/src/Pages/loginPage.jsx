@@ -9,6 +9,8 @@ import { CiHeart } from "react-icons/ci";
 import { TbStethoscope } from "react-icons/tb";
 import { MdOutlineShield } from "react-icons/md";
 import toast from "react-hot-toast";
+import { GoogleOAuthProvider, useGoogleLogin } from '@react-oauth/google';
+import FacebookLogin from '@greatsumini/react-facebook-login';
 
 export default function LoginPage() {
 
@@ -40,17 +42,6 @@ export default function LoginPage() {
         : "bg-[#afb1b3] group-hover:bg-green-600"
     }`;
 
-    // function handleLogin() {
-    //   if (role === "farmer") {
-    //     navigate("/farmer-dashboard");
-    //   } else if (role === "doctor") {
-    //     navigate("/doctor-dashboard");
-    //   } else if (role === "admin") {
-    //     navigate("/admin-dashboard");
-    //   } else {
-    //     toast.error("Please select a role");
-    //   }
-    // }
 
     async function handleLogin() {
         if (!role) {
@@ -61,7 +52,7 @@ export default function LoginPage() {
         }
 
         try {
-            const response = await fetch("http://localhost:5000/api/users/login", {
+            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/login`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email, password, role })
@@ -76,9 +67,9 @@ export default function LoginPage() {
                 localStorage.setItem("token", data.token);
 
                 // Navigate based on role
-                if (role === "farmer") navigate("/farmer-dashboard");
-                if (role === "doctor") navigate("/doctor-dashboard");
-                if (role === "admin") navigate("/admin-dashboard");
+                if (role === "farmer") navigate("/dashboard/user");
+                if (role === "doctor") navigate("/dashboard/doctor");
+                if (role === "admin") navigate("/dashboard/admin");
             } else {
                 toast.error(data.message || "Login failed");
             }
@@ -87,6 +78,91 @@ export default function LoginPage() {
             toast.error("Server connection failed");
         }
     }
+
+    const [isLoading, setIsLoading] = useState(false);
+
+    // --- GOOGLE LOGIN HANDLER ---
+    const handleGoogleSuccess = async (tokenResponse) => {
+        if (!role) return toast.error("Please select a role first!");
+        setIsLoading(true);
+        
+        try {
+            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/google-login`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ token: tokenResponse.access_token, role: role === 'farmer' ? "Farmer/PetOwner" : role === 'doctor' ? "Veterinary Doctor" : "Admin" }) 
+            });
+            const data = await response.json();
+            
+            if (response.ok) {
+                toast.success("Google Login Successful!");
+                if (data.token) localStorage.setItem("token", data.token); // Save session
+                
+                // Route to correct dashboard
+                if (role === "farmer") navigate("/dashboard/user");
+                if (role === "doctor") navigate("/dashboard/doctor");
+                if (role === "admin") navigate("/dashboard/admin");
+            } else {
+                toast.error(data.message || "Google login failed");
+            }
+        } catch {
+            toast.error("Server connection failed.");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // --- FACEBOOK LOGIN HANDLER ---
+    const handleFacebookResponse = async (response) => {
+        if (!role) return toast.error("Please select a role first!");
+        setIsLoading(true);
+        
+        try {
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/facebook-login`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ accessToken: response.accessToken, role: role === 'farmer' ? "Farmer/PetOwner" : role === 'doctor' ? "Veterinary Doctor" : "Admin" })
+            });
+            const data = await res.json();
+            
+            if (res.ok) {
+                toast.success("Facebook Login Successful!");
+                if (data.token) localStorage.setItem("token", data.token); // Save session
+                
+                // Route to correct dashboard
+                if (role === "farmer") navigate("/dashboard/user");
+                if (role === "doctor") navigate("/dashboard/doctor");
+                if (role === "admin") navigate("/dashboard/admin");
+            } else {
+                toast.error(data.message || "Facebook login failed");
+            }
+        } catch {
+            toast.error("Server connection failed.");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+  
+    // Paste this right above your main LoginPage component
+    const InlineGoogleButton = ({ onSuccess, disabled }) => {
+        const login = useGoogleLogin({
+            onSuccess: onSuccess,
+            onError: () => toast.error("Google Authentication failed.")
+        });
+
+        return (
+            <button 
+                type="button"
+                onClick={() => login()}
+                disabled={disabled}
+                // Your exact styling, plus a hover/active effect for click physics
+                className="w-full h-[40px] border border-[#E2E8F0] text-[#314158] font-Inter font-normal text-[14px] rounded-[14px] flex justify-center items-center hover:bg-slate-50 active:scale-95 transition-all shadow-sm disabled:opacity-70"
+            >
+                <FcGoogle className="w-[18px] h-[18px] mr-[9px]" />Google
+            </button>
+        );
+    };
 
     return (
     <div className='w-full h-screen bg-primary flex'>
@@ -114,7 +190,7 @@ export default function LoginPage() {
                 <p className="text-[#45556C] text-[14px] font-[Inter] font-normal mt-[10px]">Sign in as</p>
 
                 {/* user section */}
-                <div className="flex flex-wrap justify-between mt-[6px]">  
+                <div className="flex flex-wrap justify-between mt-[6px] font-bold">  
                   <div className="min-w-[120px] h-[70px]" >
                     <button onClick={() => setRole("farmer")} className={buttonStyle("farmer")}>
                       <div className={iconStyle("farmer")}>
@@ -200,10 +276,37 @@ export default function LoginPage() {
                   <span className="mx-3 text-gray-500 font-[Inter] font-normal text-[12px]">or continue with</span>
                   <div className="flex-grow border-t border-gray-300"></div>
                 </div>
-
+                
+                {/* google and facebook login buttons */}
                 <div className="w-full flex flex-wrap justify-between mb-[10px]">
-                  <button className="w-[48%] h-[40px] border  border-[#E2E8F0] text-[#314158] font-Inter font-normal text-[14px] rounded-[14px] flex justify-center items-center"><FcGoogle className="w-[18px] h-[18px] mr-[9px]" />Google</button>  
-                  <button className="w-[48%] h-[40px] border  border-[#E2E8F0] text-[#314158] font-Inter font-normal text-[14px] rounded-[14px] flex justify-center items-center"><FaFacebook className="w-[18px] h-[18px] mr-[9px]" />Facebook</button>
+                  
+                  <div className="w-[48%]">
+                      <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
+                          <InlineGoogleButton 
+                              onSuccess={handleGoogleSuccess} 
+                              disabled={isLoading} 
+                          />
+                      </GoogleOAuthProvider>
+                  </div>
+
+                  {/* 2. FACEBOOK INLINE BUTTON */}
+                  <div className="w-[48%]">
+                      <FacebookLogin.default
+                          appId={import.meta.env.VITE_FACEBOOK_APP_ID}
+                          onSuccess={handleFacebookResponse}
+                          onFail={() => toast.error("Facebook Login Failed")}
+                          render={({ onClick }) => (
+                              <button
+                                  type="button"
+                                  onClick={onClick}
+                                  disabled={isLoading}
+                                  className="w-full h-[40px] border border-[#E2E8F0] text-[#314158] font-Inter font-normal text-[14px] rounded-[14px] flex justify-center items-center hover:bg-slate-50 active:scale-95 transition-all shadow-sm disabled:opacity-70"
+                              >
+                                  <FaFacebook className="w-[18px] h-[18px] mr-[9px] text-[#1877F2]" />Facebook
+                              </button>
+                          )}
+                      />
+                  </div>
                 </div>
 
 
@@ -217,11 +320,9 @@ export default function LoginPage() {
                         Register here
                         </Link>
                 </p>
-
             </div>
         </div>
       </div>
-
     </div>
     
 

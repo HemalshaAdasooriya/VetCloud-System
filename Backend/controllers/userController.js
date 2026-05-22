@@ -134,7 +134,6 @@ export async function loginUser(req, res) {
                 // { expiresIn: "24h" }
             );
 
-            // Return user data (excluding password) and the token to the frontend
             const { password: userPassword, ...safeUserData } = user;
 
             return res.status(200).json({
