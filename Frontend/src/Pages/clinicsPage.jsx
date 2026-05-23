@@ -6,7 +6,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 
 
 export default function ClinicsPage() {
-    const [showMobileMap, setShowMobileMap] = useState(false);
+    const [showMobileMap] = useState(false);
     const [selectedClinic, setSelectedClinic] = useState(null);
     const [clinics, setClinics] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -218,15 +218,15 @@ export default function ClinicsPage() {
     };
 
     return (
-        <div className="flex flex-col h-[calc(100vh-1rem)] bg-slate-50">
+        <div className="flex flex-col h-[calc(100vh-0.5rem)] bg-slate-50">
             <Navigation />
 
             {/* ── Header ───────────────────────────────────────────── */}
-            <div className="bg-white border-b border-slate-200 p-4 md:p-6 shadow-sm z-20">
+            <div className="bg-white border-b border-slate-200 p-1 md:p-2 shadow-sm z-20">
                 <div className="container mx-auto">
-                    <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between mb-4">
+                    <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between mb-2">
                         <div>
-                            <h1 className="text-xl md:text-2xl font-bold text-slate-800 mb-1">
+                            <h1 className="text-md md:text-2xl font-bold text-slate-800 mb-1">
                                 Nearest Veterinary Clinics
                             </h1>
                             <p className="text-sm text-slate-500">
@@ -258,7 +258,7 @@ export default function ClinicsPage() {
                             <input
                                 type="text"
                                 placeholder="Search any city or area to find clinics there..."
-                                className="w-full pl-10 pr-10 h-11 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent"
+                                className="w-full pl-10 pr-10 h-10 bg-slate-50 border border-slate-300 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent"
                                 value={searchQuery}
                                 onChange={handleSearchInput}
                                 onFocus={() => searchResults.length > 0 && setShowDropdown(true)}
@@ -322,14 +322,14 @@ export default function ClinicsPage() {
                                 className="shrink-0 h-11 bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
                                 onClick={resetToGPS}
                             >
-                                <LocateFixed size={18} className="mr-2" />
+                                <LocateFixed size={16} className="mr-2" />
                                 Back to My Location
                             </Button>
                         )}
 
-                        <Button variant="outline" className="shrink-0 bg-white h-11">
+                        {/* <Button variant="outline" className="shrink-0 bg-white h-11">
                             <Filter size={18} className="mr-2" /> Filters
-                        </Button>
+                        </Button> */}
                     </div>
 
                     {/* Manual location banner */}
@@ -373,7 +373,7 @@ export default function ClinicsPage() {
                     }`}
                 >
                     {/* Quick filters */}
-                    <div className="p-4 border-b border-slate-100 bg-slate-50">
+                    {/* <div className="p-4 border-b border-slate-100 bg-slate-50">
                         <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide block mb-2">
                             Quick Filters
                         </span>
@@ -397,7 +397,7 @@ export default function ClinicsPage() {
                                 Large Animals
                             </Badge>
                         </div>
-                    </div>
+                    </div> */}
 
                     {/* Results count */}
                     <div className="px-4 py-3 border-b border-slate-100 bg-white">
