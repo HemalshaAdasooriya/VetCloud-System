@@ -73,7 +73,7 @@ export default function ClinicMap({ clinics = [], selectedClinic }) {
 
   // ── 3. Socket + Geolocation (BLUE icon for you) ───────────────
   useEffect(() => {
-    const socket = io("http://localhost:3000", {
+    const socket = io(`${import.meta.env.VITE_BACKEND_URL}`, {
       transports: ["websocket", "polling"],
     });
 
