@@ -13,6 +13,10 @@ import AdminDashboard from './Pages/adminDashboard'
 import ConsultationRequests from './Pages/ConsultationRequests'
 import DoctorSchedule from './Pages/doctorSchedule'
 import DoctorSettings from './Pages/doctorSettings'
+import UserAnimals from './Pages/userAnimals'
+import UserAppoinment from './Pages/userAppoinment'
+import UserConsultations from './Pages/userConsultations'
+import UserSettings from './Pages/userSettings'
 
 
 function App() {
@@ -41,6 +45,13 @@ function App() {
               <Route path='consultations' element={<ConsultationPage />} />
               <Route path='schedule' element={<DoctorSchedule />} />
               <Route path='settings' element={<DoctorSettings />} />
+            </Route>
+
+            <Route path='/dashboard/user/*' element={<DashboardLayout />}>
+              <Route path='animals' element={<UserAnimals />} />
+              <Route path='scheduling' element={<UserAppoinment />} />
+              <Route path='consultations' element={<UserConsultations />} />
+              <Route path='settings' element={<UserSettings />} />
             </Route>
           </Routes>
         </div>

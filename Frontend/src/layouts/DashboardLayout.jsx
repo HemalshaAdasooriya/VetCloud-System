@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Users, Calendar, Settings, LogOut, Bell, Stethoscope, Bird, ShieldCheck, Activity, Book, ClipboardList, Video, DollarSign, Database, MessageSquare, Star, BarChart3, UserCog, Search } from 'lucide-react';
 
@@ -5,11 +6,24 @@ export function DashboardLayout() {
   const location = useLocation();
   const navigate = useNavigate();
 
+  //Local Storage Integration 
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const savedUser = localStorage.getItem("user");
+    if (savedUser) {
+        setUser(JSON.parse(savedUser));
+    }
+  }, []); // The empty array ensures this only runs once when the layout loads
+
+  const defaultAvatar = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
+  // ---------------------------------------
+
   const isUser = location.pathname.includes('/user') || location.pathname === '/dashboard/user';
   const isVet = location.pathname.includes('/doctor') || location.pathname === '/dashboard/doctor';
   const isAdmin = location.pathname.includes('/admin') || location.pathname === '/dashboard/admin';
 
-  // Dynamic sidebar links based on role
+  // Dynamic sidebar links based on role (Kept exactly as you had them)
   const links = isUser ? [
     { name: 'Dashboard', path: '/dashboard/user', icon: LayoutDashboard },
     { name: 'My Animals', path: '/dashboard/user/animals', icon: Bird },
@@ -32,6 +46,13 @@ export function DashboardLayout() {
     { name: 'Reports & Analytics', path: '/dashboard/admin/reports', icon: BarChart3 },
     { name: 'Settings', path: '/dashboard/admin/settings', icon: Settings },
   ];
+
+  // Sign Out Handler
+  const handleSignOut = () => {
+    localStorage.removeItem("token"); // Clear the token
+    localStorage.removeItem("user");  // Clear the user data
+    navigate('/'); // Send them back to the home/login page
+  };
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden">
@@ -65,9 +86,9 @@ export function DashboardLayout() {
         </div>
 
         <div className="p-4 border-t border-slate-200 space-y-2">
-          {/* Debug role switcher just for previewing */}
+          {/* Updated this button to trigger the real handleSignOut function */}
           <button 
-            onClick={() => navigate('/')} 
+            onClick={handleSignOut} 
             className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 w-full transition-colors"
           >
             <LogOut size={20} />
@@ -100,14 +121,23 @@ export function DashboardLayout() {
               <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
             </button>
             <div className="flex items-center gap-3 border-l border-slate-200 pl-4">
+              
+              {/* NEW: Dynamic Profile Display */}
               <img 
-                src={isVet ? "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?q=80&w=2070&auto=format&fit=crop" : isAdmin ? "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=1976&auto=format&fit=crop" : "https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=1974&auto=format&fit=crop"} 
-                alt="Avatar" 
-                className="w-8 h-8 rounded-full object-cover" 
+                // Uses the user's picture from local storage, or the fallback defaultAvatar
+                src={user?.image || defaultAvatar} 
+                alt="Profile Avatar" 
+                className="w-8 h-8 rounded-full object-cover shadow-sm" 
               />
               <div className="text-sm">
-                <p className="font-medium text-slate-700">{isVet ? 'Dr. Sarah Smith' : isAdmin ? 'Admin Root' : 'John Farmer'}</p>
-                <p className="text-slate-500 text-xs">{isVet ? 'Veterinarian' : isAdmin ? 'System Admin' : 'Livestock Owner'}</p>
+                <p className="font-medium text-slate-700">
+                    {/* Uses the real name from local storage */}
+                    {user?.fullName || 'Loading...'}
+                </p>
+                <p className="text-slate-500 text-xs">
+                    {/* Uses the real role from local storage */}
+                    {user?.role || 'Guest'}
+                </p>
               </div>
             </div>
           </div>

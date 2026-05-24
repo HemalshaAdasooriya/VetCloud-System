@@ -136,6 +136,8 @@ export async function loginUser(req, res) {
 
             const { password: userPassword, ...safeUserData } = user;
 
+            safeUserData.role = req.body.role;
+
             return res.status(200).json({
                 message: "Login successful",
                 token: token,
