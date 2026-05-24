@@ -7,6 +7,7 @@ import RegisterPage from './Pages/registerPage'
 import ConsultationPage from './Pages/consultationPage'
 import ClinicsPage from './Pages/clinicsPage'
 import DiseasesPage from './Pages/diseasesPage'
+import MyAnimalsPage from './Pages/myAnimalsPage'
 
 function App() {
   
@@ -22,6 +23,9 @@ function App() {
             <Route path= '/consultation' element={<ConsultationPage />}/>
             <Route path= '/diseases' element={<DiseasesPage />}/>
             <Route path= '/clinics' element={<ClinicsPage />}/>
+            <Route path='/farmer-dashboard' element={<MyAnimalsPage />} />
+            <Route path='/my-animals' element={<MyAnimalsPage />} />
+            <Route path='/animals' element={<MyAnimalsPage />} />
           </Routes>
         </div>
     </BrowserRouter>

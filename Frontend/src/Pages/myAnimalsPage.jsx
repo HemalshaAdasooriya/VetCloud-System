@@ -72,3 +72,4 @@ const INITIAL_ANIMALS = [
     image: "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?auto=format&fit=crop&q=80&w=600"
   }
 ];
+
