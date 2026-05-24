@@ -62,9 +62,10 @@ export default function LoginPage() {
 
             if (response.ok) {
                 toast.success("Login Successful!");
-                
+
                 // Store the JWT token securely in localStorage or a state manager
                 localStorage.setItem("token", data.token);
+                localStorage.setItem("user", JSON.stringify(data.user));
 
                 // Navigate based on role
                 if (role === "farmer") navigate("/dashboard/user");
@@ -97,6 +98,7 @@ export default function LoginPage() {
             if (response.ok) {
                 toast.success("Google Login Successful!");
                 if (data.token) localStorage.setItem("token", data.token); // Save session
+                if (data.user) localStorage.setItem("user", JSON.stringify(data.user));
                 
                 // Route to correct dashboard
                 if (role === "farmer") navigate("/dashboard/user");
@@ -128,7 +130,7 @@ export default function LoginPage() {
             if (res.ok) {
                 toast.success("Facebook Login Successful!");
                 if (data.token) localStorage.setItem("token", data.token); // Save session
-                
+                if (data.user) localStorage.setItem("user", JSON.stringify(data.user));
                 // Route to correct dashboard
                 if (role === "farmer") navigate("/dashboard/user");
                 if (role === "doctor") navigate("/dashboard/doctor");
