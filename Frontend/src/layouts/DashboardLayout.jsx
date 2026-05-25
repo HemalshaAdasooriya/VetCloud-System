@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Users, Calendar, Settings, LogOut, Bell, Stethoscope, Bird, ShieldCheck, Activity, Book, ClipboardList, Video, DollarSign, Database, MessageSquare, Star, BarChart3, UserCog, Search } from 'lucide-react';
 
@@ -7,17 +7,15 @@ export function DashboardLayout() {
   const navigate = useNavigate();
 
   //Local Storage Integration 
-  const [user, setUser] = useState(null);
-
-  useEffect(() => {
+  const [user] = useState(() => {
     const savedUser = localStorage.getItem("user");
     if (savedUser) {
-        setUser(JSON.parse(savedUser));
+        return JSON.parse(savedUser); // Sets the object right at the start
     }
-  }, []); // The empty array ensures this only runs once when the layout loads
+    return null; // Fallback if no user is found
+  });
 
   const defaultAvatar = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
-  // ---------------------------------------
 
   const isUser = location.pathname.includes('/user') || location.pathname === '/dashboard/user';
   const isVet = location.pathname.includes('/doctor') || location.pathname === '/dashboard/doctor';
