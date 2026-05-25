@@ -73,6 +73,7 @@ const INITIAL_ANIMALS = [
   }
 ];
 
+
 const ANIMAL_HISTORIES = {
   "1": [
     { date: "10 Oct, 2023", type: "Vaccination", title: "Foot-and-Mouth Disease (FMD) Vaccine", vet: "Dr. Emily Smith", notes: "Routine vaccine booster. Clean health bill." },
@@ -102,4 +103,65 @@ export default function MyAnimalsPage() {
   const [sortBy, setSortBy] = useState("name-asc");
   const [showFilterPanel, setShowFilterPanel] = useState(false);
 
+  // Modal / Form state
+  const [showFormModal, setShowFormModal] = useState(false);
+  const [editingAnimal, setEditingAnimal] = useState(null);
+  const [formName, setFormName] = useState("");
+  const [formSpecies, setFormSpecies] = useState("Cattle");
+  const [formBreed, setFormBreed] = useState("");
+  const [formAge, setFormAge] = useState("");
+  const [formWeight, setFormWeight] = useState("");
+  const [formStatus, setFormStatus] = useState("Healthy");
+  const [formImage, setFormImage] = useState("");
+
+  // History modal state
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [selectedHistoryAnimal, setSelectedHistoryAnimal] = useState(null);
+
+  // Delete Confirmation state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deletingAnimalId, setDeletingAnimalId] = useState(null);
+
+  // Dropdown menu state
+  const [activeMenuId, setActiveMenuId] = useState(null);
+
+  // Handle opening modal for creating
+  const handleOpenCreateModal = () => {
+    setEditingAnimal(null);
+    setFormName("");
+    setFormSpecies("Cattle");
+    setFormBreed("");
+    setFormAge("");
+    setFormWeight("");
+    setFormStatus("Healthy");
+    setFormImage("");
+    setShowFormModal(true);
+  };
+
+  // Handle opening modal for editing
+  const handleOpenEditModal = (animal) => {
+    setEditingAnimal(animal);
+    setFormName(animal.name);
+    setFormSpecies(animal.species);
+    setFormBreed(animal.breed);
+    setFormAge(animal.age);
+    setFormWeight(animal.weight);
+    setFormStatus(animal.status);
+    setFormImage(animal.image);
+    setShowFormModal(true);
+    setActiveMenuId(null);
+  };
+
+  // Handle form submission (Create or Update)
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!formName.trim() || !formBreed.trim() || !formAge.trim() || !formWeight.trim()) {
+      toast.error("Please fill in all standard fields");
+      return;
+    }
+
   
+  }
+
+
+}
