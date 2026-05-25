@@ -73,3 +73,23 @@ const INITIAL_ANIMALS = [
   }
 ];
 
+const ANIMAL_HISTORIES = {
+  "1": [
+    { date: "10 Oct, 2023", type: "Vaccination", title: "Foot-and-Mouth Disease (FMD) Vaccine", vet: "Dr. Emily Smith", notes: "Routine vaccine booster. Clean health bill." },
+    { date: "12 May, 2023", type: "Checkup", title: "Weight and Nutrition Assessment", vet: "Dr. Emily Smith", notes: "Weight healthy at 650kg. Recommended continuing standard silage feed." },
+    { date: "04 Jan, 2023", type: "Procedure", title: "Hoof Trimming & Care", vet: "Dr. Mark R.", notes: "Routine preventative hoof maintenance." }
+  ],
+  "2": [
+    { date: "24 Sep, 2023", type: "Diagnostic", title: "Blood Check & Parasite Panel", vet: "Dr. Sarah Connor", notes: "Undergoing standard heartworm prevention treatment." },
+    { date: "10 Aug, 2023", type: "Consultation", title: "Limping Investigation", vet: "Dr. Sarah Connor", notes: "Minor joint strain. Prescribed anti-inflammatory medication (Under Treatment)." },
+    { date: "15 Jan, 2023", type: "Vaccination", title: "Rabies Booster", vet: "Dr. Sarah Connor", notes: "Annual rabies vaccination completed." }
+  ],
+  "3": [
+    { date: "15 Aug, 2023", type: "Inspection", title: "Flock Health Assessment", vet: "Dr. Arthur Vance", notes: "Evaluated 120 layers. Excellent egg laying quality. Feed ratios stable." },
+    { date: "10 Mar, 2023", type: "Vaccination", title: "Avian Influenza Deworming", vet: "Dr. Arthur Vance", notes: "Water-based flock-wide treatment." }
+  ],
+  "4": [
+    { date: "01 Nov, 2023", type: "Checkup", title: "Annual Dental Inspection", vet: "Dr. Lisa Cuddy", notes: "Teeth cleaned, gums look robust. Cat is active and healthy." },
+    { date: "14 Jun, 2023", type: "Vaccination", title: "Feline Leukemia Booster", vet: "Dr. Lisa Cuddy", notes: "Regular booster completed. Responding beautifully." }
+  ]
+};
