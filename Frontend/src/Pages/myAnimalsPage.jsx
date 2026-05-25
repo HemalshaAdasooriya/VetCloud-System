@@ -164,4 +164,147 @@ export default function MyAnimalsPage() {
   }
 
 
+
+ return (
+    <div className="flex h-screen w-full bg-slate-50 overflow-hidden font-sans">
+      
+      {/* 1. SIDEBAR (Left) */}
+      <aside className="w-64 bg-white border-r border-slate-100 flex flex-col justify-between h-full z-20">
+        
+        {/* Logo/Brand Header */}
+        <div>
+          <div className="h-20 flex items-center px-6 gap-2.5 border-b border-slate-50">
+            <div className="flex items-center gap-2">
+              <img src="/public/Logo.png" alt="VetCloud Logo" className="w-[45px] h-[32px] object-fill" />
+              <span className="text-xl font-bold text-slate-800 tracking-tight">VetCloud</span>
+            </div>
+          </div>
+
+          {/* Navigation Links */}
+          <nav className="p-4 space-y-1.5 mt-4">
+            <button className="w-full flex items-center gap-3.5 px-4 py-3 text-[15px] font-medium text-slate-500 rounded-xl hover:bg-slate-50 hover:text-slate-700 transition-colors">
+              <LayoutDashboard size={20} className="text-slate-400" />
+              Dashboard
+            </button>
+            
+            <button className="w-full flex items-center gap-3.5 px-4 py-3 text-[15px] font-semibold text-green-700 bg-green-50 rounded-xl transition-all">
+              <Bird size={20} className="text-green-600" />
+              My Animals
+            </button>
+            
+            <button className="w-full flex items-center gap-3.5 px-4 py-3 text-[15px] font-medium text-slate-500 rounded-xl hover:bg-slate-50 hover:text-slate-700 transition-colors">
+              <Calendar size={20} className="text-slate-400" />
+              Book Appointment
+            </button>
+            
+            <button className="w-full flex items-center gap-3.5 px-4 py-3 text-[15px] font-medium text-slate-500 rounded-xl hover:bg-slate-50 hover:text-slate-700 transition-colors">
+              <MessageSquare size={20} className="text-slate-400" />
+              Consultations
+            </button>
+            
+            <button className="w-full flex items-center gap-3.5 px-4 py-3 text-[15px] font-medium text-slate-500 rounded-xl hover:bg-slate-50 hover:text-slate-700 transition-colors">
+              <Settings size={20} className="text-slate-400" />
+              Settings
+            </button>
+          </nav>
+        </div>
+
+        {/* Bottom Actions */}
+        <div className="p-4 border-t border-slate-50 space-y-1">
+          <button className="w-full flex items-center gap-3.5 px-4 py-3 text-[15px] font-medium text-slate-500 rounded-xl hover:bg-slate-50 hover:text-slate-700 transition-colors">
+            <User size={20} className="text-slate-400" />
+            Login as Pet Owner
+          </button>
+          <button className="w-full flex items-center gap-3.5 px-4 py-3 text-[15px] font-medium text-red-500 hover:bg-red-50 rounded-xl transition-colors">
+            <LogOut size={20} className="text-red-400" />
+            Sign Out
+          </button>
+        </div>
+
+      </aside>
+
+      {/* 2. MAIN CONTAINER (Right) */}
+      <div className="flex-1 flex flex-col h-full overflow-hidden">
+        
+        {/* Top Header */}
+        <header className="h-20 bg-white border-b border-slate-100 flex items-center justify-between px-8 z-10">
+          <h2 className="text-lg font-bold text-slate-800">My Animals</h2>
+          
+          <div className="flex items-center gap-6">
+            {/* Notification Bell */}
+            <button className="relative p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-50 transition-colors">
+              <Bell size={21} />
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
+            </button>
+
+            {/* Profile Avatar */}
+            <div className="flex items-center gap-3 border-l pl-6 border-slate-100">
+              <img 
+                src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=200&auto=format&fit=crop" 
+                alt="John Farmer Avatar" 
+                className="w-10 h-10 rounded-full object-cover border border-slate-100"
+              />
+              <div className="text-left">
+                <p className="text-[14px] font-bold text-slate-800 leading-none">John Farmer</p>
+                <p className="text-[11px] text-slate-400 font-medium mt-0.5">Livestock Owner</p>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Page Content Panel */}
+        <main className="flex-1 overflow-y-auto p-8">
+          
+          <div className="max-w-[1400px] mx-auto space-y-6">
+            
+            {/* Page Subtitle & Action Button */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight">My Animals</h1>
+                <p className="text-slate-400 text-sm mt-0.5">Manage profiles, medical history, and appointments.</p>
+              </div>
+
+              <button 
+                onClick={handleOpenCreateModal}
+                className="inline-flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 active:scale-95 text-white font-semibold text-[14px] px-5 py-2.5 rounded-full shadow-md shadow-green-100 hover:shadow-lg transition-all"
+              >
+                <Plus size={16} strokeWidth={2.5} />
+                Register Animal
+              </button>
+            </div>
+
+            {/* Search and Filters Line */}
+            <div className="flex flex-col md:flex-row gap-3 items-stretch relative">
+              
+              {/* Search Bar */}
+              <div className="relative flex-1">
+                <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input 
+                  type="text" 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search by name, species or breed..." 
+                  className="w-full bg-white border border-slate-200/90 rounded-2xl pl-12 pr-4 py-3 text-sm placeholder:text-slate-400 text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all"
+                />
+              </div>
+
+              {/* Filter Button */}
+              <button 
+                onClick={() => setShowFilterPanel(!showFilterPanel)}
+                className={`flex items-center justify-center gap-2 px-5 py-3 rounded-2xl border text-sm font-semibold transition-all ${
+                  showFilterPanel 
+                    ? "bg-green-50 border-green-200 text-green-700" 
+                    : "bg-white border-slate-200/90 hover:border-slate-300 text-slate-600 hover:text-slate-800"
+                }`}
+              >
+                <SlidersHorizontal size={16} />
+                Filter Options
+                <ChevronDown size={14} className={`transition-transform duration-200 ${showFilterPanel ? "rotate-180" : ""}`} />
+              </button>
+            </div>
+          </div>
+          </main>
+        </div>
+    </div>
+ )
 }
