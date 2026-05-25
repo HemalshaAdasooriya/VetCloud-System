@@ -5,6 +5,7 @@ import Navigation from "../layouts/navigation";
 import Footer from "../layouts/footer";
 import { FaInstagram } from "react-icons/fa6";
 import { BsFacebook, BsInstagram, BsTwitter } from "react-icons/bs";
+import { motion } from "framer-motion";
 
 
 export default function HomePage() {
@@ -157,80 +158,109 @@ export default function HomePage() {
             </section>
 
             {/* Mission Section */}
-            <section className="py-20 bg-slate-900 text-white">
-                <div className="container mx-auto px-4 grid lg:grid-cols-2 gap-16 items-center">
-                <div>
-                    <h2 className="text-3xl lg:text-4xl font-bold mb-6">Bridging the Gap in Veterinary Care</h2>
-                    <p className="text-slate-300 mb-6 text-lg leading-relaxed">
-                    For farmers in rural areas and pet owners with busy schedules, getting access to quality veterinary care can be challenging. VetCloud was built to solve this.
-                    </p>
-                    <ul className="space-y-4 mb-8">
-                    {[
-                        'Instant access to licensed professionals',
-                        'Affordable consultation rates',
-                        'Easy-to-understand health guides',
-                        'Secure and private health records'
-                    ].map((item, i) => (
-                        <li key={i} className="flex items-center gap-3 text-slate-200">
-                        <div className="bg-green-500/20 p-1 rounded-full text-green-400">
-                            <HeartPulse size={16} />
-                        </div>
-                        {item}
-                        </li>
-                    ))}
-                    </ul>
-                    <Button variant="primary" size="lg">Read Our Story</Button>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                    <img src="/public/Cows on farm.jpg" alt="Cows on farm" className="rounded-2xl h-64 object-cover w-full" />
-                    <img src="https://images.unsplash.com/photo-1576201836106-db1758fd1c97?q=80&w=2070&auto=format&fit=crop" alt="Vet examining dog" className="rounded-2xl h-64 object-cover w-full translate-y-8" />
-                </div>
+            
+            <section className="relative py-20 text-white bg-[url('https://images.unsplash.com/photo-1583337130417-3346a1be7dee?q=80&w=2068&auto=format&fit=crop')] bg-cover bg-center bg-fixed bg-no-repeat">
+                
+                {/* Dark Overlay - Adjust the opacity (bg-slate-900/80) to make the image lighter or darker */}
+                <div className="absolute inset-0 bg-slate-900/85"></div>
+
+                {/* Added 'relative z-10' here so the content sits above the dark overlay */}
+                <div className="container relative z-10 mx-auto px-4 grid lg:grid-cols-2 gap-16 items-center">
+                    <div className="relative text-center lg:text-left">
+                        <h2 className="text-3xl lg:text-4xl font-bold mb-6">Bridging the Gap in Veterinary Care</h2>
+                        <p className="text-slate-300 mb-6 text-lg leading-relaxed">
+                        For farmers in rural areas and pet owners with busy schedules, getting access to quality veterinary care can be challenging. VetCloud was built to solve this.
+                        </p>
+                        <ul className="space-y-4 mb-8">
+                        {[
+                            'Instant access to licensed professionals',
+                            'Affordable consultation rates',
+                            'Easy-to-understand health guides',
+                            'Secure and private health records'
+                        ].map((item, i) => (
+                            <li key={i} className="flex items-center gap-3 text-slate-200">
+                            <div className="bg-green-500/20 p-1 rounded-full text-green-400">
+                                <HeartPulse size={16} />
+                            </div>
+                            {item}
+                            </li>
+                        ))}
+                        </ul>
+                        <Button variant="primary" size="lg">Read Our Story</Button>
+
+                        {/* Decorative Elements */}
+                        <div className="absolute -top-10 -left-10 w-24 h-24 bg-green-600 rounded-full opacity-20 animate-pulse"></div>
+                        <div className="absolute -bottom-12 -right-12 w-32 h-32 bg-green-700 rounded-full opacity-15 animate-pulse"></div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        {/* <img src="" alt="Cows on farm" className="rounded-2xl h-64 object-cover w-full" /> https://images.unsplash.com/photo-1576201836106-db1758fd1c97?q=80&w=2070&auto=format&fit=crop*/}
+                        <img src="/public/dog in field.png" alt="Vet examining dog" className="absolute right-0 bottom-0 rounded-2xl h-full w-90 object-cover translate-y-8 shadow-lg" />
+                    </div>
                 </div>
             </section>
 
             {/* Testimonials */}
-            <section className="py-20 bg-slate-50">
+            
+            {/* Testimonials */}
+            <section className="py-20 bg-slate-50 overflow-hidden">
                 <div className="container mx-auto px-4">
-                <div className="text-center max-w-2xl mx-auto mb-16">
-                    <h2 className="text-3xl font-bold text-slate-900 mb-4">Trusted by Farmers & Pet Owners</h2>
-                    <p className="text-slate-600">See what our community has to say about their experience with VetCloud.</p>
-                </div>
-                
-                <div className="grid md:grid-cols-3 gap-8">
-                    {[
-                    {
-                        text: "VetCloud saved my calf's life. Being able to video call a vet at 2 AM from my barn was incredible.",
-                        name: "John Davis", role: "Dairy Farmer",
-                        img: "https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=1974&auto=format&fit=crop"
-                    },
-                    {
-                        text: "I used to drive 45 minutes to the nearest clinic for basic checkups. Now I just use the app!",
-                        name: "Sarah Jenkins", role: "Pet Owner",
-                        img: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=1976&auto=format&fit=crop"
-                    },
-                    {
-                        text: "The disease database helps me spot early signs of illness in my flock before it spreads.",
-                        name: "Miguel Torres", role: "Poultry Farmer",
-                        img: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=1974&auto=format&fit=crop"
-                    }
-                    ].map((t, i) => (
-                    <Card key={i} className="p-8 bg-white">
-                        <div className="flex gap-1 text-amber-400 mb-4">
-                        {[...Array(5)].map((_, j) => <Star key={j} size={18} fill="currentColor" />)}
-                        </div>
-                        <p className="text-slate-700 italic mb-6">"{t.text}"</p>
-                        <div className="flex items-center gap-4">
-                        <img src={t.img} alt={t.name} className="w-12 h-12 rounded-full object-cover" />
-                        <div>
-                            <h4 className="font-semibold text-slate-900">{t.name}</h4>
-                            <p className="text-sm text-slate-500">{t.role}</p>
-                        </div>
-                        </div>
-                    </Card>
-                    ))}
-                </div>
+                    <div className="text-center max-w-2xl mx-auto mb-16">
+                        <h2 className="text-3xl font-bold text-slate-900 mb-4">Trusted by Farmers & Pet Owners</h2>
+                        <p className="text-slate-600">See what our community has to say about their experience with VetCloud.</p>
+                    </div>
+                    
+                    <div className="grid md:grid-cols-3 gap-8">
+                        {[
+                        {
+                            text: "VetCloud saved my calf's life. Being able to video call a vet at 2 AM from my barn was incredible.",
+                            name: "John Davis", role: "Dairy Farmer",
+                            img: "https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=1974&auto=format&fit=crop"
+                        },
+                        {
+                            text: "I used to drive 45 minutes to the nearest clinic for basic checkups. Now I just use the app!",
+                            name: "Sarah Jenkins", role: "Pet Owner",
+                            img: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=1976&auto=format&fit=crop"
+                        },
+                        {
+                            text: "The disease database helps me spot early signs of illness in my flock before it spreads.",
+                            name: "Miguel Torres", role: "Poultry Farmer",
+                            img: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=1974&auto=format&fit=crop"
+                        }
+                        ].map((t, i) => (
+                        <motion.div
+                            key={i}
+                            initial={{ opacity: 0, y: 70 }}
+                            whileInView={{ opacity: 1, y: 0 }}
+                            viewport={{ once: true, margin: "-50px" }}
+                            transition={{ duration: 0.6, delay: i * 0.2, ease: "easeOut" }}
+                        >
+                            <Card 
+                                className="h-full p-8 bg-white border border-slate-100 transition-all duration-300 hover:-translate-y-2 hover:shadow-xl hover:border-green-100 group cursor-default"
+                            >
+                                <div className="flex gap-1 text-amber-400 mb-4 transition-transform duration-300 group-hover:scale-105 origin-left">
+                                    {[...Array(5)].map((_, j) => <Star key={j} size={18} fill="currentColor" />)}
+                                </div>
+                                <p className="text-slate-700 italic mb-6">"{t.text}"</p>
+                                <div className="flex items-center gap-4 mt-auto">
+                                    <div className="overflow-hidden rounded-full w-12 h-12 shrink-0">
+                                        <img 
+                                            src={t.img} 
+                                            alt={t.name} 
+                                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" 
+                                        />
+                                    </div>
+                                    <div>
+                                        <h4 className="font-semibold text-slate-900 group-hover:text-green-600 transition-colors duration-300">{t.name}</h4>
+                                        <p className="text-sm text-slate-500">{t.role}</p>
+                                    </div>
+                                </div>
+                            </Card>
+                        </motion.div>
+                        ))}
+                    </div>
                 </div>
             </section>
+
             <Footer />
         </div>
     )

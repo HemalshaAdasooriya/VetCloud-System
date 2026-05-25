@@ -1,8 +1,9 @@
 // controllers/userController.js
-import { createPetOwner, createVeterinarian, checkEmailExists } from "../models/user.js";
+import { createPetOwner, createVeterinarian, checkEmailExists, getUserByEmailAndRole } from "../models/user.js";
 import bcrypt from "bcryptjs";
 import { OAuth2Client } from "google-auth-library";
 import axios from "axios";
+import jwt from "jsonwebtoken";
 
 const googleClient = new OAuth2Client(process.env.VITE_GOOGLE_CLIENT_ID);
 
@@ -83,6 +84,69 @@ export function registerUser(req, res) {
 
         } catch (hashError) {
             return res.status(500).json({ message: "Internal server error during processing." });
+        }
+    });
+}
+
+// 4. STANDARD LOGIN FUNCTION
+export async function loginUser(req, res) {
+    const { email, password, role } = req.body;
+
+    // Basic validation
+    if (!email || !password || !role) {
+        return res.status(400).json({ message: "Email, password, and role are required." });
+    }
+
+    // Fetch user from the appropriate table
+    getUserByEmailAndRole(email, role, async (err, results) => {
+        if (err) {
+            return res.status(500).json({ message: "Database error during login." });
+        }
+
+        // Check if user exists
+        if (results.length === 0) {
+            return res.status(404).json({ message: "User not found. Check your email or role." });
+        }
+
+        const user = results[0];
+
+        try {
+            // Verify the hashed password
+            // Note: If registering via Google/Facebook, password might be NULL
+            if (!user.password) {
+                return res.status(401).json({ message: "Please log in using Google or Facebook." });
+            }
+
+            const isPasswordValid = await bcrypt.compare(password, user.password);
+
+            if (!isPasswordValid) {
+                return res.status(401).json({ message: "Invalid credentials." });
+            }
+
+            
+            const token = jwt.sign(
+                { 
+                    id: user.id, 
+                    email: user.email, 
+                    role: role 
+                }, 
+                process.env.JWT_SECRET, 
+                // { expiresIn: "24h" }
+            );
+
+            const { password: userPassword, ...safeUserData } = user;
+
+            safeUserData.role = req.body.role;
+
+            return res.status(200).json({
+                message: "Login successful",
+                token: token,
+                user: safeUserData
+            });
+
+        } catch (error) {
+            console.error("Error during password verification:", error);
+            return res.status(500).json({ message: "Server error during password verification." });
         }
     });
 }

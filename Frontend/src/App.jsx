@@ -6,6 +6,18 @@ import { Toaster } from 'react-hot-toast'
 import RegisterPage from './Pages/registerPage'
 import ConsultationPage from './Pages/consultationPage'
 import ClinicsPage from './Pages/clinicsPage'
+import { DashboardLayout } from './layouts/DashboardLayout'
+import DoctorDashboard from './Pages/doctorDashboard'
+import FarmerDashboard from './Pages/farmerDashboard'
+import AdminDashboard from './Pages/adminDashboard'
+import ConsultationRequests from './Pages/ConsultationRequests'
+import DoctorSchedule from './Pages/doctorSchedule'
+import DoctorSettings from './Pages/doctorSettings'
+import UserAnimals from './Pages/userAnimals'
+import UserAppoinment from './Pages/userAppoinment'
+import UserConsultations from './Pages/userConsultations'
+import UserSettings from './Pages/userSettings'
+
 import DiseasesPage from './Pages/diseasesPage'
 import MyAnimalsPage from './Pages/myAnimalsPage'
 
@@ -23,6 +35,26 @@ function App() {
             <Route path= '/consultation' element={<ConsultationPage />}/>
             <Route path= '/diseases' element={<DiseasesPage />}/>
             <Route path= '/clinics' element={<ClinicsPage />}/>
+
+            <Route path='/dashboard/*' element={<DashboardLayout />}>
+              <Route path='user/*' element={<FarmerDashboard />} />
+              <Route path='doctor/*' element={<DoctorDashboard />} />
+              <Route path='admin/*' element={<AdminDashboard />} />
+            </Route>
+
+            <Route path='/dashboard/doctor/*' element={<DashboardLayout />}>
+              <Route path='requests' element={<ConsultationRequests />} />
+              <Route path='consultations' element={<ConsultationPage />} />
+              <Route path='schedule' element={<DoctorSchedule />} />
+              <Route path='settings' element={<DoctorSettings />} />
+            </Route>
+
+            <Route path='/dashboard/user/*' element={<DashboardLayout />}>
+              <Route path='animals' element={<UserAnimals />} />
+              <Route path='scheduling' element={<UserAppoinment />} />
+              <Route path='consultations' element={<UserConsultations />} />
+              <Route path='settings' element={<UserSettings />} />
+            </Route>
             <Route path='/farmer-dashboard' element={<MyAnimalsPage />} />
             <Route path='/my-animals' element={<MyAnimalsPage />} />
             <Route path='/animals' element={<MyAnimalsPage />} />

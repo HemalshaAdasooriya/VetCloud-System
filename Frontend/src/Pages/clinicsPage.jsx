@@ -6,7 +6,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 
 
 export default function ClinicsPage() {
-    const [showMobileMap, setShowMobileMap] = useState(false);
+    const [showMobileMap] = useState(false);
     const [selectedClinic, setSelectedClinic] = useState(null);
     const [clinics, setClinics] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -24,7 +24,7 @@ export default function ClinicsPage() {
     const searchRef = useRef(null);
     const debounceRef = useRef(null);
 
-    // ─── Fetch nearby clinics via Google Places (backend proxy) ──
+    // Fetch nearby clinics via Google Places (backend proxy) 
     const fetchNearbyClinics = useCallback(async (lat, lng) => {
         setLoading(true);
         setClinics([]);
@@ -34,7 +34,7 @@ export default function ClinicsPage() {
         try {
             // Calls your backend proxy → backend calls Google Places API
             const res = await fetch(
-                `http://localhost:3000/api/places?lat=${lat}&lng=${lng}`
+                `${import.meta.env.VITE_BACKEND_URL}/api/map/places?lat=${lat}&lng=${lng}`
             );
 
             if (!res.ok) throw new Error(`Server error: ${res.status}`);
@@ -105,7 +105,7 @@ export default function ClinicsPage() {
         }
     }, []);
 
-    // ─── Search places via backend proxy ────────────────────────
+    //  Search places via backend proxy 
     const searchPlaces = async (query) => {
         if (!query || query.trim().length < 3) {
             setSearchResults([]);
@@ -116,7 +116,7 @@ export default function ClinicsPage() {
         try {
             // ✅ calls backend proxy instead of Nominatim directly
             const res = await fetch(
-                `http://localhost:3000/api/search?q=${encodeURIComponent(query)}`
+                `${import.meta.env.VITE_BACKEND_URL}/api/map/search?q=${encodeURIComponent(query)}`
             );
             if (!res.ok) throw new Error("Search error");
             const data = await res.json();
@@ -144,7 +144,7 @@ export default function ClinicsPage() {
         debounceRef.current = setTimeout(() => searchPlaces(val), 400);
     };
 
-    // ─── Pick a place from dropdown ──────────────────────────────
+    //  Pick a place from dropdown 
     const handleSelectPlace = (place) => {
         const lat = parseFloat(place.lat);
         const lng = parseFloat(place.lon);
@@ -156,7 +156,7 @@ export default function ClinicsPage() {
         fetchNearbyClinics(lat, lng);
     };
 
-    // ─── Reset to real GPS location ───────────────────────────────
+    //  Reset to real GPS location 
     const resetToGPS = () => {
         setManualLocation(null);
         setSearchQuery("");
@@ -167,14 +167,14 @@ export default function ClinicsPage() {
         }
     };
 
-    // ─── Clear search box ─────────────────────────────────────────
+    //  Clear search box 
     const clearSearch = () => {
         setSearchQuery("");
         setSearchResults([]);
         setShowDropdown(false);
     };
 
-    // ─── Close dropdown on outside click ─────────────────────────
+    //  Close dropdown on outside click 
     useEffect(() => {
         const handleOutsideClick = (e) => {
             if (searchRef.current && !searchRef.current.contains(e.target)) {
@@ -185,7 +185,7 @@ export default function ClinicsPage() {
         return () => document.removeEventListener("mousedown", handleOutsideClick);
     }, []);
 
-    // ─── Get GPS on page load ─────────────────────────────────────
+    //  Get GPS on page load 
     useEffect(() => {
         if (!navigator.geolocation) {
             console.warn("Geolocation not supported");
@@ -208,7 +208,7 @@ export default function ClinicsPage() {
         );
     }, [fetchNearbyClinics]);
 
-    // ─── Results label ────────────────────────────────────────────
+    //  Results label 
     const resultsLabel = () => {
         if (loading) return "Searching nearby clinics...";
         if (clinics.length === 0) return "No clinics found nearby";
@@ -218,15 +218,15 @@ export default function ClinicsPage() {
     };
 
     return (
-        <div className="flex flex-col h-[calc(100vh-1rem)] bg-slate-50">
+        <div className="flex flex-col h-[calc(100vh-0.5rem)] bg-slate-50">
             <Navigation />
 
-            {/* ── Header ───────────────────────────────────────────── */}
-            <div className="bg-white border-b border-slate-200 p-4 md:p-6 shadow-sm z-20">
+            {/* Header */}
+            <div className="bg-white border-b border-slate-200 p-1 md:p-2 shadow-sm z-20">
                 <div className="container mx-auto">
-                    <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between mb-4">
+                    <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between mb-2">
                         <div>
-                            <h1 className="text-xl md:text-2xl font-bold text-slate-800 mb-1">
+                            <h1 className="text-md md:text-2xl font-bold text-slate-800 mb-1">
                                 Nearest Veterinary Clinics
                             </h1>
                             <p className="text-sm text-slate-500">
@@ -248,7 +248,7 @@ export default function ClinicsPage() {
                         </Button>
                     </div>
 
-                    {/* ── Search bar ───────────────────────────────── */}
+                    {/* Search bar */}
                     <div className="flex gap-2 flex-col sm:flex-row">
                         <div className="relative flex-1" ref={searchRef}>
                             <Search
@@ -258,7 +258,7 @@ export default function ClinicsPage() {
                             <input
                                 type="text"
                                 placeholder="Search any city or area to find clinics there..."
-                                className="w-full pl-10 pr-10 h-11 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent"
+                                className="w-full pl-10 pr-10 h-10 bg-slate-50 border border-slate-300 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent"
                                 value={searchQuery}
                                 onChange={handleSearchInput}
                                 onFocus={() => searchResults.length > 0 && setShowDropdown(true)}
@@ -279,7 +279,7 @@ export default function ClinicsPage() {
                                 ) : null}
                             </div>
 
-                            {/* ── Dropdown results ─────────────────── */}
+                            {/* Dropdown results */}
                             {showDropdown && searchResults.length > 0 && (
                                 <div className="absolute top-12 left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden max-h-64 overflow-y-auto">
                                     {searchResults.map((place) => (
@@ -294,7 +294,7 @@ export default function ClinicsPage() {
                                         >
                                             <div className="flex items-start gap-2">
                                                 <MapPin
-                                                    size={14}
+                                                    size={16}
                                                     className="text-green-500 mt-0.5 shrink-0"
                                                 />
                                                 <div>
@@ -322,14 +322,10 @@ export default function ClinicsPage() {
                                 className="shrink-0 h-11 bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
                                 onClick={resetToGPS}
                             >
-                                <LocateFixed size={18} className="mr-2" />
+                                <LocateFixed size={16} className="mr-2" />
                                 Back to My Location
                             </Button>
                         )}
-
-                        <Button variant="outline" className="shrink-0 bg-white h-11">
-                            <Filter size={18} className="mr-2" /> Filters
-                        </Button>
                     </div>
 
                     {/* Manual location banner */}
@@ -364,7 +360,7 @@ export default function ClinicsPage() {
 
             <div className="flex-1 flex overflow-hidden relative">
 
-                {/* ── Sidebar ──────────────────────────────────────── */}
+                {/*  Sidebar */}
                 <div
                     className={`w-full md:w-[320px] bg-white border-r border-slate-200 flex flex-col h-full z-10 shadow-lg transition-transform duration-300 ${
                         showMobileMap
@@ -372,33 +368,7 @@ export default function ClinicsPage() {
                             : "translate-x-0"
                     }`}
                 >
-                    {/* Quick filters */}
-                    <div className="p-4 border-b border-slate-100 bg-slate-50">
-                        <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide block mb-2">
-                            Quick Filters
-                        </span>
-                        <div className="flex gap-2 flex-wrap">
-                            <Badge
-                                variant="success"
-                                className="cursor-pointer whitespace-nowrap shadow-sm"
-                            >
-                                ✓ Open Now
-                            </Badge>
-                            <Badge
-                                variant="default"
-                                className="cursor-pointer whitespace-nowrap bg-white border-2 border-slate-300 text-slate-700 hover:border-green-500 hover:bg-green-50 transition-all"
-                            >
-                                24/7 Emergency
-                            </Badge>
-                            <Badge
-                                variant="default"
-                                className="cursor-pointer whitespace-nowrap bg-white border-2 border-slate-300 text-slate-700 hover:border-green-500 hover:bg-green-50 transition-all"
-                            >
-                                Large Animals
-                            </Badge>
-                        </div>
-                    </div>
-
+                    
                     {/* Results count */}
                     <div className="px-4 py-3 border-b border-slate-100 bg-white">
                         <p className="text-sm font-medium text-slate-700">{resultsLabel()}</p>
@@ -531,7 +501,7 @@ export default function ClinicsPage() {
                                             }}
                                         >
                                             <Navigation2 size={16} className="mr-1.5" />
-                                            Get Directions
+                                            Directions
                                         </Button>
                                         {clinic.phone && (
                                             <Button
@@ -553,7 +523,7 @@ export default function ClinicsPage() {
                     </div>
                 </div>
 
-                {/* ── Map ──────────────────────────────────────────── */}
+                {/*  Map */}
                 <ClinicMap
                     clinics={clinics}
                     selectedClinic={selectedClinic}
