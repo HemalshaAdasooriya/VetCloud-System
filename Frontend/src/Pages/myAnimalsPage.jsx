@@ -93,3 +93,13 @@ const ANIMAL_HISTORIES = {
     { date: "14 Jun, 2023", type: "Vaccination", title: "Feline Leukemia Booster", vet: "Dr. Lisa Cuddy", notes: "Regular booster completed. Responding beautifully." }
   ]
 };
+
+export default function MyAnimalsPage() {
+  const [animals, setAnimals] = useState(INITIAL_ANIMALS);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterType, setFilterType] = useState("All");
+  const [filterStatus, setFilterStatus] = useState("All");
+  const [sortBy, setSortBy] = useState("name-asc");
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
+
+  
