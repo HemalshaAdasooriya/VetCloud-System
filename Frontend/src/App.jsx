@@ -53,6 +53,7 @@ function App() {
 
             <Route path='/dashboard/user/*' element={<DashboardLayout />}>
               <Route path='animals' element={<MyAnimalsPage />} />
+              <Route path='scheduling' element={<UserAppoinment />} />
               <Route path='appoinment' element={<UserAppoinment />} />
               <Route path='consultations' element={<UserConsultations />} />
               <Route path='clinics' element={<UserClinics />} />

@@ -28,21 +28,38 @@ export default function ForgotPassword() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const handleEmailSubmit = (e) => {
+  const handleEmailSubmit = async (e) => {
     e.preventDefault();
 
-    if (!email) {
-      setError('Please enter your email address.');
-      return;
+    try {
+
+      const response = await fetch(
+        `${import.meta.env.VITE_BACKEND_URL}/api/users/forgot-password`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ email })
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return setError(data.message);
+      }
+
+      setSuccess(data.message);
+      setError("");
+
+      setTimeout(() => {
+        setStep("otp");
+      }, 1500);
+
+    } catch (error) {
+      setError("Server connection failed");
     }
-
-    setSuccess('A verification code has been sent to your email.');
-    setError('');
-
-    setTimeout(() => {
-      setStep('otp');
-      setSuccess('');
-    }, 1500);
   };
 
   const handleOtpChange = (index, value) => {
@@ -58,49 +75,85 @@ export default function ForgotPassword() {
     }
   };
 
-  const handleOtpSubmit = (e) => {
+  const handleOtpSubmit = async (e) => {
+
     e.preventDefault();
 
-    const otpCode = otp.join('');
+    const otpCode = otp.join("");
 
-    if (otpCode.length !== 6) {
-      setError('Please enter the complete 6-digit code.');
-      return;
+    try {
+
+      const response = await fetch(
+        `${import.meta.env.VITE_BACKEND_URL}/api/users/verify-otp`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            email,
+            otp: otpCode
+          })
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return setError(data.message);
+      }
+
+      setSuccess(data.message);
+      setError("");
+
+      setTimeout(() => {
+        setStep("reset");
+      }, 1500);
+
+    } catch {
+      setError("Server connection failed");
     }
-
-    setSuccess('Verification successful!');
-    setError('');
-
-    setTimeout(() => {
-      setStep('reset');
-      setSuccess('');
-    }, 1500);
   };
 
-  const handlePasswordReset = (e) => {
+  const handlePasswordReset = async (e) => {
+
     e.preventDefault();
 
-    if (!newPassword || !confirmPassword) {
-      setError('Please fill in all fields.');
-      return;
-    }
-
-    if (newPassword.length < 8) {
-      setError('Password must be at least 8 characters long.');
-      return;
-    }
-
     if (newPassword !== confirmPassword) {
-      setError('Passwords do not match.');
-      return;
+      return setError("Passwords do not match");
     }
 
-    setSuccess('Password reset successful! Redirecting to login...');
-    setError('');
+    try {
 
-    setTimeout(() => {
-      navigate('/login');
-    }, 2000);
+      const response = await fetch(
+        `${import.meta.env.VITE_BACKEND_URL}/api/users/reset-password`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            email,
+            newPassword
+          })
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return setError(data.message);
+      }
+
+      setSuccess(data.message);
+
+      setTimeout(() => {
+        navigate("/login");
+      }, 2000);
+
+    } catch {
+      setError("Server connection failed");
+    }
   };
 
   const handleResendOtp = () => {
