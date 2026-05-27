@@ -13,11 +13,14 @@ import AdminDashboard from './Pages/adminDashboard'
 import ConsultationRequests from './Pages/ConsultationRequests'
 import DoctorSchedule from './Pages/doctorSchedule'
 import DoctorSettings from './Pages/doctorSettings'
+import ForgotPassword from './Pages/ForgotPassword'
 import UserAnimals from './Pages/userAnimals'
 import UserAppoinment from './Pages/userAppoinment'
 import UserConsultations from './Pages/userConsultations'
 import UserSettings from './Pages/userSettings'
 
+import DiseasesPage from './Pages/diseasesPage'
+import MyAnimalsPage from './Pages/myAnimalsPage'
 
 function App() {
   
@@ -30,8 +33,9 @@ function App() {
             <Route path='/*' element={<HomePage />} />
             <Route path='/login' element={<LoginPage />} /> 
             <Route path='/register' element={<RegisterPage />}/>
+            <Route path='/forgot-password' element={<ForgotPassword />}/>
             <Route path= '/consultation' element={<ConsultationPage />}/>
-            {/* <Route path= '/diseases' element={<DiseasesPage />}/> */}
+            <Route path= '/diseases' element={<DiseasesPage />}/>
             <Route path= '/clinics' element={<ClinicsPage />}/>
 
             <Route path='/dashboard/*' element={<DashboardLayout />}>
@@ -48,7 +52,7 @@ function App() {
             </Route>
 
             <Route path='/dashboard/user/*' element={<DashboardLayout />}>
-              <Route path='animals' element={<UserAnimals />} />
+              <Route path='animals' element={<MyAnimalsPage />} />
               <Route path='scheduling' element={<UserAppoinment />} />
               <Route path='consultations' element={<UserConsultations />} />
               <Route path='settings' element={<UserSettings />} />
