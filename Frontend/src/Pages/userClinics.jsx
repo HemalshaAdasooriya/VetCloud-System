@@ -266,19 +266,21 @@ export default function UserClinics() {
             {/* Header */}
             <div className="bg-white border-b border-slate-200 p-1 md:p-2 shadow-sm z-20">
                 <div className="container mx-auto">
-                    <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between mb-2">
+                    <div className="flex md:flex-row gap-4 items-start md:items-center justify-between mb-2">
                         <div className="flex items-center gap-3 mb-2">
                             <div className="bg-green-50 border border-green-100 text-green-600 p-2.5 rounded-2xl shadow-sm">
                                 <IoNavigateOutline size={24} />
                             </div>
-                            <h2 className="text-md md:text-2xl font-bold text-slate-800 mb-1">
-                                Nearest Veterinary Clinics
-                            </h2>
-                            <p className="text-sm text-slate-500">
-                                {manualLocation
-                                    ? `Showing clinics near: ${manualLocation.label}`
-                                    : "Finding clinics based on your GPS location"}
-                            </p>
+                            <div className="flex flex-col">
+                                <h2 className="text-md md:text-2xl font-bold text-slate-800 mb-1">
+                                    Nearest Veterinary Clinics
+                                </h2>
+                                <p className="text-sm text-slate-500">
+                                    {manualLocation
+                                        ? `Showing clinics near: ${manualLocation.label}`
+                                        : "Finding clinics based on your GPS location"}
+                                </p>
+                            </div>
                         </div>
                         
                         <Button
