@@ -101,3 +101,53 @@ export const getUserByEmailAndRole = (email, role, callback) => {
     
     db.query(sql, [email], callback);
 };
+
+
+//Navindu 2026/05/27 ... Forgot Password Functionality
+// Save OTP
+export const savePasswordResetOTP = (email, otp, expiresAt, callback) => {
+    const sql = `
+        INSERT INTO password_resets (email, otp, expires_at)
+        VALUES (?, ?, ?)
+    `;
+
+    db.query(sql, [email, otp, expiresAt], callback);
+};
+
+// Verify OTP
+export const verifyOTP = (email, otp, callback) => {
+    const sql = `
+        SELECT * FROM password_resets
+        WHERE email = ?
+        AND otp = ?
+        AND expires_at > NOW()
+        ORDER BY created_at DESC
+        LIMIT 1
+    `;
+
+    db.query(sql, [email, otp], callback);
+};
+
+// Update password in pet owners
+export const updatePetOwnerPassword = (email, password, callback) => {
+    const sql = `
+        UPDATE pet_owners
+        SET password = ?
+        WHERE email = ?
+    `;
+
+    db.query(sql, [password, email], callback);
+};
+
+// Update password in veterinarians
+export const updateVeterinarianPassword = (email, password, callback) => {
+    const sql = `
+        UPDATE veterinarians
+        SET password = ?
+        WHERE email = ?
+    `;
+
+    db.query(sql, [password, email], callback);
+};
+
+//...Navindu
