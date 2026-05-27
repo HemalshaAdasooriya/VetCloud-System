@@ -1,9 +1,178 @@
 // controllers/userController.js
+import dotenv from "dotenv";
+dotenv.config();
 import { createPetOwner, createVeterinarian, checkEmailExists, getUserByEmailAndRole } from "../models/user.js";
 import bcrypt from "bcryptjs";
 import { OAuth2Client } from "google-auth-library";
 import axios from "axios";
 import jwt from "jsonwebtoken";
+//Navindu 2026/05/27 ... Forgot Password Functionality
+import nodemailer from "nodemailer";
+import otpGenerator from "otp-generator";
+
+import {
+    savePasswordResetOTP,
+    verifyOTP,
+    updatePetOwnerPassword,
+    updateVeterinarianPassword
+} from "../models/User.js";
+//... Navindu
+
+
+//Navindu 2026/05/27 ... Forgot Password Functionality
+
+const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    }
+});
+
+
+export function sendForgotPasswordOTP(req, res) {
+    const { email } = req.body;
+
+    if (!email) {
+        return res.status(400).json({
+            message: "Email is required"
+        });
+    }
+
+    checkEmailExists(email, async (err, results) => {
+
+        if (err) {
+            return res.status(500).json(err);
+        }
+
+        if (results.length === 0) {
+            return res.status(404).json({
+                message: "No account found with this email"
+            });
+        }
+
+        const otp = otpGenerator.generate(6, {
+            upperCaseAlphabets: false,
+            lowerCaseAlphabets: false,
+            specialChars: false
+        });
+
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+        savePasswordResetOTP(email, otp, expiresAt, async (err) => {
+
+            if (err) {
+                return res.status(500).json(err);
+            }
+
+            try {
+                await transporter.sendMail({
+                    from: process.env.EMAIL_USER,
+                    to: email,
+                    subject: "VetCloud Password Reset OTP",
+                    html: `
+                        <h2>Password Reset Request</h2>
+                        <p>Your OTP code is:</p>
+                        <h1>${otp}</h1>
+                        <p>This OTP expires in 10 minutes.</p>
+                    `
+                });
+
+                return res.status(200).json({
+                    message: "OTP sent successfully"
+                });
+
+            } catch (error) {
+                console.error("EMAIL ERROR:", error);
+                return res.status(500).json({
+                    message: "Failed to send email",
+                    error: error.message
+                });
+            }
+        });
+    });
+}
+
+export function verifyForgotPasswordOTP(req, res) {
+
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+        return res.status(400).json({
+            message: "Email and OTP required"
+        });
+    }
+
+    verifyOTP(email, otp, (err, results) => {
+
+        if (err) {
+            return res.status(500).json(err);
+        }
+
+        if (results.length === 0) {
+            return res.status(400).json({
+                message: "Invalid or expired OTP"
+            });
+        }
+
+        return res.status(200).json({
+            message: "OTP verified successfully"
+        });
+    });
+}
+
+export async function resetPassword(req, res) {
+
+    const { email, newPassword } = req.body;
+
+    if (!email || !newPassword) {
+        return res.status(400).json({
+            message: "Missing fields"
+        });
+    }
+
+    try {
+
+        const hashedPassword = await bcrypt.hash(newPassword, 11);
+
+        updatePetOwnerPassword(email, hashedPassword, (err, result) => {
+
+            if (err) {
+                return res.status(500).json(err);
+            }
+
+            if (result.affectedRows > 0) {
+                return res.status(200).json({
+                    message: "Password updated successfully"
+                });
+            }
+
+            updateVeterinarianPassword(email, hashedPassword, (err2, result2) => {
+
+                if (err2) {
+                    return res.status(500).json(err2);
+                }
+
+                if (result2.affectedRows > 0) {
+                    return res.status(200).json({
+                        message: "Password updated successfully"
+                    });
+                }
+
+                return res.status(404).json({
+                    message: "User not found"
+                });
+            });
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            message: "Server error"
+        });
+    }
+}
+//... Navindu
+
 
 const googleClient = new OAuth2Client(process.env.VITE_GOOGLE_CLIENT_ID);
 
