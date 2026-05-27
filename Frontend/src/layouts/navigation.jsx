@@ -19,7 +19,6 @@ export default function Navigation() {
         { name: 'Consult a Vet', path: '/consultation', icon: Activity },
         { name: 'Diseases', path: '/diseases', icon: BookOpen },
         { name: 'Find Clinic', path: '/clinics', icon: MapPin },
-        { name: 'My Animals', path: '/my-animals', icon: Bird },
     ];
   return (
         <header className={`sticky top-0 z-50 border-b transition-all duration-300 ${
