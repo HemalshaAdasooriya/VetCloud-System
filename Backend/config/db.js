@@ -1,21 +1,27 @@
-import mysql from "mysql2";
+import mysql from 'mysql2/promise';
 
-const db = mysql.createConnection({
+const db = mysql.createPool({
     host: "localhost",
     user: "root",
     password: "",
-    database: "vetcloud"
+    database: "vetcloud",
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
 });
 
-db.connect((err) => {
-
-    if(err){
+// Test the connection
+const testConnection = async () => {
+    try {
+        const connection = await db.getConnection();
+        console.log("MySQL Connected");
+        connection.release();
+    } catch (err) {
         console.log("Database connection failed");
         console.log(err);
-    }else{
-        console.log("MySQL Connected");
     }
+};
 
-});
+testConnection();
 
 export default db;
