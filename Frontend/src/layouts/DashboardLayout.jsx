@@ -25,12 +25,11 @@ export function DashboardLayout() {
   const links = isUser ? [
     { name: 'Dashboard', path: '/dashboard/user', icon: LayoutDashboard },
     { name: 'My Animals', path: '/dashboard/user/animals', icon: Bird },
-    { name: 'Book Appointment', path: '/dashboard/user/scheduling', icon: Calendar },
+    { name: 'Book Appointment', path: '/dashboard/user/appoinment', icon: Calendar },
     { name: 'Consultations', path: '/dashboard/user/consultations', icon: Stethoscope },
     { name: 'Settings', path: '/dashboard/user/settings', icon: Settings },
   ] : isVet ? [
     { name: 'Doctor Dashboard', path: '/dashboard/doctor', icon: LayoutDashboard },
-    { name: 'Consultation Requests', path: '/dashboard/doctor/requests', icon: ClipboardList },
     { name: 'Consultations', path: '/dashboard/doctor/consultations', icon: Stethoscope },
     { name: 'Schedule', path: '/dashboard/doctor/schedule', icon: Calendar },
     { name: 'Settings', path: '/dashboard/doctor/settings', icon: Settings },

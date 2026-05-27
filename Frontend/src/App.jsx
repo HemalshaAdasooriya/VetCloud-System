@@ -10,7 +10,6 @@ import { DashboardLayout } from './layouts/DashboardLayout'
 import DoctorDashboard from './Pages/doctorDashboard'
 import FarmerDashboard from './Pages/farmerDashboard'
 import AdminDashboard from './Pages/adminDashboard'
-import ConsultationRequests from './Pages/ConsultationRequests'
 import DoctorSchedule from './Pages/doctorSchedule'
 import DoctorSettings from './Pages/doctorSettings'
 import ForgotPassword from './Pages/ForgotPassword'
@@ -45,7 +44,6 @@ function App() {
             </Route>
 
             <Route path='/dashboard/doctor/*' element={<DashboardLayout />}>
-              <Route path='requests' element={<ConsultationRequests />} />
               <Route path='consultations' element={<ConsultationPage />} />
               <Route path='schedule' element={<DoctorSchedule />} />
               <Route path='settings' element={<DoctorSettings />} />
@@ -54,6 +52,7 @@ function App() {
             <Route path='/dashboard/user/*' element={<DashboardLayout />}>
               <Route path='animals' element={<MyAnimalsPage />} />
               <Route path='scheduling' element={<UserAppoinment />} />
+              <Route path='appoinment' element={<UserAppoinment />} />
               <Route path='consultations' element={<UserConsultations />} />
               <Route path='settings' element={<UserSettings />} />
             </Route>
