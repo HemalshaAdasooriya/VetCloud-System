@@ -54,7 +54,7 @@ export default function RegisterPage() {
         const backendRole = role === 'user' ? "Farmer/PetOwner" : "Veterinary Doctor";
         
         try {
-            const response = await fetch("http://localhost:5000/api/users/google-login", {
+            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/google-login`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ token: credentialResponse.credential, role: backendRole })
@@ -82,7 +82,7 @@ export default function RegisterPage() {
         const backendRole = role === 'user' ? "Farmer/PetOwner" : "Veterinary Doctor";
         
         try {
-            const res = await fetch("http://localhost:5000/api/users/facebook-login", {
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/facebook-login`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ accessToken: response.accessToken, role: backendRole })
@@ -131,7 +131,7 @@ export default function RegisterPage() {
         }
 
         try {
-            const response = await fetch("http://localhost:5000/api/users", {
+            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)

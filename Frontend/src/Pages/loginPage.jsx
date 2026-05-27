@@ -68,7 +68,7 @@ export default function LoginPage() {
                 localStorage.setItem("user", JSON.stringify(data.user));
 
                 // Navigate based on role
-                if (role === "farmer") navigate("/dashboard/user/animals");
+                if (role === "farmer") navigate("/dashboard/user");
                 if (role === "doctor") navigate("/dashboard/doctor");
                 if (role === "admin") navigate("/dashboard/admin");
             } else {
@@ -101,7 +101,7 @@ export default function LoginPage() {
                 if (data.user) localStorage.setItem("user", JSON.stringify(data.user));
                 
                 // Route to correct dashboard
-                if (role === "farmer") navigate("/dashboard/user/animals");
+                if (role === "farmer") navigate("/dashboard/user");
                 if (role === "doctor") navigate("/dashboard/doctor");
                 if (role === "admin") navigate("/dashboard/admin");
             } else {
@@ -132,7 +132,7 @@ export default function LoginPage() {
                 if (data.token) localStorage.setItem("token", data.token); // Save session
                 if (data.user) localStorage.setItem("user", JSON.stringify(data.user));
                 // Route to correct dashboard
-                if (role === "farmer") navigate("/dashboard/user/animals");
+                if (role === "farmer") navigate("/dashboard/user");
                 if (role === "doctor") navigate("/dashboard/doctor");
                 if (role === "admin") navigate("/dashboard/admin");
             } else {

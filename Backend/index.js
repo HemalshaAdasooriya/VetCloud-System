@@ -1,7 +1,7 @@
+import dotenv from "dotenv";
 import express from "express";
 import userRouter from "./routes/userRouter.js";
 import cors from "cors";
-import dotenv from "dotenv";
 import http from "http";
 import { Server } from "socket.io";
 import mapRouter from "./routes/mapRouter.js";
