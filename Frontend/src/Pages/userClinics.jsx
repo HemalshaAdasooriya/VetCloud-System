@@ -3,6 +3,7 @@ import ClinicMap from "./ClinicMap";
 import Navigation from "../layouts/navigation";
 import { Clock, Filter, MapPin, Navigation2, PhoneCall, Search, Star, LocateFixed, X } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
+import { IoNavigateOutline } from "react-icons/io5";
 
 
 export default function UserClinics() {
@@ -234,7 +235,7 @@ export default function UserClinics() {
             let newWidth = dragStart.current.width + deltaX;
             
             // Constraints
-            if (newWidth < 280) newWidth = 280;
+            if (newWidth < 200) newWidth = 200;
             if (newWidth > 600) newWidth = 600;
             
             setSidebarWidth(newWidth);
@@ -266,7 +267,10 @@ export default function UserClinics() {
             <div className="bg-white border-b border-slate-200 p-1 md:p-2 shadow-sm z-20">
                 <div className="container mx-auto">
                     <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between mb-2">
-                        <div>
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="bg-green-50 border border-green-100 text-green-600 p-2.5 rounded-2xl shadow-sm">
+                                <IoNavigateOutline size={24} />
+                            </div>
                             <h2 className="text-md md:text-2xl font-bold text-slate-800 mb-1">
                                 Nearest Veterinary Clinics
                             </h2>
@@ -276,6 +280,7 @@ export default function UserClinics() {
                                     : "Finding clinics based on your GPS location"}
                             </p>
                         </div>
+                        
                         <Button
                             variant="outline"
                             className="shrink-0 bg-green-50 border-green-200 text-green-700 hover:bg-green-100 hover:border-green-300"
