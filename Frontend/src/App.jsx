@@ -13,13 +13,15 @@ import AdminDashboard from './Pages/adminDashboard'
 import DoctorSchedule from './Pages/doctorSchedule'
 import DoctorSettings from './Pages/doctorSettings'
 import ForgotPassword from './Pages/ForgotPassword'
-import UserAnimals from './Pages/userAnimals'
+import UserAnimals from './Pages/userClinics'
 import UserAppoinment from './Pages/userAppoinment'
 import UserConsultations from './Pages/userConsultations'
 import UserSettings from './Pages/userSettings'
 
 import DiseasesPage from './Pages/diseasesPage'
 import MyAnimalsPage from './Pages/myAnimalsPage'
+import UserClinics from './Pages/userClinics'
+import UserDiseases from './Pages/userDiseases'
 
 function App() {
   
@@ -54,6 +56,8 @@ function App() {
               <Route path='scheduling' element={<UserAppoinment />} />
               <Route path='appoinment' element={<UserAppoinment />} />
               <Route path='consultations' element={<UserConsultations />} />
+              <Route path='clinics' element={<UserClinics />} />
+              <Route path='diseases' element={<UserDiseases />} />
               <Route path='settings' element={<UserSettings />} />
             </Route>
           </Routes>
