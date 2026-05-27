@@ -13,6 +13,8 @@ import AdminDashboard from './Pages/adminDashboard'
 import ConsultationRequests from './Pages/ConsultationRequests'
 import DoctorSchedule from './Pages/doctorSchedule'
 import DoctorSettings from './Pages/doctorSettings'
+import ForgotPassword from './Pages/ForgotPassword'
+import UserAnimals from './Pages/userAnimals'
 import UserAppoinment from './Pages/userAppoinment'
 import UserConsultations from './Pages/userConsultations'
 import UserSettings from './Pages/userSettings'
@@ -31,6 +33,7 @@ function App() {
             <Route path='/*' element={<HomePage />} />
             <Route path='/login' element={<LoginPage />} /> 
             <Route path='/register' element={<RegisterPage />}/>
+            <Route path='/forgot-password' element={<ForgotPassword />}/>
             <Route path= '/consultation' element={<ConsultationPage />}/>
             <Route path= '/diseases' element={<DiseasesPage />}/>
             <Route path= '/clinics' element={<ClinicsPage />}/>
