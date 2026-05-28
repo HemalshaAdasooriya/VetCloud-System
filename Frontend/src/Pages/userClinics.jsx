@@ -3,9 +3,10 @@ import ClinicMap from "./ClinicMap";
 import Navigation from "../layouts/navigation";
 import { Clock, Filter, MapPin, Navigation2, PhoneCall, Search, Star, LocateFixed, X } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
+import { IoNavigateOutline } from "react-icons/io5";
 
 
-export default function ClinicsPage() {
+export default function UserClinics() {
     const [showMobileMap] = useState(false);
     const [selectedClinic, setSelectedClinic] = useState(null);
     const [clinics, setClinics] = useState([]);
@@ -20,9 +21,12 @@ export default function ClinicsPage() {
     const [searchLoading, setSearchLoading] = useState(false);
     const [showDropdown, setShowDropdown] = useState(false);
     const [manualLocation, setManualLocation] = useState(null);
+    const [sidebarWidth, setSidebarWidth] = useState(320); // Default matches your original md:w-[320px]
+    const [isResizing, setIsResizing] = useState(false);
 
     const searchRef = useRef(null);
     const debounceRef = useRef(null);
+    const dragStart = useRef({ x: 0, width: 320 });
 
     // Fetch nearby clinics via Google Places (backend proxy) 
     const fetchNearbyClinics = useCallback(async (lat, lng) => {
@@ -219,24 +223,66 @@ export default function ClinicsPage() {
         return `${clinics.length} clinic${clinics.length > 1 ? "s" : ""} found near ${area}${radius}`;
     };
 
-    return (
-        <div className="flex flex-col h-[calc(100vh-0.5rem)] bg-slate-50">
-            <Navigation />
+    // Add this useEffect to handle the dragging mechanics
+    useEffect(() => {
+        const handleMouseMove = (e) => {
+            if (!isResizing) return;
+        
+            // Calculate how far the mouse has moved since we clicked
+            const deltaX = e.clientX - dragStart.current.x;
+            
+            // Add that movement to the original starting width
+            let newWidth = dragStart.current.width + deltaX;
+            
+            // Constraints
+            if (newWidth < 200) newWidth = 200;
+            if (newWidth > 600) newWidth = 600;
+            
+            setSidebarWidth(newWidth);
+        };
 
+        const handleMouseUp = () => {
+            setIsResizing(false);
+        };
+
+        if (isResizing) {
+            document.addEventListener("mousemove", handleMouseMove);
+            document.addEventListener("mouseup", handleMouseUp);
+            // Prevent accidental text highlighting while dragging
+            document.body.style.userSelect = 'none'; 
+        } else {
+            document.body.style.userSelect = '';
+        }
+
+        return () => {
+            document.removeEventListener("mousemove", handleMouseMove);
+            document.removeEventListener("mouseup", handleMouseUp);
+            document.body.style.userSelect = '';
+        };
+    }, [isResizing]);
+
+    return (
+        <div className="-m-8 flex flex-col h-screen overflow-hidden bg-slate-50">
             {/* Header */}
             <div className="bg-white border-b border-slate-200 p-1 md:p-2 shadow-sm z-20">
                 <div className="container mx-auto">
-                    <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between mb-2">
-                        <div>
-                            <h1 className="text-md md:text-2xl font-bold text-slate-800 mb-1">
-                                Nearest Veterinary Clinics
-                            </h1>
-                            <p className="text-sm text-slate-500">
-                                {manualLocation
-                                    ? `Showing clinics near: ${manualLocation.label}`
-                                    : "Finding clinics based on your GPS location"}
-                            </p>
+                    <div className="flex md:flex-row gap-4 items-start md:items-center justify-between mb-2">
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="bg-green-50 border border-green-100 text-green-600 p-2.5 rounded-2xl shadow-sm">
+                                <IoNavigateOutline size={24} />
+                            </div>
+                            <div className="flex flex-col">
+                                <h2 className="text-md md:text-2xl font-bold text-slate-800 mb-1">
+                                    Nearest Veterinary Clinics
+                                </h2>
+                                <p className="text-sm text-slate-500">
+                                    {manualLocation
+                                        ? `Showing clinics near: ${manualLocation.label}`
+                                        : "Finding clinics based on your GPS location"}
+                                </p>
+                            </div>
                         </div>
+                        
                         <Button
                             variant="outline"
                             className="shrink-0 bg-green-50 border-green-200 text-green-700 hover:bg-green-100 hover:border-green-300"
@@ -363,8 +409,9 @@ export default function ClinicsPage() {
             <div className="flex-1 flex overflow-hidden relative">
 
                 {/*  Sidebar */}
-                <div
-                    className={`w-full md:w-[320px] bg-white border-r border-slate-200 flex flex-col h-full z-10 shadow-lg transition-transform duration-300 ${
+                <div 
+                    style={{ '--sidebar-width': `${sidebarWidth}px` }}
+                    className={`w-full md:w-[var(--sidebar-width)] shrink-0 bg-white border-r border-slate-200 flex flex-col h-full z-10 shadow-lg transition-transform ${isResizing ? 'duration-0' : 'duration-300'} ${
                         showMobileMap
                             ? "-translate-x-full md:translate-x-0 absolute md:relative"
                             : "translate-x-0"
@@ -523,6 +570,18 @@ export default function ClinicsPage() {
                                 </Card>
                             ))}
                     </div>
+
+                    {/* DRAG HANDLE (Hidden on mobile, visible on desktop) */}
+                    <div
+                        onMouseDown={(e) => {
+                            setIsResizing(true);
+                            // Save the exact mouse X and the current width the moment they click
+                            dragStart.current = { x: e.clientX, width: sidebarWidth }; 
+                        }}
+                        className={`hidden md:block absolute top-0 -right-1.5 w-3 h-full cursor-col-resize z-50 transition-colors
+                            ${isResizing ? "bg-slate-500/50" : "bg-transparent hover:bg-slate-300/50"}
+                        `}
+                    />
                 </div>
 
                 {/*  Map */}

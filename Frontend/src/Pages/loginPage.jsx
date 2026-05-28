@@ -312,7 +312,7 @@ export default function LoginPage() {
                 </div>
 
 
-                <button onClick={handleLogin} className="w-full h-[40px] bg-accent text-[16px] font-Inter font-medium text-white rounded-[25px] cursor-pointer">
+                <button onClick={handleLogin} className="w-full h-[40px] bg-accent hover:bg-green-700 text-[16px] font-Inter font-medium text-white rounded-[25px] cursor-pointer transition-all duration-200 active:scale-95">
                           Login to Dashboard
                 </button>
 

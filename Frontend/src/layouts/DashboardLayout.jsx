@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Users, Calendar, Settings, LogOut, Bell, Stethoscope, Bird, ShieldCheck, Activity, Book, ClipboardList, Video, DollarSign, Database, MessageSquare, Star, BarChart3, UserCog, Search } from 'lucide-react';
+import { LayoutDashboard, Users, Calendar, Settings, LogOut, Bell, Stethoscope, Bird, ShieldCheck, Activity, Book, ClipboardList, Video, DollarSign, Database, MessageSquare, Star, BarChart3, UserCog, Search, MapPin } from 'lucide-react';
+import { BsDatabaseCheck } from 'react-icons/bs';
 
 export function DashboardLayout() {
   const location = useLocation();
@@ -27,6 +28,8 @@ export function DashboardLayout() {
     { name: 'My Animals', path: '/dashboard/user/animals', icon: Bird },
     { name: 'Book Appointment', path: '/dashboard/user/appoinment', icon: Calendar },
     { name: 'Consultations', path: '/dashboard/user/consultations', icon: Stethoscope },
+    { name: 'Find Clinics', path: '/dashboard/user/clinics', icon: MapPin },
+    { name: 'Animal Diseases' , path: '/dashboard/user/diseases', icon: BsDatabaseCheck },
     { name: 'Settings', path: '/dashboard/user/settings', icon: Settings },
   ] : isVet ? [
     { name: 'Doctor Dashboard', path: '/dashboard/doctor', icon: LayoutDashboard },
