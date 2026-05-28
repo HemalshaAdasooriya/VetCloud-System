@@ -74,3 +74,17 @@ INSERT INTO `veterinarians` VALUES (2, 'kasun@gmail.com', '$2b$11$cqTU9g/xOQWGr7
 INSERT INTO `veterinarians` VALUES (3, 'siripala@gmail.com', '$2b$11$/W3oDj.FYM8UoER6eCxW0eqigJmzk/9q6K189R8ag/MIZjQdKsKva', 'siripala', '0873737465', 'fsdsfds32', 'exotic', 3, 2.00, 0, 0, '/default.jpg', 'local');
 
 SET FOREIGN_KEY_CHECKS = 1;
+
+
+-- ----------------------------
+-- Table structure for password_resets
+-- ----------------------------
+DROP TABLE IF EXISTS `password_resets`;
+CREATE TABLE `password_resets` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `email` varchar(255) NOT NULL,
+  `otp` varchar(10) NOT NULL,
+  `expires_at` datetime NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=latin1;
