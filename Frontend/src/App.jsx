@@ -10,6 +10,7 @@ import { DashboardLayout } from './layouts/DashboardLayout'
 import DoctorDashboard from './Pages/doctorDashboard'
 import FarmerDashboard from './Pages/farmerDashboard'
 import AdminDashboard from './Pages/adminDashboard'
+import ConsultationRequest from './Pages/ConsultationRequests' //Navindu 2026/05/28 ... consultation
 import DoctorSchedule from './Pages/doctorSchedule'
 import DoctorSettings from './Pages/doctorSettings'
 import ForgotPassword from './Pages/ForgotPassword'
@@ -35,7 +36,7 @@ function App() {
             <Route path='/login' element={<LoginPage />} /> 
             <Route path='/register' element={<RegisterPage />}/>
             <Route path='/forgot-password' element={<ForgotPassword />}/>
-            <Route path= '/consultation' element={<ConsultationPage />}/>
+            <Route path= '/consultation' element={<ConsultationRequest />}/>
             <Route path= '/diseases' element={<DiseasesPage />}/>
             <Route path= '/clinics' element={<ClinicsPage />}/>
 
@@ -46,6 +47,7 @@ function App() {
             </Route>
 
             <Route path='/dashboard/doctor/*' element={<DashboardLayout />}>
+              <Route path='requests' element={<ConsultationRequest />} />
               <Route path='consultations' element={<ConsultationPage />} />
               <Route path='schedule' element={<DoctorSchedule />} />
               <Route path='settings' element={<DoctorSettings />} />
