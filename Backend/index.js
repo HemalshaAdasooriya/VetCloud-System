@@ -34,6 +34,7 @@ app.use(express.json());
 
 app.use("/api/users", userRouter);
 app.use("/api/map", mapRouter);
+app.use("/uploads", express.static("uploads"));
 
 server.listen(5000, () => {
     console.log("Server running on port 5000");
