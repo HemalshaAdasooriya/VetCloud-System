@@ -151,3 +151,21 @@ export const updateVeterinarianPassword = (email, password, callback) => {
 };
 
 //...Navindu
+
+
+//Hemalsha 2026/05/30 ... Profile Picture Upload Functionality
+export const updateUserImage = (id, role, imageUrl, callback) => {
+    let tableName = "";
+    
+    // Check role to determine the correct table
+    if (role === "Farmer/PetOwner" || role === "farmer") {
+        tableName = "pet_owners";
+    } else if (role === "Veterinary Doctor" || role === "doctor") {
+        tableName = "veterinarians";
+    } else {
+        return callback({ message: "Invalid role for image update" }, null);
+    }
+
+    const sql = `UPDATE ${tableName} SET image = ? WHERE id = ?`;
+    db.query(sql, [imageUrl, id], callback);
+};
