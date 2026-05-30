@@ -95,10 +95,30 @@ export default function UserSettings() {
     }
   };
 
-  const handleRemovePhoto = () => {
-    // Revert to a clean svg avatar generator placeholder
-    setProfilePhoto(`https://api.dicebear.com/7.x/initials/svg?seed=${personalInfo.firstName}%20${personalInfo.lastName}&backgroundColor=10b981`);
-    showToast('Profile photo removed.');
+  const handleRemovePhoto = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/remove-photo`, {
+        method: "DELETE", // Using DELETE HTTP method
+        headers: {
+            "Authorization": `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Revert to a clean svg avatar generator placeholder
+        setProfilePhoto(`https://api.dicebear.com/7.x/initials/svg?seed=${personalInfo.firstName}%20${personalInfo.lastName}&backgroundColor=10b981`);
+        showToast('Profile photo removed successfully!');
+      } else {
+        showToast(data.message || 'Failed to remove photo', 'error');
+      }
+    } catch (error) {
+      console.error("Removal error:", error);
+      showToast('Server connection failed', 'error');
+    }
   };
 
   // --- Save Changes Handler ---

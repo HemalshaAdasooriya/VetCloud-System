@@ -18,6 +18,8 @@ import {
     updateUserImage
 } from "../models/User.js";
 //... Navindu
+import fs from "fs";
+import path from "path";
 
 
 //Navindu 2026/05/27 ... Forgot Password Functionality
@@ -181,7 +183,7 @@ export function registerUser(req, res) {
     const data = req.body;
 
     // 1. Basic validation
-    if (!data.email || !data.password || !data.fullName || !data.role) {
+    if (!data.email || !data.password || !data.firstName || !data.lastName || !data.role) {
         return res.status(400).json({
             message: "Missing required fields."
         });
@@ -209,9 +211,14 @@ export function registerUser(req, res) {
                     {
                         email: data.email,
                         password: hashedPassword,
-                        fullName: data.fullName, 
+                        firstName: data.firstName, 
+                        lastName: data.lastName, 
                         contact_No: data.contact_No,
-                        address: data.address,
+                        street: data.street,       
+                        city: data.city,           
+                        state: data.state,         
+                        zip: data.zip,             
+                        country: data.country,
                         numberOfAnimals: data.numberOfAnimals, // Matched to frontend payload exactly
                         provider: 'local'
                     },
@@ -227,7 +234,8 @@ export function registerUser(req, res) {
                     {
                         email: data.email,
                         password: hashedPassword,
-                        fullName: data.fullName,
+                        firstName: data.firstName, 
+                        lastName: data.lastName,
                         contact_No: data.contact_No,
                         license_number: data.license_number,
                         specialization: data.specialization,
@@ -357,6 +365,10 @@ export async function facebookLogin(req, res) {
 
 // --- Helper Function to avoid repeating code for Social Logins ---
 function handleSocialLogin(res, email, name, image, role, provider) {
+    const nameParts = name.split(" ");
+    const splitFirstName = nameParts[0] || "";
+    const splitLastName = nameParts.slice(1).join(" ") || "";
+
     checkEmailExists(email, (err, results) => {
         if (err) return res.status(500).json(err);
 
@@ -365,7 +377,7 @@ function handleSocialLogin(res, email, name, image, role, provider) {
             return res.status(200).json({ message: "Login successful", email, role });
         } else {
             // New user -> Register them instantly
-            const userData = { email, password: null, fullName: name, image, provider };
+            const userData = { email, password: null, firstName: splitFirstName, lastName: splitLastName, image, provider };
             
             if (role === "Farmer/PetOwner") {
                 createPetOwner(userData, (err, result) => {
@@ -382,7 +394,7 @@ function handleSocialLogin(res, email, name, image, role, provider) {
     });
 }
 
-
+//Hemalsha 2026/05/30 ... Profile Picture Upload Functionality
 export const updateProfilePhoto = (req, res) => {
     if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });
@@ -419,3 +431,34 @@ export const updateProfilePhoto = (req, res) => {
         return res.status(401).json({ message: "Unauthorized: Invalid token" });
     }
 };
+
+export const removeProfilePhoto = (req, res) => {
+    // 1. Get and verify the JWT token
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ message: "Unauthorized: No token provided" });
+    }
+
+    const token = authHeader.split(" ")[1];
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const userId = decoded.id;
+        const userRole = decoded.role;
+        const defaultImage = "/default.jpg"; // The factory default image
+
+        // 2. Update the Database back to the default image
+        updateUserImage(userId, userRole, defaultImage, (err, result) => {
+            if (err) return res.status(500).json({ message: "Database error" });
+            
+            res.status(200).json({ 
+                message: "Profile photo removed successfully", 
+                imageUrl: defaultImage 
+            });
+        });
+
+    } catch (error) {
+        return res.status(401).json({ message: "Unauthorized: Invalid token" });
+    }
+};
+//... Hemalsha
