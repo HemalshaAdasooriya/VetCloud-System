@@ -10,7 +10,10 @@ import {
     sendForgotPasswordOTP,
     verifyForgotPasswordOTP,
     resetPassword,
-    updateProfilePhoto
+    updateProfilePhoto,
+    removeProfilePhoto,
+    getUserProfile,
+    updateUserProfile
 } from "../controllers/userController.js";
 
 //... Navindu
@@ -18,6 +21,8 @@ import {
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+
+
 
 
 const userRouter = express.Router();
@@ -52,6 +57,11 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 userRouter.post("/upload-photo", upload.single('profileImage'), updateProfilePhoto);
+userRouter.delete("/remove-photo", removeProfilePhoto);
+userRouter.put("/profile", updateUserProfile);
+userRouter.get("/profile", getUserProfile);
+
+
 
 
 //... Hemalsha

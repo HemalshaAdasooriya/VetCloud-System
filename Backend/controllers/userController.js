@@ -1,12 +1,12 @@
 // controllers/userController.js
 import dotenv from "dotenv";
 dotenv.config();
-import { createPetOwner, createVeterinarian, checkEmailExists, getUserByEmailAndRole } from "../models/user.js";
+import { createPetOwner, createVeterinarian, checkEmailExists, getUserByEmailAndRole, getFullPetOwnerProfile } from "../models/user.js";
 import bcrypt from "bcryptjs";
 import { OAuth2Client } from "google-auth-library";
 import axios from "axios";
 import jwt from "jsonwebtoken";
-//Navindu 2026/05/27 ... Forgot Password Functionality
+//Navindu 2026/05/27 ... Forgot Password FunctionalityupdateUserProfile
 import nodemailer from "nodemailer";
 import otpGenerator from "otp-generator";
 
@@ -15,9 +15,13 @@ import {
     verifyOTP,
     updatePetOwnerPassword,
     updateVeterinarianPassword,
-    updateUserImage
+    updateUserImage,
+    updatePetOwnerProfile,
+    updateVeterinarianProfile
 } from "../models/User.js";
 //... Navindu
+import fs from "fs";
+import path from "path";
 
 
 //Navindu 2026/05/27 ... Forgot Password Functionality
@@ -181,7 +185,7 @@ export function registerUser(req, res) {
     const data = req.body;
 
     // 1. Basic validation
-    if (!data.email || !data.password || !data.fullName || !data.role) {
+    if (!data.email || !data.password || !data.firstName || !data.lastName || !data.role) {
         return res.status(400).json({
             message: "Missing required fields."
         });
@@ -209,9 +213,14 @@ export function registerUser(req, res) {
                     {
                         email: data.email,
                         password: hashedPassword,
-                        fullName: data.fullName, 
+                        firstName: data.firstName, 
+                        lastName: data.lastName, 
                         contact_No: data.contact_No,
-                        address: data.address,
+                        street: data.street,       
+                        city: data.city,           
+                        state: data.state,         
+                        zip: data.zip,             
+                        country: data.country,
                         numberOfAnimals: data.numberOfAnimals, // Matched to frontend payload exactly
                         provider: 'local'
                     },
@@ -227,7 +236,8 @@ export function registerUser(req, res) {
                     {
                         email: data.email,
                         password: hashedPassword,
-                        fullName: data.fullName,
+                        firstName: data.firstName, 
+                        lastName: data.lastName,
                         contact_No: data.contact_No,
                         license_number: data.license_number,
                         specialization: data.specialization,
@@ -357,6 +367,10 @@ export async function facebookLogin(req, res) {
 
 // --- Helper Function to avoid repeating code for Social Logins ---
 function handleSocialLogin(res, email, name, image, role, provider) {
+    const nameParts = name.split(" ");
+    const splitFirstName = nameParts[0] || "";
+    const splitLastName = nameParts.slice(1).join(" ") || "";
+
     checkEmailExists(email, (err, results) => {
         if (err) return res.status(500).json(err);
 
@@ -365,7 +379,7 @@ function handleSocialLogin(res, email, name, image, role, provider) {
             return res.status(200).json({ message: "Login successful", email, role });
         } else {
             // New user -> Register them instantly
-            const userData = { email, password: null, fullName: name, image, provider };
+            const userData = { email, password: null, firstName: splitFirstName, lastName: splitLastName, image, provider };
             
             if (role === "Farmer/PetOwner") {
                 createPetOwner(userData, (err, result) => {
@@ -382,7 +396,7 @@ function handleSocialLogin(res, email, name, image, role, provider) {
     });
 }
 
-
+//Hemalsha 2026/05/30 ... Profile Picture Upload Functionality
 export const updateProfilePhoto = (req, res) => {
     if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });
@@ -417,5 +431,121 @@ export const updateProfilePhoto = (req, res) => {
 
     } catch (error) {
         return res.status(401).json({ message: "Unauthorized: Invalid token" });
+    }
+};
+
+export const removeProfilePhoto = (req, res) => {
+    // 1. Get and verify the JWT token
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ message: "Unauthorized: No token provided" });
+    }
+
+    const token = authHeader.split(" ")[1];
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const userId = decoded.id;
+        const userRole = decoded.role;
+        const defaultImage = "/default.jpg"; // The factory default image
+
+        // 2. Update the Database back to the default image
+        updateUserImage(userId, userRole, defaultImage, (err, result) => {
+            if (err) return res.status(500).json({ message: "Database error" });
+            
+            res.status(200).json({ 
+                message: "Profile photo removed successfully", 
+                imageUrl: defaultImage 
+            });
+        });
+
+    } catch (error) {
+        return res.status(401).json({ message: "Unauthorized: Invalid token" });
+    }
+};
+//... Hemalsha
+
+export const updateUserProfile = (req, res) => {
+    // 1. Verify the user
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const token = authHeader.split(" ")[1];
+
+    try {
+        // 2. Decode token to get ID and Role
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const userId = decoded.id;
+        const userRole = decoded.role;
+        const profileData = req.body; // The payload we sent from React
+
+        // 3. Route to the correct database update function
+        if (userRole === "Farmer/PetOwner" || userRole === "farmer") {
+            
+            updatePetOwnerProfile(userId, profileData, (err, result) => {
+                if (err) return res.status(500).json({ message: "Database error during update" });
+                return res.status(200).json({ message: "Profile updated successfully" });
+            });
+
+        } else if (userRole === "Veterinary Doctor" || userRole === "doctor") {
+            
+            updateVeterinarianProfile(userId, profileData, (err, result) => {
+                if (err) return res.status(500).json({ message: "Database error during update" });
+                return res.status(200).json({ message: "Profile updated successfully" });
+            });
+
+        } else {
+            return res.status(400).json({ message: "Invalid user role" });
+        }
+
+    } catch (error) {
+        return res.status(401).json({ message: "Invalid token" });
+    }
+};
+
+// --- Fetch User Profile Data ---
+export const getUserProfile = (req, res) => {
+    // 1. Get the token from the request headers
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ message: "Unauthorized: No token provided" });
+    }
+
+    const token = authHeader.split(" ")[1];
+
+    try {
+        // 2. Decrypt the token to find out who this user is
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const userId = decoded.id;
+        const userRole = decoded.role;
+
+        // 3. Route to the correct database fetch based on their role
+        if (userRole === "Farmer/PetOwner" || userRole === "farmer") {
+            
+            getFullPetOwnerProfile(userId, (err, profileData) => {
+                if (err) {
+                    console.error("Database Error:", err);
+                    return res.status(500).json({ message: "Error fetching profile" });
+                }
+                if (!profileData) {
+                    return res.status(404).json({ message: "Profile not found in database" });
+                }
+                
+                // Success! Send the data back to React
+                return res.status(200).json(profileData);
+            });
+
+        } else if (userRole === "Veterinary Doctor" || userRole === "vet") {
+            // Placeholder for when you build the Doctor's fetch function
+            return res.status(501).json({ message: "Doctor profile fetching coming soon" });
+        } else {
+            return res.status(400).json({ message: "Invalid user role" });
+        }
+
+    } catch (error) {
+        console.error("Token Error:", error);
+        return res.status(401).json({ message: "Unauthorized: Invalid or expired token" });
     }
 };
