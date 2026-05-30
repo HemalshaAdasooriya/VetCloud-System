@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { useEffect } from 'react';
 
 export default function UserSettings() {
     const [activeTab, setActiveTab] = useState('profile');
@@ -7,23 +8,75 @@ export default function UserSettings() {
     // --- Profile State ---
   const [profilePhoto, setProfilePhoto] = useState();
   const [personalInfo, setPersonalInfo] = useState({
-    firstName: 'John',
-    lastName: 'Farmer',
-    phone: '+1 (555) 123-4567',
+    firstName: '',
+    lastName: '',
+    phone: '',
     userType: 'Livestock Owner',
   });
   const [farmInfo, setFarmInfo] = useState({
-    farmName: 'Green Valley Farm',
-    farmSize: '150 acres',
-    bio: 'Tell us about your farm or business...',
+    farmName: '',
+    farmSize: '',
+    bio: '',
   });
   const [addressInfo, setAddressInfo] = useState({
-    street: '1234 Rural Route 5',
-    city: 'Springfield',
-    state: 'Illinois',
-    zip: '62701',
-    country: 'United States',
+    street: '',
+    city: '',
+    state: '',
+    zip: '',
+    country: '',
   });
+
+  useEffect(() => {
+        const fetchUserData = async () => {
+            try {
+                const token = localStorage.getItem("token"); // Get the user's ID badge
+                if (!token){
+                    console.error("No token found, You are not logged in..");
+                    return;
+                }
+
+                // Ask the backend for this specific user's profile
+                const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/profile`, {
+                    method: "GET",
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log("Data successfully recieved from backend");
+                    // 3. Inject the downloaded data into your React state!
+                    setPersonalInfo({
+                        firstName: data.firstName || '',
+                        lastName: data.lastName || '',
+                        phone: data.contact_No || '',
+                        userType: 'Livestock Owner', // Or fetch this dynamically if you want
+                    });
+
+                    setFarmInfo({
+                        farmName: data.farmName || '',
+                        farmSize: data.farmSize || '',
+                        bio: data.bio || '',
+                    });
+
+                    setAddressInfo({
+                        street: data.street || '',
+                        city: data.city || '',
+                        state: data.state || '',
+                        zip: data.zip || '',
+                        country: data.country || '',
+                    });
+
+                    if (data.image) setProfilePhoto(data.image);
+                }else{
+                    console.error("Backend returned an error:", response.status);
+                }
+            } catch (error) {
+                console.error("Failed to fetch profile data:", error);
+            }
+        };
+
+        fetchUserData();
+    }, []);
 
   // --- Security State ---
   const [passwords, setPasswords] = useState({
@@ -122,13 +175,71 @@ export default function UserSettings() {
   };
 
   // --- Save Changes Handler ---
-  const handleSaveProfile = (e) => {
+//   const handleSaveProfile = (e) => {
+//     e.preventDefault();
+//     if (!personalInfo.firstName.trim() || !personalInfo.lastName.trim()) {
+//       showToast('First Name and Last Name are required!', 'error');
+//       return;
+//     }
+//     showToast('Changes saved successfully!');
+//   };
+
+const handleSaveProfile = async (e) => {
     e.preventDefault();
+    
+    // Basic validation
     if (!personalInfo.firstName.trim() || !personalInfo.lastName.trim()) {
       showToast('First Name and Last Name are required!', 'error');
       return;
     }
-    showToast('Changes saved successfully!');
+
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) return showToast('You must be logged in to save changes', 'error');
+
+      // 1. Gather all the data from the different state objects into one payload
+      const payload = {
+          firstName: personalInfo.firstName,
+          lastName: personalInfo.lastName,
+          phone: personalInfo.phone,
+          farmName: farmInfo.farmName,
+          farmSize: farmInfo.farmSize,
+          bio: farmInfo.bio,
+          street: addressInfo.street,
+          city: addressInfo.city,
+          state: addressInfo.state,
+          zip: addressInfo.zip,
+          country: addressInfo.country
+      };
+
+      // 2. Send the update request to the backend
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/profile`, {
+          method: "PUT", // PUT is the standard HTTP method for updating data
+          headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify(payload)
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+          showToast('Profile updated successfully!');
+          // Optional: Update the local storage user object if you rely on it elsewhere
+          const currentUser = JSON.parse(localStorage.getItem("user"));
+          localStorage.setItem("user", JSON.stringify({
+              ...currentUser, 
+              fullName: `${payload.firstName} ${payload.lastName}`,
+              contact_No: payload.phone
+          }));
+      } else {
+          showToast(data.message || 'Failed to update profile', 'error');
+      }
+    } catch (error) {
+        console.error("Save error:", error);
+        showToast('Server connection failed', 'error');
+    }
   };
 
   const handleCancelProfile = () => {

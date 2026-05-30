@@ -404,3 +404,30 @@ export const updateVeterinarianProfile = (vetId, profileData, callback) => {
         });
     });
 };
+
+// --- Fetch complete user profile by joining the two tables ---
+export const getFullPetOwnerProfile = (ownerId, callback) => {
+    const sql = `
+        SELECT 
+            main.email, main.contact_No, main.numberOfAnimals, main.image,
+            profile.firstName, profile.lastName, profile.farmName, profile.farmSize, 
+            profile.bio, profile.street, profile.city, profile.state, profile.zip, profile.country
+        FROM pet_owners main
+        LEFT JOIN pet_owner_profiles profile ON main.id = profile.owner_id
+        WHERE main.id = ?
+    `;
+
+    db.query(sql, [ownerId], (err, results) => {
+        if (err) {
+            return callback(err, null);
+        }
+        
+        // If the user doesn't exist at all
+        if (results.length === 0) {
+            return callback({ message: "User not found" }, null);
+        }
+        
+        // Return the single combined user object
+        callback(null, results[0]); 
+    });
+};

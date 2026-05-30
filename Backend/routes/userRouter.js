@@ -11,7 +11,9 @@ import {
     verifyForgotPasswordOTP,
     resetPassword,
     updateProfilePhoto,
-    removeProfilePhoto
+    removeProfilePhoto,
+    getUserProfile,
+    updateUserProfile
 } from "../controllers/userController.js";
 
 //... Navindu
@@ -56,6 +58,10 @@ const upload = multer({ storage: storage });
 
 userRouter.post("/upload-photo", upload.single('profileImage'), updateProfilePhoto);
 userRouter.delete("/remove-photo", removeProfilePhoto);
+userRouter.put("/profile", updateUserProfile);
+userRouter.get("/profile", getUserProfile);
+
+
 
 
 //... Hemalsha
