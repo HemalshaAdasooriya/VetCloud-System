@@ -431,3 +431,25 @@ export const getFullPetOwnerProfile = (ownerId, callback) => {
         callback(null, results[0]); 
     });
 };
+
+
+//change password
+// Get user's current hashed password by ID
+export const getUserPasswordById = (id, role, callback) => {
+    let tableName = (role === "Farmer/PetOwner" || role === "farmer") ? "pet_owners" : "veterinarians";
+    const sql = `SELECT password FROM ${tableName} WHERE id = ?`;
+    
+    db.query(sql, [id], (err, results) => {
+        if (err) return callback(err, null);
+        if (results.length === 0) return callback({ message: "User not found" }, null);
+        callback(null, results[0].password); // Return only the password string
+    });
+};
+
+// Update user's password by ID
+export const updateUserPasswordById = (id, role, newPasswordHash, callback) => {
+    let tableName = (role === "Farmer/PetOwner" || role === "farmer") ? "pet_owners" : "veterinarians";
+    const sql = `UPDATE ${tableName} SET password = ? WHERE id = ?`;
+    
+    db.query(sql, [newPasswordHash, id], callback);
+};

@@ -1,6 +1,8 @@
 // controllers/userController.js
 import dotenv from "dotenv";
 dotenv.config();
+import speakeasy from 'speakeasy';
+import qrcode from 'qrcode';
 import { createPetOwner, createVeterinarian, checkEmailExists, getUserByEmailAndRole, getFullPetOwnerProfile } from "../models/user.js";
 import bcrypt from "bcryptjs";
 import { OAuth2Client } from "google-auth-library";
@@ -23,160 +25,6 @@ import {
 import fs from "fs";
 import path from "path";
 
-
-//Navindu 2026/05/27 ... Forgot Password Functionality
-
-const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-    }
-});
-
-
-export function sendForgotPasswordOTP(req, res) {
-    const { email } = req.body;
-
-    if (!email) {
-        return res.status(400).json({
-            message: "Email is required"
-        });
-    }
-
-    checkEmailExists(email, async (err, results) => {
-
-        if (err) {
-            return res.status(500).json(err);
-        }
-
-        if (results.length === 0) {
-            return res.status(404).json({
-                message: "No account found with this email"
-            });
-        }
-
-        const otp = otpGenerator.generate(6, {
-            upperCaseAlphabets: false,
-            lowerCaseAlphabets: false,
-            specialChars: false
-        });
-
-        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-
-        savePasswordResetOTP(email, otp, expiresAt, async (err) => {
-
-            if (err) {
-                return res.status(500).json(err);
-            }
-
-            try {
-                await transporter.sendMail({
-                    from: process.env.EMAIL_USER,
-                    to: email,
-                    subject: "VetCloud Password Reset OTP",
-                    html: `
-                        <h2>Password Reset Request</h2>
-                        <p>Your OTP code is:</p>
-                        <h1>${otp}</h1>
-                        <p>This OTP expires in 10 minutes.</p>
-                    `
-                });
-
-                return res.status(200).json({
-                    message: "OTP sent successfully"
-                });
-
-            } catch (error) {
-                console.error("EMAIL ERROR:", error);
-                return res.status(500).json({
-                    message: "Failed to send email",
-                    error: error.message
-                });
-            }
-        });
-    });
-}
-
-export function verifyForgotPasswordOTP(req, res) {
-
-    const { email, otp } = req.body;
-
-    if (!email || !otp) {
-        return res.status(400).json({
-            message: "Email and OTP required"
-        });
-    }
-
-    verifyOTP(email, otp, (err, results) => {
-
-        if (err) {
-            return res.status(500).json(err);
-        }
-
-        if (results.length === 0) {
-            return res.status(400).json({
-                message: "Invalid or expired OTP"
-            });
-        }
-
-        return res.status(200).json({
-            message: "OTP verified successfully"
-        });
-    });
-}
-
-export async function resetPassword(req, res) {
-
-    const { email, newPassword } = req.body;
-
-    if (!email || !newPassword) {
-        return res.status(400).json({
-            message: "Missing fields"
-        });
-    }
-
-    try {
-
-        const hashedPassword = await bcrypt.hash(newPassword, 11);
-
-        updatePetOwnerPassword(email, hashedPassword, (err, result) => {
-
-            if (err) {
-                return res.status(500).json(err);
-            }
-
-            if (result.affectedRows > 0) {
-                return res.status(200).json({
-                    message: "Password updated successfully"
-                });
-            }
-
-            updateVeterinarianPassword(email, hashedPassword, (err2, result2) => {
-
-                if (err2) {
-                    return res.status(500).json(err2);
-                }
-
-                if (result2.affectedRows > 0) {
-                    return res.status(200).json({
-                        message: "Password updated successfully"
-                    });
-                }
-
-                return res.status(404).json({
-                    message: "User not found"
-                });
-            });
-        });
-
-    } catch (error) {
-        return res.status(500).json({
-            message: "Server error"
-        });
-    }
-}
-//... Navindu
 
 
 const googleClient = new OAuth2Client(process.env.VITE_GOOGLE_CLIENT_ID);
@@ -269,6 +117,69 @@ export function registerUser(req, res) {
 }
 
 // 4. STANDARD LOGIN FUNCTION
+// export async function loginUser(req, res) {
+//     const { email, password, role } = req.body;
+
+//     // Basic validation
+//     if (!email || !password || !role) {
+//         return res.status(400).json({ message: "Email, password, and role are required." });
+//     }
+
+//     // Fetch user from the appropriate table
+//     getUserByEmailAndRole(email, role, async (err, results) => {
+//         if (err) {
+//             return res.status(500).json({ message: "Database error during login." });
+//         }
+
+//         // Check if user exists
+//         if (results.length === 0) {
+//             return res.status(404).json({ message: "User not found. Check your email or role." });
+//         }
+
+//         const user = results[0];
+
+//         try {
+//             // Verify the hashed password
+//             // Note: If registering via Google/Facebook, password might be NULL
+//             if (!user.password) {
+//                 return res.status(401).json({ message: "Please log in using Google or Facebook." });
+//             }
+
+//             const isPasswordValid = await bcrypt.compare(password, user.password);
+
+//             if (!isPasswordValid) {
+//                 return res.status(401).json({ message: "Invalid credentials." });
+//             }
+
+            
+//             const token = jwt.sign(
+//                 { 
+//                     id: user.id, 
+//                     email: user.email, 
+//                     role: role 
+//                 }, 
+//                 process.env.JWT_SECRET, 
+//                 // { expiresIn: "24h" }
+//             );
+
+//             const { password: userPassword, ...safeUserData } = user;
+
+//             safeUserData.role = req.body.role;
+
+//             return res.status(200).json({
+//                 message: "Login successful",
+//                 token: token,
+//                 user: safeUserData
+//             });
+
+//         } catch (error) {
+//             console.error("Error during password verification:", error);
+//             return res.status(500).json({ message: "Server error during password verification." });
+//         }
+//     });
+// }
+
+// 4. STANDARD LOGIN FUNCTION (UPDATED WITH 2FA)
 export async function loginUser(req, res) {
     const { email, password, role } = req.body;
 
@@ -292,7 +203,6 @@ export async function loginUser(req, res) {
 
         try {
             // Verify the hashed password
-            // Note: If registering via Google/Facebook, password might be NULL
             if (!user.password) {
                 return res.status(401).json({ message: "Please log in using Google or Facebook." });
             }
@@ -303,19 +213,28 @@ export async function loginUser(req, res) {
                 return res.status(401).json({ message: "Invalid credentials." });
             }
 
-            
+            // --- 2FA SECURITY CHECKPOINT ---
+            if (user.is_two_factor_enabled) {
+                // If 2FA is ON, stop here! Send a signal to React to show the 6-digit input box.
+                return res.status(200).json({
+                    message: "2FA Required",
+                    requires2FA: true,
+                    userId: user.id,
+                    role: role
+                });
+            }
+
+            // If 2FA is OFF, proceed with normal login and issue the Token
             const token = jwt.sign(
                 { 
                     id: user.id, 
                     email: user.email, 
                     role: role 
                 }, 
-                process.env.JWT_SECRET, 
-                // { expiresIn: "24h" }
+                process.env.JWT_SECRET
             );
 
             const { password: userPassword, ...safeUserData } = user;
-
             safeUserData.role = req.body.role;
 
             return res.status(200).json({
@@ -395,6 +314,162 @@ function handleSocialLogin(res, email, name, image, role, provider) {
         }
     });
 }
+
+//Navindu 2026/05/27 ... Forgot Password Functionality
+
+const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    }
+});
+
+//sending OTP
+export function sendForgotPasswordOTP(req, res) {
+    const { email } = req.body;
+
+    if (!email) {
+        return res.status(400).json({
+            message: "Email is required"
+        });
+    }
+
+    checkEmailExists(email, async (err, results) => {
+
+        if (err) {
+            return res.status(500).json(err);
+        }
+
+        if (results.length === 0) {
+            return res.status(404).json({
+                message: "No account found with this email"
+            });
+        }
+
+        const otp = otpGenerator.generate(6, {
+            upperCaseAlphabets: false,
+            lowerCaseAlphabets: false,
+            specialChars: false
+        });
+
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+        savePasswordResetOTP(email, otp, expiresAt, async (err) => {
+
+            if (err) {
+                return res.status(500).json(err);
+            }
+
+            try {
+                await transporter.sendMail({
+                    from: process.env.EMAIL_USER,
+                    to: email,
+                    subject: "VetCloud Password Reset OTP",
+                    html: `
+                        <h2>Password Reset Request</h2>
+                        <p>Your OTP code is:</p>
+                        <h1>${otp}</h1>
+                        <p>This OTP expires in 10 minutes.</p>
+                    `
+                });
+
+                return res.status(200).json({
+                    message: "OTP sent successfully"
+                });
+
+            } catch (error) {
+                console.error("EMAIL ERROR:", error);
+                return res.status(500).json({
+                    message: "Failed to send email",
+                    error: error.message
+                });
+            }
+        });
+    });
+}
+
+//verify Forgot PasswordOTP
+export function verifyForgotPasswordOTP(req, res) {
+
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+        return res.status(400).json({
+            message: "Email and OTP required"
+        });
+    }
+
+    verifyOTP(email, otp, (err, results) => {
+
+        if (err) {
+            return res.status(500).json(err);
+        }
+
+        if (results.length === 0) {
+            return res.status(400).json({
+                message: "Invalid or expired OTP"
+            });
+        }
+
+        return res.status(200).json({
+            message: "OTP verified successfully"
+        });
+    });
+}
+
+//RESET PASSWORD
+export async function resetPassword(req, res) {
+
+    const { email, newPassword } = req.body;
+
+    if (!email || !newPassword) {
+        return res.status(400).json({
+            message: "Missing fields"
+        });
+    }
+
+    try {
+
+        const hashedPassword = await bcrypt.hash(newPassword, 11);
+
+        updatePetOwnerPassword(email, hashedPassword, (err, result) => {
+
+            if (err) {
+                return res.status(500).json(err);
+            }
+
+            if (result.affectedRows > 0) {
+                return res.status(200).json({
+                    message: "Password updated successfully"
+                });
+            }
+
+            updateVeterinarianPassword(email, hashedPassword, (err2, result2) => {
+
+                if (err2) {
+                    return res.status(500).json(err2);
+                }
+
+                if (result2.affectedRows > 0) {
+                    return res.status(200).json({
+                        message: "Password updated successfully"
+                    });
+                }
+
+                return res.status(404).json({
+                    message: "User not found"
+                });
+            });
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            message: "Server error"
+        });
+    }
+}
+//... Navindu
 
 //Hemalsha 2026/05/30 ... Profile Picture Upload Functionality
 export const updateProfilePhoto = (req, res) => {
@@ -548,4 +623,137 @@ export const getUserProfile = (req, res) => {
         console.error("Token Error:", error);
         return res.status(401).json({ message: "Unauthorized: Invalid or expired token" });
     }
+};
+
+//change password
+import { getUserPasswordById, updateUserPasswordById } from "../models/User.js";
+
+export const changePassword = (req, res) => {
+    // 1. Verify the User Token
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const token = authHeader.split(" ")[1];
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const userId = decoded.id;
+        const userRole = decoded.role;
+        const { currentPassword, newPassword } = req.body;
+
+        if (!currentPassword || !newPassword) {
+            return res.status(400).json({ message: "Please provide both current and new passwords" });
+        }
+
+        // 2. Fetch the current encrypted password from the DB
+        getUserPasswordById(userId, userRole, async (err, dbPasswordHash) => {
+            if (err) return res.status(500).json({ message: "Database error" });
+
+            // 3. Compare the typed current password with the database hash
+            const isMatch = await bcrypt.compare(currentPassword, dbPasswordHash);
+            if (!isMatch) {
+                return res.status(400).json({ message: "Incorrect current password" });
+            }
+
+            // 4. Hash the NEW password
+            const salt = await bcrypt.genSalt(10);
+            const newHashedPassword = await bcrypt.hash(newPassword, salt);
+
+            // 5. Save the new hashed password to the database
+            updateUserPasswordById(userId, userRole, newHashedPassword, (updateErr, result) => {
+                if (updateErr) return res.status(500).json({ message: "Failed to update password" });
+                return res.status(200).json({ message: "Password changed successfully" });
+            });
+        });
+
+    } catch (error) {
+        return res.status(401).json({ message: "Invalid token" });
+    }
+};
+
+
+// Generate the Secret and QR Code
+export const generate2FA = async (req, res) => {
+    const secret = speakeasy.generateSecret({ name: 'VetCloud' });
+    
+    qrcode.toDataURL(secret.otpauth_url, (err, data_url) => {
+        if (err) return res.status(500).json({ message: "Error generating QR code" });
+        // Send the QR code and the raw secret back to React temporarily
+        res.status(200).json({ qrCodeUrl: data_url, secret: secret.base32 });
+    });
+};
+
+// Verify and Enable 2FA
+export const verifyAndEnable2FA = (req, res) => {
+    // Get userId and userRole from your JWT token just like your other routes
+    const { userId, userRole, token, secret } = req.body; 
+
+    // Check if the 6-digit token matches the math of the secret
+    const verified = speakeasy.totp.verify({
+        secret: secret,
+        encoding: 'base32',
+        token: token
+    });
+
+    if (verified) {
+        // Run a database UPDATE query here to save the 'secret' to the user's row
+        // and set 'is_two_factor_enabled' to TRUE.
+        res.status(200).json({ message: "2FA Enabled Successfully!" });
+    } else {
+        res.status(400).json({ message: "Invalid 6-digit code" });
+    }
+};
+
+// --- Verify 2FA Code During Login ---
+export const verifyLogin2FA = (req, res) => {
+    const { userId, role, code } = req.body;
+
+    if (!userId || !role || !code) {
+        return res.status(400).json({ message: "Missing required information" });
+    }
+
+    // 1. Find the correct table
+    let tableName = (role === "Farmer/PetOwner" || role === "farmer") ? "pet_owners" : "veterinarians";
+    
+    // 2. Get the user's secret from the database
+    const sql = `SELECT * FROM ${tableName} WHERE id = ?`;
+    
+    // Note: ensure you import 'db' at the top of your controller if it isn't there, 
+    // or place this query inside your User.js model and call it here!
+    db.query(sql, [userId], (err, results) => {
+        if (err || results.length === 0) {
+            return res.status(500).json({ message: "Database error or user not found" });
+        }
+
+        const user = results[0];
+
+        // 3. Verify the 6-digit code against their saved secret
+        const verified = speakeasy.totp.verify({
+            secret: user.two_factor_secret,
+            encoding: 'base32',
+            token: code
+        });
+
+        if (verified) {
+            // 4. Success! Issue the real JWT Token
+            const token = jwt.sign(
+                { id: user.id, email: user.email, role: role }, 
+                process.env.JWT_SECRET
+            );
+
+            // Remove sensitive data before sending to React
+            const { password, two_factor_secret, ...safeUserData } = user;
+            safeUserData.role = role;
+
+            return res.status(200).json({ 
+                message: "Login successful",
+                token: token, 
+                user: safeUserData 
+            });
+        } else {
+            return res.status(400).json({ message: "Invalid 6-digit code" });
+        }
+    });
 };

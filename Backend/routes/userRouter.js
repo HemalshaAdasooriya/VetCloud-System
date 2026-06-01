@@ -13,7 +13,11 @@ import {
     updateProfilePhoto,
     removeProfilePhoto,
     getUserProfile,
-    updateUserProfile
+    updateUserProfile,
+    changePassword,
+    generate2FA,
+    verifyAndEnable2FA,
+    verifyLogin2FA
 } from "../controllers/userController.js";
 
 //... Navindu
@@ -60,7 +64,10 @@ userRouter.post("/upload-photo", upload.single('profileImage'), updateProfilePho
 userRouter.delete("/remove-photo", removeProfilePhoto);
 userRouter.put("/profile", updateUserProfile);
 userRouter.get("/profile", getUserProfile);
-
+userRouter.put("/change-password", changePassword);
+userRouter.get("/generate-2fa", generate2FA);
+userRouter.post("/verify-2fa", verifyAndEnable2FA);
+userRouter.post("/verify-login-2fa", verifyLogin2FA);
 
 
 

@@ -2,6 +2,9 @@ import React, { useState, useRef } from 'react';
 import { useEffect } from 'react';
 
 export default function UserSettings() {
+    const [qrCode, setQrCode] = useState('');
+    const [secret, setSecret] = useState('');
+    // const [authCode, setAuthCode] = useState('');
     const [activeTab, setActiveTab] = useState('profile');
     const fileInputRef = useRef(null);
 
@@ -11,7 +14,7 @@ export default function UserSettings() {
     firstName: '',
     lastName: '',
     phone: '',
-    userType: 'Livestock Owner',
+    userType: 'Farmer/PetOwner',
   });
   const [farmInfo, setFarmInfo] = useState({
     farmName: '',
@@ -49,7 +52,7 @@ export default function UserSettings() {
                         firstName: data.firstName || '',
                         lastName: data.lastName || '',
                         phone: data.contact_No || '',
-                        userType: 'Livestock Owner', // Or fetch this dynamically if you want
+                        userType: 'Farmer/PetOwner', // Or fetch this dynamically if you want
                     });
 
                     setFarmInfo({
@@ -78,11 +81,13 @@ export default function UserSettings() {
         fetchUserData();
     }, []);
 
-  // --- Security State ---
-  const [passwords, setPasswords] = useState({
-    current: '',
-    new: '',
-    confirm: '',
+ 
+ 
+ // --- Security State ---
+const [passwordData, setPasswordData] = useState({
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: ''
   });
   const [is2FAEnabled, setIs2FAEnabled] = useState(false);
   const [show2FAModal, setShow2FAModal] = useState(false);
@@ -175,15 +180,6 @@ export default function UserSettings() {
   };
 
   // --- Save Changes Handler ---
-//   const handleSaveProfile = (e) => {
-//     e.preventDefault();
-//     if (!personalInfo.firstName.trim() || !personalInfo.lastName.trim()) {
-//       showToast('First Name and Last Name are required!', 'error');
-//       return;
-//     }
-//     showToast('Changes saved successfully!');
-//   };
-
 const handleSaveProfile = async (e) => {
     e.preventDefault();
     
@@ -244,22 +240,22 @@ const handleSaveProfile = async (e) => {
 
   const handleCancelProfile = () => {
     setPersonalInfo({
-      firstName: 'John',
-      lastName: 'Farmer',
-      phone: '+1 (555) 123-4567',
-      userType: 'Livestock Owner',
+      firstName: '',
+      lastName: '',
+      phone: '',
+      userType: 'Farmer/PetOwner',
     });
     setFarmInfo({
-      farmName: 'Green Valley Farm',
-      farmSize: '150 acres',
-      bio: 'Tell us about your farm or business...',
+      farmName: '',
+      farmSize: '',
+      bio: '',
     });
     setAddressInfo({
-      street: '1234 Rural Route 5',
-      city: 'Springfield',
-      state: 'Illinois',
-      zip: '62701',
-      country: 'United States',
+      street: '',
+      city: '',
+      state: '',
+      zip: '',
+      country: '',
     });
     
     showToast('Changes reverted.', 'info');
@@ -277,49 +273,149 @@ const handleSaveProfile = async (e) => {
     };
   };
 
-  const passwordStrength = validatePasswordStrength(passwords.new);
+  const passwordStrength = validatePasswordStrength(passwordData.newPassword);
 
-  const handleUpdatePassword = (e) => {
-    e.preventDefault();
-    if (!passwords.current) {
-      showToast('Please enter your current password.', 'error');
-      return;
-    }
-    if (!passwordStrength.isValid) {
-      showToast('New password does not meet security requirements.', 'error');
-      return;
-    }
-    if (passwords.new !== passwords.confirm) {
-      showToast('Passwords do not match.', 'error');
-      return;
-    }
-    setPasswords({ current: '', new: '', confirm: '' });
-    showToast('Password updated successfully!');
-  };
+//   const handleUpdatePassword = async (e) => {
+//     e.preventDefault();
+//     if (!passwords.current) {
+//       showToast('Please enter your current password.', 'error');
+//       return;
+//     }
+//     if (!passwordStrength.isValid) {
+//       showToast('New password does not meet security requirements.', 'error');
+//       return;
+//     }
+//     if (passwords.new !== passwords.confirm) {
+//       showToast('Passwords do not match.', 'error');
+//       return;
+//     }
+//     try {
+//       const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/change-password`, {
+//         method: "PUT",
+//         headers: {
+//           "Content-Type": "application/json",
+//           "Authorization": `Bearer ${token}`
+//         },
+//         body: JSON.stringify({
+//           currentPassword: passwords.current,
+//           newPassword: passwords.new
+//         })
+//       });
+
+//       const data = await response.json();
+
+//       if (response.ok) {
+//         setPasswords({ current: '', new: '', confirm: '' });
+//         showToast('Password updated successfully!');
+//       } else {
+//         showToast(data.message || 'Failed to update password', 'error');
+//       }
+//     } catch (error) {
+//       console.error("Password update error:", error);
+//       showToast('Server connection failed', 'error');
+//     }
+//   };
 
   // --- 2FA Handlers ---
-  const handleEnable2FA = () => {
+  
+  const handleChangePassword = async (e) => {
+      e.preventDefault();
+      
+      if (passwordData.newPassword !== passwordData.confirmPassword) {
+          return showToast('New passwords do not match!', 'error');
+      }
+
+      if (passwordData.newPassword.length < 6) {
+          return showToast('Password must be at least 6 characters long', 'error');
+      }
+
+      try {
+          const token = localStorage.getItem("token");
+          const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/change-password`, {
+              method: "PUT",
+              headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                  currentPassword: passwordData.currentPassword,
+                  newPassword: passwordData.newPassword
+              })
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+              showToast('Password updated successfully!');
+              // Clear the input fields after success
+              setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+          } else {
+              showToast(data.message || 'Failed to change password', 'error');
+          }
+      } catch {
+          showToast('Server connection failed', 'error');
+      }
+  };
+  
+
+// --- REAL 2FA Handlers ---
+  const handleEnable2FA = async () => {
     if (is2FAEnabled) {
+      // In a full app, you'd send a DELETE request here to turn it off in the DB
       setIs2FAEnabled(false);
       showToast('Two-Factor Authentication disabled.', 'info');
     } else {
-      setShow2FAModal(true);
+      setShow2FAModal(true); // Open the popup
+      
+      // Fetch the REAL QR code from your backend
+      try {
+        const token = localStorage.getItem("token");
+        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/generate-2fa`, {
+            headers: { "Authorization": `Bearer ${token}` }
+        });
+        const data = await response.json();
+        setQrCode(data.qrCodeUrl); // The base64 image string
+        setSecret(data.secret);    // The hidden math key
+      } catch  {
+        showToast('Failed to load QR code', 'error');
+      }
     }
   };
 
-  const verify2FACode = (e) => {
+  const verify2FACode = async (e) => {
     e.preventDefault();
-    if (verificationCode.trim().length === 6) {
-      setIs2FAEnabled(true);
-      setShow2FAModal(false);
-      setVerificationCode('');
-      showToast('Two-Factor Authentication enabled successfully!');
-    } else {
-      showToast('Please enter a valid 6-digit code.', 'error');
+    if (verificationCode.trim().length !== 6) {
+      return showToast('Please enter a valid 6-digit code.', 'error');
+    }
+
+    try {
+        const token = localStorage.getItem("token");
+        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/verify-2fa`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                "Authorization": `Bearer ${token}` 
+            },
+            // Send the 6-digits they typed AND the secret math key
+            body: JSON.stringify({ token: verificationCode, secret: secret }) 
+        });
+
+        if (response.ok) {
+            setIs2FAEnabled(true);
+            setShow2FAModal(false); // Close modal
+            setVerificationCode(''); // Clear input
+            showToast('Two-Factor Authentication enabled successfully!');
+        } else {
+            const data = await response.json();
+            showToast(data.message || 'Invalid 6-digit code. Try again.', 'error');
+        }
+    } catch {
+        showToast('Server connection failed', 'error');
     }
   };
 
-  // --- Session Handlers ---
+
+  
   const handleRevokeSession = (id) => {
     setActiveSessions(activeSessions.filter(s => s.id !== id));
     showToast('Session revoked successfully.');
@@ -359,7 +455,7 @@ const handleSaveProfile = async (e) => {
                     onClick={() => setActiveTab('security')}
                     className={`flex items-center gap-2 pb-3 text-sm font-semibold border-b-2 transition-all cursor-pointer ${
                     activeTab === 'security'
-                        ? 'border-emerald-500 text-emerald-600'
+                        ? 'border-red-500 text-red-500'
                         : 'border-transparent text-slate-400 hover:text-slate-600'
                     }`}
                 >
@@ -476,7 +572,7 @@ const handleSaveProfile = async (e) => {
                         className="w-full px-4 py-3 rounded-xl border border-slate-100 bg-slate-50/50 outline-hidden text-sm font-semibold text-slate-500 cursor-not-allowed"
                         disabled
                         >
-                        <option value="Livestock Owner">Livestock Owner</option>
+                        <option value="Farmer/PetOwner">Farmer/PetOwner</option>
                         <option value="Veterinarian">Veterinarian</option>
                         <option value="Clinic Manager">Clinic Manager</option>
                         </select>
@@ -623,15 +719,15 @@ const handleSaveProfile = async (e) => {
                     <h3 className="text-base font-bold text-slate-800 font-display">Change Password</h3>
                     </div>
 
-                    <form onSubmit={handleUpdatePassword} className="space-y-4 max-w-xl">
+                    <form onSubmit={handleChangePassword} className="space-y-4 max-w-xl">
                     {/* Current Password */}
                     <div>
                         <label className="block text-xs font-bold text-slate-500 mb-2">Current Password</label>
                         <input
                         type="password"
                         placeholder="Enter current password"
-                        value={passwords.current}
-                        onChange={(e) => setPasswords({ ...passwords, current: e.target.value })}
+                        value={passwordData.currentPassword}
+                        onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
                         className="w-full px-4 py-3 rounded-xl border border-slate-100 bg-slate-50/30 focus:bg-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 outline-hidden transition-all text-sm font-medium text-slate-700 placeholder:text-slate-300"
                         />
                     </div>
@@ -642,10 +738,10 @@ const handleSaveProfile = async (e) => {
                         <input
                         type="password"
                         placeholder="Enter new password"
-                        value={passwords.new}
-                        onChange={(e) => setPasswords({ ...passwords, new: e.target.value })}
+                        value={passwordData.newPassword}
+                        onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
                         className={`w-full px-4 py-3 rounded-xl border bg-slate-50/30 focus:bg-white outline-hidden transition-all text-sm font-medium text-slate-700 placeholder:text-slate-300 ${
-                            passwords.new
+                            passwordData.newPassword
                             ? passwordStrength.isValid
                                 ? 'border-emerald-200 focus:border-emerald-500 focus:ring-emerald-500/20'
                                 : 'border-amber-200 focus:border-amber-500 focus:ring-amber-500/20'
@@ -653,7 +749,7 @@ const handleSaveProfile = async (e) => {
                         }`}
                         />
                         {/* Password criteria checklist */}
-                        {passwords.new && (
+                        {passwordData.newPassword && (
                         <div className="mt-3 p-3 bg-slate-50 rounded-xl space-y-1.5 border border-slate-100 animate-fade-in-up">
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Password Strength Checklist:</p>
                             <div className="grid grid-cols-2 gap-x-4 gap-y-1">
@@ -684,7 +780,7 @@ const handleSaveProfile = async (e) => {
                             </div>
                         </div>
                         )}
-                        {!passwords.new && (
+                        {!passwordData.newPassword && (
                         <p className="text-xs text-slate-400 mt-2 font-medium">
                             Password must be at least 8 characters with uppercase, lowercase, and numbers
                         </p>
@@ -697,17 +793,17 @@ const handleSaveProfile = async (e) => {
                         <input
                         type="password"
                         placeholder="Confirm new password"
-                        value={passwords.confirm}
-                        onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })}
+                        value={passwordData.confirmPassword}
+                        onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
                         className={`w-full px-4 py-3 rounded-xl border bg-slate-50/30 focus:bg-white outline-hidden transition-all text-sm font-medium text-slate-700 placeholder:text-slate-300 ${
-                            passwords.confirm
-                            ? passwords.new === passwords.confirm
+                            passwordData.confirmPassword
+                            ? passwordData.newPassword === passwordData.confirmPassword
                                 ? 'border-emerald-200 focus:border-emerald-500 focus:ring-emerald-500/20'
                                 : 'border-red-200 focus:border-red-500 focus:ring-red-500/20'
                             : 'border-slate-100 focus:border-emerald-500 focus:ring-emerald-500/20'
                         }`}
                         />
-                        {passwords.confirm && passwords.new !== passwords.confirm && (
+                        {passwordData.confirmPassword && passwordData.newPassword !== passwordData.confirmPassword && (
                         <p className="text-xs text-red-500 mt-1.5 font-medium flex items-center gap-1.5">
                             <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span> Passwords do not match
                         </p>
@@ -718,9 +814,9 @@ const handleSaveProfile = async (e) => {
                     <div className="pt-2">
                         <button
                         type="submit"
-                        disabled={!passwordStrength.isValid || passwords.new !== passwords.confirm}
+                        disabled={!passwordStrength.isValid || passwordData.newPassword !== passwordData.confirmPassword}
                         className={`px-6 py-2.5 rounded-xl text-sm font-bold text-white shadow-md transition-all cursor-pointer ${
-                            passwordStrength.isValid && passwords.new === passwords.confirm
+                            passwordStrength.isValid && passwordData.newPassword === passwordData.confirmPassword
                             ? 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/10 hover:shadow-emerald-500/20'
                             : 'bg-slate-300 shadow-none cursor-not-allowed'
                         }`}
@@ -882,155 +978,58 @@ const handleSaveProfile = async (e) => {
             </div>
         )}
 
-        {/* Two Factor setup Interactive Modal mockup */}
+        {/* Two-Factor Authentication Modal */}
         {show2FAModal && (
-            <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl max-w-md w-full border border-slate-100 shadow-2xl p-6 relative animate-toast-slide-in">
-                {/* Close Button */}
-                <button
-                onClick={() => setShow2FAModal(false)}
-                className="absolute top-4 right-4 w-8 h-8 rounded-lg hover:bg-slate-50 flex items-center justify-center text-slate-400 hover:text-slate-600 cursor-pointer"
-                >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-                </button>
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-fade-in-up">
+                <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-100">
+                    <div className="p-6">
+                        <h3 className="text-lg font-bold text-slate-800 mb-2">Setup Two-Factor Auth</h3>
+                        <p className="text-sm text-slate-500 mb-6">Scan this QR code with your Google Authenticator app, then enter the 6-digit code below.</p>
 
-                <div className="text-center">
-                {/* Shield Icon */}
-                <div className="w-12 h-12 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-blue-100">
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                </div>
+                        {/* The QR Code Section */}
+                        <div className="w-40 h-40 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl mx-auto flex items-center justify-center mb-6 p-2 overflow-hidden">
+                            {qrCode ? (
+                                <img src={qrCode} alt="Scan this with Google Authenticator" className="w-full h-full object-contain" />
+                            ) : (
+                                <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                            )}
+                        </div>
 
-                <h3 className="font-display font-extrabold text-lg text-slate-800 mb-1">Set Up 2FA</h3>
-                <p className="text-xs text-slate-400 font-medium px-4 mb-6">
-                    Scan the QR code below using your authentication app (Google Authenticator, Authy, etc.) then enter the 6-digit code.
-                </p>
-
-                {/* QR Mockup */}
-                <div className="w-32 h-32 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl mx-auto flex items-center justify-center mb-6 p-2">
-                    {/* QR code graphic mockup using CSS */}
-                    <div className="w-full h-full bg-slate-800 rounded-lg flex flex-wrap p-3 opacity-90">
-                    <div className="w-1/3 h-1/3 border-4 border-white bg-slate-800 flex items-center justify-center"><div className="w-2 h-2 bg-white"></div></div>
-                    <div className="w-1/3 h-1/3 bg-slate-800"></div>
-                    <div className="w-1/3 h-1/3 border-4 border-white bg-slate-800 flex items-center justify-center"><div className="w-2 h-2 bg-white"></div></div>
-                    <div className="w-1/3 h-1/3 bg-slate-800"></div>
-                    <div className="w-1/3 h-1/3 bg-white"></div>
-                    <div className="w-1/3 h-1/3 bg-slate-800"></div>
-                    <div className="w-1/3 h-1/3 border-4 border-white bg-slate-800 flex items-center justify-center"><div className="w-2 h-2 bg-white"></div></div>
-                    <div className="w-1/3 h-1/3 bg-slate-800"></div>
-                    <div className="w-1/3 h-1/3 bg-white"></div>
+                        {/* The Input Section */}
+                        <form onSubmit={verify2FACode} className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 mb-2 text-center">Enter 6-Digit Code</label>
+                                <input
+                                    type="text"
+                                    maxLength="6"
+                                    placeholder="000000"
+                                    value={verificationCode}
+                                    onChange={(e) => setVerificationCode(e.target.value)}
+                                    className="w-full px-4 py-3 text-center tracking-[0.5em] text-xl rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all font-bold text-slate-700"
+                                    required
+                                />
+                            </div>
+                            <div className="flex gap-3 pt-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setShow2FAModal(false)}
+                                    className="flex-1 px-4 py-3 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 bg-white hover:bg-slate-50 transition-colors cursor-pointer"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="flex-1 px-4 py-3 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20 transition-all cursor-pointer"
+                                >
+                                    Verify & Enable
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
-
-                {/* Code Entry Form */}
-                <form onSubmit={verify2FACode} className="space-y-4">
-                    <div>
-                    <input
-                        type="text"
-                        maxLength="6"
-                        placeholder="Enter 6-digit code (e.g. 123456)"
-                        value={verificationCode}
-                        onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ''))}
-                        className="w-full px-4 py-3 rounded-xl border border-slate-100 bg-slate-50/50 focus:bg-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 text-center tracking-[0.25em] outline-hidden text-sm font-bold text-slate-800 placeholder:text-slate-300 placeholder:tracking-normal"
-                    />
-                    </div>
-                    <div className="flex gap-3 pt-2">
-                    <button
-                        type="button"
-                        onClick={() => setShow2FAModal(false)}
-                        className="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 bg-white hover:bg-slate-50 transition-colors cursor-pointer"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        type="submit"
-                        className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-600 text-white shadow-md shadow-emerald-500/10 transition-colors cursor-pointer"
-                    >
-                        Verify Code
-                    </button>
-                    </div>
-                </form>
-                </div>
-            </div>
-            </div>
-        )}{/* Two Factor setup Interactive Modal mockup */}
-        {show2FAModal && (
-            <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl max-w-md w-full border border-slate-100 shadow-2xl p-6 relative animate-toast-slide-in">
-                {/* Close Button */}
-                <button
-                onClick={() => setShow2FAModal(false)}
-                className="absolute top-4 right-4 w-8 h-8 rounded-lg hover:bg-slate-50 flex items-center justify-center text-slate-400 hover:text-slate-600 cursor-pointer"
-                >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-                </button>
-
-                <div className="text-center">
-                {/* Shield Icon */}
-                <div className="w-12 h-12 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-blue-100">
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                </div>
-
-                <h3 className="font-display font-extrabold text-lg text-slate-800 mb-1">Set Up 2FA</h3>
-                <p className="text-xs text-slate-400 font-medium px-4 mb-6">
-                    Scan the QR code below using your authentication app (Google Authenticator, Authy, etc.) then enter the 6-digit code.
-                </p>
-
-                {/* QR Mockup */}
-                <div className="w-32 h-32 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl mx-auto flex items-center justify-center mb-6 p-2">
-                    {/* QR code graphic mockup using CSS */}
-                    <div className="w-full h-full bg-slate-800 rounded-lg flex flex-wrap p-3 opacity-90">
-                    <div className="w-1/3 h-1/3 border-4 border-white bg-slate-800 flex items-center justify-center"><div className="w-2 h-2 bg-white"></div></div>
-                    <div className="w-1/3 h-1/3 bg-slate-800"></div>
-                    <div className="w-1/3 h-1/3 border-4 border-white bg-slate-800 flex items-center justify-center"><div className="w-2 h-2 bg-white"></div></div>
-                    <div className="w-1/3 h-1/3 bg-slate-800"></div>
-                    <div className="w-1/3 h-1/3 bg-white"></div>
-                    <div className="w-1/3 h-1/3 bg-slate-800"></div>
-                    <div className="w-1/3 h-1/3 border-4 border-white bg-slate-800 flex items-center justify-center"><div className="w-2 h-2 bg-white"></div></div>
-                    <div className="w-1/3 h-1/3 bg-slate-800"></div>
-                    <div className="w-1/3 h-1/3 bg-white"></div>
-                    </div>
-                </div>
-
-                {/* Code Entry Form */}
-                <form onSubmit={verify2FACode} className="space-y-4">
-                    <div>
-                    <input
-                        type="text"
-                        maxLength="6"
-                        placeholder="Enter 6-digit code (e.g. 123456)"
-                        value={verificationCode}
-                        onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ''))}
-                        className="w-full px-4 py-3 rounded-xl border border-slate-100 bg-slate-50/50 focus:bg-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 text-center tracking-[0.25em] outline-hidden text-sm font-bold text-slate-800 placeholder:text-slate-300 placeholder:tracking-normal"
-                    />
-                    </div>
-                    <div className="flex gap-3 pt-2">
-                    <button
-                        type="button"
-                        onClick={() => setShow2FAModal(false)}
-                        className="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 bg-white hover:bg-slate-50 transition-colors cursor-pointer"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        type="submit"
-                        className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-600 text-white shadow-md shadow-emerald-500/10 transition-colors cursor-pointer"
-                    >
-                        Verify Code
-                    </button>
-                    </div>
-                </form>
-                </div>
-            </div>
             </div>
         )}
+        
 
         
     </div>
