@@ -9,10 +9,24 @@ import {
     registerUser,
     sendForgotPasswordOTP,
     verifyForgotPasswordOTP,
-    resetPassword
+    resetPassword,
+    updateProfilePhoto,
+    removeProfilePhoto,
+    getUserProfile,
+    updateUserProfile,
+    changePassword,
+    generate2FA,
+    verifyAndEnable2FA,
+    verifyLogin2FA
 } from "../controllers/userController.js";
 
 //... Navindu
+
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+
+
 
 
 const userRouter = express.Router();
@@ -27,5 +41,36 @@ userRouter.post("/forgot-password", sendForgotPasswordOTP);
 userRouter.post("/verify-otp", verifyForgotPasswordOTP);
 userRouter.post("/reset-password", resetPassword);
 //... Navindu
+
+//Hemalsha 2026/05/30 ... Profile Picture Upload Functionality
+
+const uploadDir = 'uploads/';
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, 'uploads/'); // Make sure this folder exists in your backend root!
+    },
+    filename: (req, file, cb) => {
+        // unique filename
+        cb(null, file.fieldname + '-' + Date.now() + path.extname(file.originalname));
+    }
+});
+const upload = multer({ storage: storage });
+
+userRouter.post("/upload-photo", upload.single('profileImage'), updateProfilePhoto);
+userRouter.delete("/remove-photo", removeProfilePhoto);
+userRouter.put("/profile", updateUserProfile);
+userRouter.get("/profile", getUserProfile);
+userRouter.put("/change-password", changePassword);
+userRouter.get("/generate-2fa", generate2FA);
+userRouter.post("/verify-2fa", verifyAndEnable2FA);
+userRouter.post("/verify-login-2fa", verifyLogin2FA);
+
+
+
+//... Hemalsha
 
 export default userRouter;

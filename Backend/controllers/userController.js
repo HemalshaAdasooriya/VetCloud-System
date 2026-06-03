@@ -1,12 +1,14 @@
 // controllers/userController.js
 import dotenv from "dotenv";
 dotenv.config();
-import { createPetOwner, createVeterinarian, checkEmailExists, getUserByEmailAndRole } from "../models/user.js";
+import speakeasy from 'speakeasy';
+import qrcode from 'qrcode';
+import { createPetOwner, createVeterinarian, checkEmailExists, getUserByEmailAndRole, getFullPetOwnerProfile } from "../models/user.js";
 import bcrypt from "bcryptjs";
 import { OAuth2Client } from "google-auth-library";
 import axios from "axios";
 import jwt from "jsonwebtoken";
-//Navindu 2026/05/27 ... Forgot Password Functionality
+//Navindu 2026/05/27 ... Forgot Password FunctionalityupdateUserProfile
 import nodemailer from "nodemailer";
 import otpGenerator from "otp-generator";
 
@@ -14,10 +16,304 @@ import {
     savePasswordResetOTP,
     verifyOTP,
     updatePetOwnerPassword,
-    updateVeterinarianPassword
+    updateVeterinarianPassword,
+    updateUserImage,
+    updatePetOwnerProfile,
+    updateVeterinarianProfile
 } from "../models/User.js";
 //... Navindu
+import fs from "fs";
+import path from "path";
 
+
+
+const googleClient = new OAuth2Client(process.env.VITE_GOOGLE_CLIENT_ID);
+
+export function registerUser(req, res) {
+    const data = req.body;
+
+    // 1. Basic validation
+    if (!data.email || !data.password || !data.firstName || !data.lastName || !data.role) {
+        return res.status(400).json({
+            message: "Missing required fields."
+        });
+    }
+
+    // 2. Check if email already exists in either table
+    checkEmailExists(data.email, (err, results) => {
+        if (err) {
+            return res.status(500).json(err);
+        }
+
+        if (results.length > 0) {
+            return res.status(400).json({
+                message: "Email already exists on this platform."
+            });
+        }
+
+        // 3. Process the registration based on the role
+        try {
+            const hashedPassword = bcrypt.hashSync(data.password, 11);
+
+            // ROUTE A: Pet Owner Registration
+            if (data.role === "Farmer/PetOwner") {
+                createPetOwner(
+                    {
+                        email: data.email,
+                        password: hashedPassword,
+                        firstName: data.firstName, 
+                        lastName: data.lastName, 
+                        contact_No: data.contact_No,
+                        street: data.street,       
+                        city: data.city,           
+                        state: data.state,         
+                        zip: data.zip,             
+                        country: data.country,
+                        numberOfAnimals: data.numberOfAnimals, // Matched to frontend payload exactly
+                        provider: 'local'
+                    },
+                    (err, result) => {
+                        if (err) return res.status(500).json(err);
+                        return res.status(201).json({ message: "Pet Owner registered successfully" });
+                    }
+                );
+            } 
+            // ROUTE B: Veterinarian Registration
+            else if (data.role === "Veterinary Doctor") {
+                createVeterinarian(
+                    {
+                        email: data.email,
+                        password: hashedPassword,
+                        firstName: data.firstName, 
+                        lastName: data.lastName,
+                        contact_No: data.contact_No,
+                        license_number: data.license_number,
+                        specialization: data.specialization,
+                        years_of_experience: data.years_of_experience,
+                        consultation_fee: data.consultation_fee,
+                        provider: 'local'
+                    },
+                    (err, result) => {
+                        if (err) {
+                            // Check for unique license number error
+                            if (err.code === 'ER_DUP_ENTRY') {
+                                return res.status(400).json({ message: "License number is already registered." });
+                            }
+                            return res.status(500).json(err);
+                        }
+                        return res.status(201).json({ message: "Veterinarian registered successfully" });
+                    }
+                );
+            } 
+            // Invalid Role Fallback
+            else {
+                return res.status(400).json({ message: "Invalid user role specified." });
+            }
+
+        } catch (hashError) {
+            return res.status(500).json({ message: "Internal server error during processing." });
+        }
+    });
+}
+
+// 4. STANDARD LOGIN FUNCTION
+// export async function loginUser(req, res) {
+//     const { email, password, role } = req.body;
+
+//     // Basic validation
+//     if (!email || !password || !role) {
+//         return res.status(400).json({ message: "Email, password, and role are required." });
+//     }
+
+//     // Fetch user from the appropriate table
+//     getUserByEmailAndRole(email, role, async (err, results) => {
+//         if (err) {
+//             return res.status(500).json({ message: "Database error during login." });
+//         }
+
+//         // Check if user exists
+//         if (results.length === 0) {
+//             return res.status(404).json({ message: "User not found. Check your email or role." });
+//         }
+
+//         const user = results[0];
+
+//         try {
+//             // Verify the hashed password
+//             // Note: If registering via Google/Facebook, password might be NULL
+//             if (!user.password) {
+//                 return res.status(401).json({ message: "Please log in using Google or Facebook." });
+//             }
+
+//             const isPasswordValid = await bcrypt.compare(password, user.password);
+
+//             if (!isPasswordValid) {
+//                 return res.status(401).json({ message: "Invalid credentials." });
+//             }
+
+            
+//             const token = jwt.sign(
+//                 { 
+//                     id: user.id, 
+//                     email: user.email, 
+//                     role: role 
+//                 }, 
+//                 process.env.JWT_SECRET, 
+//                 // { expiresIn: "24h" }
+//             );
+
+//             const { password: userPassword, ...safeUserData } = user;
+
+//             safeUserData.role = req.body.role;
+
+//             return res.status(200).json({
+//                 message: "Login successful",
+//                 token: token,
+//                 user: safeUserData
+//             });
+
+//         } catch (error) {
+//             console.error("Error during password verification:", error);
+//             return res.status(500).json({ message: "Server error during password verification." });
+//         }
+//     });
+// }
+
+// 4. STANDARD LOGIN FUNCTION (UPDATED WITH 2FA)
+export async function loginUser(req, res) {
+    const { email, password, role } = req.body;
+
+    // Basic validation
+    if (!email || !password || !role) {
+        return res.status(400).json({ message: "Email, password, and role are required." });
+    }
+
+    // Fetch user from the appropriate table
+    getUserByEmailAndRole(email, role, async (err, results) => {
+        if (err) {
+            return res.status(500).json({ message: "Database error during login." });
+        }
+
+        // Check if user exists
+        if (results.length === 0) {
+            return res.status(404).json({ message: "User not found. Check your email or role." });
+        }
+
+        const user = results[0];
+
+        try {
+            // Verify the hashed password
+            if (!user.password) {
+                return res.status(401).json({ message: "Please log in using Google or Facebook." });
+            }
+
+            const isPasswordValid = await bcrypt.compare(password, user.password);
+
+            if (!isPasswordValid) {
+                return res.status(401).json({ message: "Invalid credentials." });
+            }
+
+            // --- 2FA SECURITY CHECKPOINT ---
+            if (user.is_two_factor_enabled) {
+                // If 2FA is ON, stop here! Send a signal to React to show the 6-digit input box.
+                return res.status(200).json({
+                    message: "2FA Required",
+                    requires2FA: true,
+                    userId: user.id,
+                    role: role
+                });
+            }
+
+            // If 2FA is OFF, proceed with normal login and issue the Token
+            const token = jwt.sign(
+                { 
+                    id: user.id, 
+                    email: user.email, 
+                    role: role 
+                }, 
+                process.env.JWT_SECRET
+            );
+
+            const { password: userPassword, ...safeUserData } = user;
+            safeUserData.role = req.body.role;
+
+            return res.status(200).json({
+                message: "Login successful",
+                token: token,
+                user: safeUserData
+            });
+
+        } catch (error) {
+            console.error("Error during password verification:", error);
+            return res.status(500).json({ message: "Server error during password verification." });
+        }
+    });
+}
+
+// 2. GOOGLE LOGIN / REGISTRATION
+export async function googleLogin(req, res) {
+    const { token, role } = req.body;
+
+    try {
+        const ticket = await googleClient.verifyIdToken({
+            idToken: token,
+            audience: process.env.VITE_GOOGLE_CLIENT_ID, 
+        });
+        const payload = ticket.getPayload();
+        
+        handleSocialLogin(res, payload.email, payload.name, payload.picture, role, 'google');
+    } catch (error) {
+        return res.status(401).json({ message: "Invalid Google Token" });
+    }
+}
+
+
+// 3. FACEBOOK LOGIN / REGISTRATION
+export async function facebookLogin(req, res) {
+    const { accessToken, role } = req.body;
+
+    try {
+        // Fetch user details from Facebook Graph API using the token
+        const fbResponse = await axios.get(`https://graph.facebook.com/me?fields=id,name,email,picture.type(large)&access_token=${accessToken}`);
+        const { email, name, picture } = fbResponse.data;
+        const imageUrl = picture?.data?.url || "/default.jpg";
+
+        handleSocialLogin(res, email, name, imageUrl, role, 'facebook');
+    } catch (error) {
+        return res.status(401).json({ message: "Invalid Facebook Token" });
+    }
+}
+
+// --- Helper Function to avoid repeating code for Social Logins ---
+function handleSocialLogin(res, email, name, image, role, provider) {
+    const nameParts = name.split(" ");
+    const splitFirstName = nameParts[0] || "";
+    const splitLastName = nameParts.slice(1).join(" ") || "";
+
+    checkEmailExists(email, (err, results) => {
+        if (err) return res.status(500).json(err);
+
+        if (results.length > 0) {
+            // User already exists in DB -> Log them in!
+            return res.status(200).json({ message: "Login successful", email, role });
+        } else {
+            // New user -> Register them instantly
+            const userData = { email, password: null, firstName: splitFirstName, lastName: splitLastName, image, provider };
+            
+            if (role === "Farmer/PetOwner") {
+                createPetOwner(userData, (err, result) => {
+                    if (err) return res.status(500).json(err);
+                    return res.status(201).json({ message: `Registered via ${provider}` });
+                });
+            } else if (role === "Veterinary Doctor") {
+                createVeterinarian(userData, (err, result) => {
+                    if (err) return res.status(500).json(err);
+                    return res.status(201).json({ message: `Registered via ${provider}` });
+                });
+            }
+        }
+    });
+}
 
 //Navindu 2026/05/27 ... Forgot Password Functionality
 
@@ -29,7 +325,7 @@ const transporter = nodemailer.createTransport({
     }
 });
 
-
+//sending OTP
 export function sendForgotPasswordOTP(req, res) {
     const { email } = req.body;
 
@@ -93,6 +389,7 @@ export function sendForgotPasswordOTP(req, res) {
     });
 }
 
+//verify Forgot PasswordOTP
 export function verifyForgotPasswordOTP(req, res) {
 
     const { email, otp } = req.body;
@@ -121,6 +418,7 @@ export function verifyForgotPasswordOTP(req, res) {
     });
 }
 
+//RESET PASSWORD
 export async function resetPassword(req, res) {
 
     const { email, newPassword } = req.body;
@@ -173,210 +471,289 @@ export async function resetPassword(req, res) {
 }
 //... Navindu
 
-
-const googleClient = new OAuth2Client(process.env.VITE_GOOGLE_CLIENT_ID);
-
-export function registerUser(req, res) {
-    const data = req.body;
-
-    // 1. Basic validation
-    if (!data.email || !data.password || !data.fullName || !data.role) {
-        return res.status(400).json({
-            message: "Missing required fields."
-        });
+//Hemalsha 2026/05/30 ... Profile Picture Upload Functionality
+export const updateProfilePhoto = (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
     }
 
-    // 2. Check if email already exists in either table
-    checkEmailExists(data.email, (err, results) => {
-        if (err) {
-            return res.status(500).json(err);
-        }
+    // 1. Get the JWT token from the Request Headers
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ message: "Unauthorized: No token provided" });
+    }
 
-        if (results.length > 0) {
-            return res.status(400).json({
-                message: "Email already exists on this platform."
+    const token = authHeader.split(" ")[1];
+
+    try {
+        // 2. Decode the token to get the user's ID and Role
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const userId = decoded.id;
+        const userRole = decoded.role;
+
+        // 3. Create the URL
+        const imageUrl = `/uploads/${req.file.filename}`;
+
+        // 4. Update the Database
+        updateUserImage(userId, userRole, imageUrl, (err, result) => {
+            if (err) return res.status(500).json({ message: "Database error" });
+            
+            res.status(200).json({ 
+                message: "Image uploaded successfully", 
+                imageUrl: imageUrl 
             });
+        });
+
+    } catch (error) {
+        return res.status(401).json({ message: "Unauthorized: Invalid token" });
+    }
+};
+
+export const removeProfilePhoto = (req, res) => {
+    // 1. Get and verify the JWT token
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ message: "Unauthorized: No token provided" });
+    }
+
+    const token = authHeader.split(" ")[1];
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const userId = decoded.id;
+        const userRole = decoded.role;
+        const defaultImage = "/default.jpg"; // The factory default image
+
+        // 2. Update the Database back to the default image
+        updateUserImage(userId, userRole, defaultImage, (err, result) => {
+            if (err) return res.status(500).json({ message: "Database error" });
+            
+            res.status(200).json({ 
+                message: "Profile photo removed successfully", 
+                imageUrl: defaultImage 
+            });
+        });
+
+    } catch (error) {
+        return res.status(401).json({ message: "Unauthorized: Invalid token" });
+    }
+};
+//... Hemalsha
+
+export const updateUserProfile = (req, res) => {
+    // 1. Verify the user
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const token = authHeader.split(" ")[1];
+
+    try {
+        // 2. Decode token to get ID and Role
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const userId = decoded.id;
+        const userRole = decoded.role;
+        const profileData = req.body; // The payload we sent from React
+
+        // 3. Route to the correct database update function
+        if (userRole === "Farmer/PetOwner" || userRole === "farmer") {
+            
+            updatePetOwnerProfile(userId, profileData, (err, result) => {
+                if (err) return res.status(500).json({ message: "Database error during update" });
+                return res.status(200).json({ message: "Profile updated successfully" });
+            });
+
+        } else if (userRole === "Veterinary Doctor" || userRole === "doctor") {
+            
+            updateVeterinarianProfile(userId, profileData, (err, result) => {
+                if (err) return res.status(500).json({ message: "Database error during update" });
+                return res.status(200).json({ message: "Profile updated successfully" });
+            });
+
+        } else {
+            return res.status(400).json({ message: "Invalid user role" });
         }
 
-        // 3. Process the registration based on the role
-        try {
-            const hashedPassword = bcrypt.hashSync(data.password, 11);
+    } catch (error) {
+        return res.status(401).json({ message: "Invalid token" });
+    }
+};
 
-            // ROUTE A: Pet Owner Registration
-            if (data.role === "Farmer/PetOwner") {
-                createPetOwner(
-                    {
-                        email: data.email,
-                        password: hashedPassword,
-                        fullName: data.fullName, 
-                        contact_No: data.contact_No,
-                        address: data.address,
-                        numberOfAnimals: data.numberOfAnimals, // Matched to frontend payload exactly
-                        provider: 'local'
-                    },
-                    (err, result) => {
-                        if (err) return res.status(500).json(err);
-                        return res.status(201).json({ message: "Pet Owner registered successfully" });
-                    }
-                );
-            } 
-            // ROUTE B: Veterinarian Registration
-            else if (data.role === "Veterinary Doctor") {
-                createVeterinarian(
-                    {
-                        email: data.email,
-                        password: hashedPassword,
-                        fullName: data.fullName,
-                        contact_No: data.contact_No,
-                        license_number: data.license_number,
-                        specialization: data.specialization,
-                        years_of_experience: data.years_of_experience,
-                        consultation_fee: data.consultation_fee,
-                        provider: 'local'
-                    },
-                    (err, result) => {
-                        if (err) {
-                            // Check for unique license number error
-                            if (err.code === 'ER_DUP_ENTRY') {
-                                return res.status(400).json({ message: "License number is already registered." });
-                            }
-                            return res.status(500).json(err);
-                        }
-                        return res.status(201).json({ message: "Veterinarian registered successfully" });
-                    }
-                );
-            } 
-            // Invalid Role Fallback
-            else {
-                return res.status(400).json({ message: "Invalid user role specified." });
+// --- Fetch User Profile Data ---
+export const getUserProfile = (req, res) => {
+    // 1. Get the token from the request headers
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ message: "Unauthorized: No token provided" });
+    }
+
+    const token = authHeader.split(" ")[1];
+
+    try {
+        // 2. Decrypt the token to find out who this user is
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const userId = decoded.id;
+        const userRole = decoded.role;
+
+        // 3. Route to the correct database fetch based on their role
+        if (userRole === "Farmer/PetOwner" || userRole === "farmer") {
+            
+            getFullPetOwnerProfile(userId, (err, profileData) => {
+                if (err) {
+                    console.error("Database Error:", err);
+                    return res.status(500).json({ message: "Error fetching profile" });
+                }
+                if (!profileData) {
+                    return res.status(404).json({ message: "Profile not found in database" });
+                }
+                
+                // Success! Send the data back to React
+                return res.status(200).json(profileData);
+            });
+
+        } else if (userRole === "Veterinary Doctor" || userRole === "vet") {
+            // Placeholder for when you build the Doctor's fetch function
+            return res.status(501).json({ message: "Doctor profile fetching coming soon" });
+        } else {
+            return res.status(400).json({ message: "Invalid user role" });
+        }
+
+    } catch (error) {
+        console.error("Token Error:", error);
+        return res.status(401).json({ message: "Unauthorized: Invalid or expired token" });
+    }
+};
+
+//change password
+import { getUserPasswordById, updateUserPasswordById } from "../models/User.js";
+
+export const changePassword = (req, res) => {
+    // 1. Verify the User Token
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const token = authHeader.split(" ")[1];
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const userId = decoded.id;
+        const userRole = decoded.role;
+        const { currentPassword, newPassword } = req.body;
+
+        if (!currentPassword || !newPassword) {
+            return res.status(400).json({ message: "Please provide both current and new passwords" });
+        }
+
+        // 2. Fetch the current encrypted password from the DB
+        getUserPasswordById(userId, userRole, async (err, dbPasswordHash) => {
+            if (err) return res.status(500).json({ message: "Database error" });
+
+            // 3. Compare the typed current password with the database hash
+            const isMatch = await bcrypt.compare(currentPassword, dbPasswordHash);
+            if (!isMatch) {
+                return res.status(400).json({ message: "Incorrect current password" });
             }
 
-        } catch (hashError) {
-            return res.status(500).json({ message: "Internal server error during processing." });
-        }
+            // 4. Hash the NEW password
+            const salt = await bcrypt.genSalt(10);
+            const newHashedPassword = await bcrypt.hash(newPassword, salt);
+
+            // 5. Save the new hashed password to the database
+            updateUserPasswordById(userId, userRole, newHashedPassword, (updateErr, result) => {
+                if (updateErr) return res.status(500).json({ message: "Failed to update password" });
+                return res.status(200).json({ message: "Password changed successfully" });
+            });
+        });
+
+    } catch (error) {
+        return res.status(401).json({ message: "Invalid token" });
+    }
+};
+
+
+// Generate the Secret and QR Code
+export const generate2FA = async (req, res) => {
+    const secret = speakeasy.generateSecret({ name: 'VetCloud' });
+    
+    qrcode.toDataURL(secret.otpauth_url, (err, data_url) => {
+        if (err) return res.status(500).json({ message: "Error generating QR code" });
+        // Send the QR code and the raw secret back to React temporarily
+        res.status(200).json({ qrCodeUrl: data_url, secret: secret.base32 });
     });
-}
+};
 
-// 4. STANDARD LOGIN FUNCTION
-export async function loginUser(req, res) {
-    const { email, password, role } = req.body;
+// Verify and Enable 2FA
+export const verifyAndEnable2FA = (req, res) => {
+    // Get userId and userRole from your JWT token just like your other routes
+    const { userId, userRole, token, secret } = req.body; 
 
-    // Basic validation
-    if (!email || !password || !role) {
-        return res.status(400).json({ message: "Email, password, and role are required." });
+    // Check if the 6-digit token matches the math of the secret
+    const verified = speakeasy.totp.verify({
+        secret: secret,
+        encoding: 'base32',
+        token: token
+    });
+
+    if (verified) {
+        // Run a database UPDATE query here to save the 'secret' to the user's row
+        // and set 'is_two_factor_enabled' to TRUE.
+        res.status(200).json({ message: "2FA Enabled Successfully!" });
+    } else {
+        res.status(400).json({ message: "Invalid 6-digit code" });
+    }
+};
+
+// --- Verify 2FA Code During Login ---
+export const verifyLogin2FA = (req, res) => {
+    const { userId, role, code } = req.body;
+
+    if (!userId || !role || !code) {
+        return res.status(400).json({ message: "Missing required information" });
     }
 
-    // Fetch user from the appropriate table
-    getUserByEmailAndRole(email, role, async (err, results) => {
-        if (err) {
-            return res.status(500).json({ message: "Database error during login." });
-        }
-
-        // Check if user exists
-        if (results.length === 0) {
-            return res.status(404).json({ message: "User not found. Check your email or role." });
+    // 1. Find the correct table
+    let tableName = (role === "Farmer/PetOwner" || role === "farmer") ? "pet_owners" : "veterinarians";
+    
+    // 2. Get the user's secret from the database
+    const sql = `SELECT * FROM ${tableName} WHERE id = ?`;
+    
+    // Note: ensure you import 'db' at the top of your controller if it isn't there, 
+    // or place this query inside your User.js model and call it here!
+    db.query(sql, [userId], (err, results) => {
+        if (err || results.length === 0) {
+            return res.status(500).json({ message: "Database error or user not found" });
         }
 
         const user = results[0];
 
-        try {
-            // Verify the hashed password
-            // Note: If registering via Google/Facebook, password might be NULL
-            if (!user.password) {
-                return res.status(401).json({ message: "Please log in using Google or Facebook." });
-            }
+        // 3. Verify the 6-digit code against their saved secret
+        const verified = speakeasy.totp.verify({
+            secret: user.two_factor_secret,
+            encoding: 'base32',
+            token: code
+        });
 
-            const isPasswordValid = await bcrypt.compare(password, user.password);
-
-            if (!isPasswordValid) {
-                return res.status(401).json({ message: "Invalid credentials." });
-            }
-
-            
+        if (verified) {
+            // 4. Success! Issue the real JWT Token
             const token = jwt.sign(
-                { 
-                    id: user.id, 
-                    email: user.email, 
-                    role: role 
-                }, 
-                process.env.JWT_SECRET, 
-                // { expiresIn: "24h" }
+                { id: user.id, email: user.email, role: role }, 
+                process.env.JWT_SECRET
             );
 
-            const { password: userPassword, ...safeUserData } = user;
+            // Remove sensitive data before sending to React
+            const { password, two_factor_secret, ...safeUserData } = user;
+            safeUserData.role = role;
 
-            safeUserData.role = req.body.role;
-
-            return res.status(200).json({
+            return res.status(200).json({ 
                 message: "Login successful",
-                token: token,
-                user: safeUserData
+                token: token, 
+                user: safeUserData 
             });
-
-        } catch (error) {
-            console.error("Error during password verification:", error);
-            return res.status(500).json({ message: "Server error during password verification." });
-        }
-    });
-}
-
-// 2. GOOGLE LOGIN / REGISTRATION
-export async function googleLogin(req, res) {
-    const { token, role } = req.body;
-
-    try {
-        const ticket = await googleClient.verifyIdToken({
-            idToken: token,
-            audience: process.env.VITE_GOOGLE_CLIENT_ID, 
-        });
-        const payload = ticket.getPayload();
-        
-        handleSocialLogin(res, payload.email, payload.name, payload.picture, role, 'google');
-    } catch (error) {
-        return res.status(401).json({ message: "Invalid Google Token" });
-    }
-}
-
-
-// 3. FACEBOOK LOGIN / REGISTRATION
-export async function facebookLogin(req, res) {
-    const { accessToken, role } = req.body;
-
-    try {
-        // Fetch user details from Facebook Graph API using the token
-        const fbResponse = await axios.get(`https://graph.facebook.com/me?fields=id,name,email,picture.type(large)&access_token=${accessToken}`);
-        const { email, name, picture } = fbResponse.data;
-        const imageUrl = picture?.data?.url || "/default.jpg";
-
-        handleSocialLogin(res, email, name, imageUrl, role, 'facebook');
-    } catch (error) {
-        return res.status(401).json({ message: "Invalid Facebook Token" });
-    }
-}
-
-// --- Helper Function to avoid repeating code for Social Logins ---
-function handleSocialLogin(res, email, name, image, role, provider) {
-    checkEmailExists(email, (err, results) => {
-        if (err) return res.status(500).json(err);
-
-        if (results.length > 0) {
-            // User already exists in DB -> Log them in!
-            return res.status(200).json({ message: "Login successful", email, role });
         } else {
-            // New user -> Register them instantly
-            const userData = { email, password: null, fullName: name, image, provider };
-            
-            if (role === "Farmer/PetOwner") {
-                createPetOwner(userData, (err, result) => {
-                    if (err) return res.status(500).json(err);
-                    return res.status(201).json({ message: `Registered via ${provider}` });
-                });
-            } else if (role === "Veterinary Doctor") {
-                createVeterinarian(userData, (err, result) => {
-                    if (err) return res.status(500).json(err);
-                    return res.status(201).json({ message: `Registered via ${provider}` });
-                });
-            }
+            return res.status(400).json({ message: "Invalid 6-digit code" });
         }
     });
-}
+};

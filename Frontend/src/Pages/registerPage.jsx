@@ -17,13 +17,14 @@ export default function RegisterPage() {
     // const navigate = useNavigate();
 
     const [role, setRole] = useState('user');
-    const [fullName, setFullName] = useState('');
+    const [firstName, setFirstName] = useState('');
+    const [lastName, setLastName] = useState('');
     const [phone, setPhone] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
     
-    const [address, setAddress] = useState("");
+    // const [address, setAddress] = useState("");
     const [numberOfAnimals, setNumberOfAnimals] = useState(""); 
     
     const [license, setLicense] = useState("");
@@ -35,6 +36,12 @@ export default function RegisterPage() {
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [submitMessage, setSubmitMessage] = useState({ text: "", isError: false });
+
+    const [street, setStreet] = useState("");
+    const [city, setCity] = useState("");
+    const [state, setState] = useState("");
+    const [zip, setZip] = useState("");
+    const [country, setCountry] = useState("");
 
     const getPasswordStrength = () => {
         if (!password) return 0;
@@ -118,11 +125,18 @@ export default function RegisterPage() {
 
         const backendRole = role === 'user' ? "Farmer/PetOwner" : "Veterinary Doctor";
 
-        let payload = { fullName, email, password, contact_No: phone, role: backendRole };
+        let payload = { firstName, lastName, email, password, contact_No: phone, role: backendRole };
 
         if (role === 'user') {
-            payload.address = address;
+            
             payload.numberOfAnimals = numberOfAnimals ? parseInt(numberOfAnimals, 10) : 0;
+
+            payload.street = street;
+            payload.city = city;
+            payload.state = state;
+            payload.zip = zip;
+            payload.country = country;
+
         } else {
             payload.license_number = license;
             payload.specialization = specialization;
@@ -137,12 +151,11 @@ export default function RegisterPage() {
                 body: JSON.stringify(payload)
             });
 
-            const result = await response.json();
-
+            const result = await response.json()
             if (response.status === 201) {
                 toast.success("Account created successfully!");
-                setFullName(""); setPhone(""); setEmail(""); setPassword(""); 
-                setConfirmPassword(""); setAddress(""); setNumberOfAnimals(""); 
+                setFirstName(""); setLastName(""); setPhone(""); setEmail(""); setPassword(""); 
+                setConfirmPassword(""); setNumberOfAnimals(""); 
                 setLicense(""); setSpecialization(""); setExperience(""); setFee("");
             } else {
                 setSubmitMessage({ text: result.message || "Registration failed", isError: true });
@@ -237,18 +250,26 @@ export default function RegisterPage() {
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Full Name</label>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1.5">First Name</label>
                                     <div className="relative">
                                         <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                                        <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Enter Your Full Name" required className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" />
+                                        <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="John" required className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" />
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Contact Number</label>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Last Name</label>
                                     <div className="relative">
-                                        <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                                        <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))} placeholder="0712345678" pattern="[0-9]{10}" required className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" />
+                                        <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                                        <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Doe" required className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" />
                                     </div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1.5">Contact Number</label>
+                                <div className="relative">
+                                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                                    <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))} placeholder="0712345678" pattern="[0-9]{10}" required className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" />
                                 </div>
                             </div>
 
@@ -302,11 +323,29 @@ export default function RegisterPage() {
 
                             {role === 'user' ? (
                                 <>
-                                <div>
+                                {/* <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1.5">Farm/Home Address</label>
                                     <div className="relative">
                                         <MapPin className="absolute left-4 top-4 h-5 w-5 text-slate-400" />
                                         <textarea value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Enter your full address..." required className="w-full flex rounded-xl border border-slate-300 bg-transparent pl-11 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 min-h-[80px]"></textarea>
+                                    </div>
+                                </div> */}
+                                <div className="space-y-4 mb-5">
+                                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Farm/Home Address</label>
+                                    
+                                    <div className="relative">
+                                        <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                                        <input type="text" value={street} onChange={(e) => setStreet(e.target.value)} placeholder="Street Address (e.g., 123 Farm Road)" required className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" />
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <input type="text" value={city} onChange={(e) => setCity(e.target.value)} placeholder="City" required className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm px-[15px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" />
+                                        <input type="text" value={state} onChange={(e) => setState(e.target.value)} placeholder="State / Province" required className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm px-[15px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" />
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <input type="text" value={zip} onChange={(e) => setZip(e.target.value)} placeholder="ZIP / Postal Code" required className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm px-[15px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" />
+                                        <input type="text" value={country} onChange={(e) => setCountry(e.target.value)} placeholder="Country" required className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm px-[15px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" />
                                     </div>
                                 </div>
                                 <div>

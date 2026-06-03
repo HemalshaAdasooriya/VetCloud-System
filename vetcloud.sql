@@ -11,11 +11,55 @@
  Target Server Version : 80407 (8.4.7)
  File Encoding         : 65001
 
- Date: 28/05/2026 00:13:05
+ Date: 01/06/2026 12:11:55
 */
 
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
+
+-- ----------------------------
+-- Table structure for password_resets
+-- ----------------------------
+DROP TABLE IF EXISTS `password_resets`;
+CREATE TABLE `password_resets`  (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `email` varchar(255) CHARACTER SET latin1 COLLATE latin1_swedish_ci NOT NULL,
+  `otp` varchar(10) CHARACTER SET latin1 COLLATE latin1_swedish_ci NOT NULL,
+  `expires_at` datetime NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 13 CHARACTER SET = latin1 COLLATE = latin1_swedish_ci ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of password_resets
+-- ----------------------------
+
+-- ----------------------------
+-- Table structure for pet_owner_profiles
+-- ----------------------------
+DROP TABLE IF EXISTS `pet_owner_profiles`;
+CREATE TABLE `pet_owner_profiles`  (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `owner_id` int NULL DEFAULT NULL,
+  `firstName` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL,
+  `lastName` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL,
+  `farmName` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL,
+  `farmSize` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL,
+  `bio` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL,
+  `street` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL,
+  `city` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL,
+  `state` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL,
+  `zip` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL,
+  `country` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL,
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `owner_id`(`owner_id`) USING BTREE
+) ENGINE = MyISAM AUTO_INCREMENT = 5 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of pet_owner_profiles
+-- ----------------------------
+INSERT INTO `pet_owner_profiles` VALUES (4, 9, 'janith', 'kamal', '', '', 'hello friends', 'mahathanna', 'muttettuwegama', 'pambahinna', '244234', 'Sri Lanka');
+INSERT INTO `pet_owner_profiles` VALUES (3, 8, 'john', 'Deo', 'jonnyyyy', '12hec', 'hiii jonnyyy', 'mahathanna', 'muttettuwegama', 'pambahinna', '244234', 'srilanka');
 
 -- ----------------------------
 -- Table structure for pet_owners
@@ -35,13 +79,33 @@ CREATE TABLE `pet_owners`  (
   `provider` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT 'local',
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `email`(`email` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 6 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 10 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of pet_owners
 -- ----------------------------
-INSERT INTO `pet_owners` VALUES (1, 'hemalsha@gmail.com', '$2b$11$U.3XQhYgqu8P93X4huwTbex/53pBbWYt8OS8wqoirTnWYEN/2tTV.', 'fgfgdgf', '0768766787', 'hhhhhhhhhhhhhhhhhh', 9, 0, 0, '/default.jpg', 'local');
-INSERT INTO `pet_owners` VALUES (5, 'nimal@gmail.com', '$2b$11$RaTZdCaac.jOTPwDTByeb.HBpOtHrk0..XKP.fS.8.fF3tAsQsOfy', 'Nimal', '0784343576', 'jksfhjdfhdsj', 2, 0, 0, '/default.jpg', 'local');
+INSERT INTO `pet_owners` VALUES (8, 'john@gmail.com', '$2b$11$behPTM5MoIHs1TWtF8vl2OCNGLi2OqaExTR4HH6hV159n.vlj3zg2', 'john Deo', '0786565435', 'mahathanna, muttettuwegama, pambahinna, 244234, srilanka', -1, 0, 0, '/default.jpg', 'local');
+INSERT INTO `pet_owners` VALUES (9, 'navindu@gmail.com', '$2b$11$m54JeydAul2ZCB9wo4YWqezBLsmHgzjLJ7ulMt67n66zWosalP2y.', 'janith kamal', '0766543232', 'mahathanna, muttettuwegama, pambahinna, 244234, Sri Lanka', 6, 0, 0, '/default.jpg', 'local');
+
+-- ----------------------------
+-- Table structure for veterinarian_profiles
+-- ----------------------------
+DROP TABLE IF EXISTS `veterinarian_profiles`;
+CREATE TABLE `veterinarian_profiles`  (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `vet_id` int NULL DEFAULT NULL,
+  `firstName` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL,
+  `lastName` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL,
+  `clinicName` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL,
+  `bio` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL,
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `vet_id`(`vet_id`) USING BTREE
+) ENGINE = MyISAM AUTO_INCREMENT = 3 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of veterinarian_profiles
+-- ----------------------------
+INSERT INTO `veterinarian_profiles` VALUES (2, 5, 'kasun', 'kalhara', '', '');
 
 -- ----------------------------
 -- Table structure for veterinarians
@@ -64,27 +128,12 @@ CREATE TABLE `veterinarians`  (
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `email`(`email` ASC) USING BTREE,
   UNIQUE INDEX `license_number`(`license_number` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 4 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 6 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of veterinarians
 -- ----------------------------
 INSERT INTO `veterinarians` VALUES (1, 'kavee@gmail.com', '$2b$11$AUWl2wOGyK1EyUY6uNtYteDNsbkJZaXhY91CNdfVPeowhXmeXt55O', 'hemalsha', '0987676546', '34uihjdfhdf', 'large', 3, 0.09, 0, 0, '/default.jpg', 'local');
-INSERT INTO `veterinarians` VALUES (2, 'kasun@gmail.com', '$2b$11$cqTU9g/xOQWGr7Y5pDEu9et5aO24l2YVG.l3MfwMgb5SPpGr6ddHy', 'kasun', '0897575687', '213131dfsdf', 'small', 7, 0.22, 0, 0, '/default.jpg', 'local');
-INSERT INTO `veterinarians` VALUES (3, 'siripala@gmail.com', '$2b$11$/W3oDj.FYM8UoER6eCxW0eqigJmzk/9q6K189R8ag/MIZjQdKsKva', 'siripala', '0873737465', 'fsdsfds32', 'exotic', 3, 2.00, 0, 0, '/default.jpg', 'local');
+INSERT INTO `veterinarians` VALUES (5, 'kasun@gmail.com', '$2b$11$KOZkqdqAhlStBcGC5d/aEO.p5/T7X8dbWgI3mwYHyISKVhMv8dIOq', 'kasun kalhara', '0766543434', 'jhhghjg66', 'large', 6, 6.99, 0, 0, '/default.jpg', 'local');
 
 SET FOREIGN_KEY_CHECKS = 1;
-
-
--- ----------------------------
--- Table structure for password_resets
--- ----------------------------
-DROP TABLE IF EXISTS `password_resets`;
-CREATE TABLE `password_resets` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `email` varchar(255) NOT NULL,
-  `otp` varchar(10) NOT NULL,
-  `expires_at` datetime NOT NULL,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=latin1;
