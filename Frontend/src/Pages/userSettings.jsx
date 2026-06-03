@@ -28,6 +28,7 @@ export default function UserSettings() {
     zip: '',
     country: '',
   });
+  const [is2FAEnabled, setIs2FAEnabled] = useState(false);
 
   useEffect(() => {
         const fetchUserData = async () => {
@@ -46,6 +47,7 @@ export default function UserSettings() {
 
                 if (response.ok) {
                     const data = await response.json();
+                    if (data.is_two_factor_enabled) setIs2FAEnabled(true);
                     console.log("Data successfully recieved from backend");
                     // 3. Inject the downloaded data into your React state!
                     setPersonalInfo({
@@ -82,23 +84,44 @@ export default function UserSettings() {
     }, []);
 
  
- 
+
  // --- Security State ---
 const [passwordData, setPasswordData] = useState({
       currentPassword: '',
       newPassword: '',
       confirmPassword: ''
   });
-  const [is2FAEnabled, setIs2FAEnabled] = useState(false);
+  
   const [show2FAModal, setShow2FAModal] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
-  const [activeSessions, setActiveSessions] = useState([
-    { id: 1, device: 'Chrome on Windows', location: 'Springfield, IL', time: 'Active now', isCurrent: true },
-    { id: 2, device: 'Safari on iPhone', location: 'Springfield, IL', time: '2 days ago', isCurrent: false },
-  ]);
+  const [activeSessions, setActiveSessions] = useState([]);
 
   // --- Feedback States ---
   const [toast, setToast] = useState(null); // { message: string, type: 'success' | 'info' | 'error' }
+
+
+  // --- Fetch Active Sessions on Load ---
+  useEffect(() => {
+      const fetchSessions = async () => {
+          try {
+              const token = localStorage.getItem("token");
+              if (!token) return;
+
+              const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/sessions`, {
+                  headers: { "Authorization": `Bearer ${token}` }
+              });
+              
+              if (response.ok) {
+                  const data = await response.json();
+                  setActiveSessions(data); // Inject real data into the UI
+              }
+          } catch {
+              console.error("Failed to fetch sessions");
+          }
+      };
+      
+      fetchSessions(); 
+  }, []);
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -177,7 +200,7 @@ const [passwordData, setPasswordData] = useState({
       console.error("Removal error:", error);
       showToast('Server connection failed', 'error');
     }
-  };
+};
 
   // --- Save Changes Handler ---
 const handleSaveProfile = async (e) => {
@@ -358,12 +381,26 @@ const handleSaveProfile = async (e) => {
   };
   
 
-// --- REAL 2FA Handlers ---
-  const handleEnable2FA = async () => {
+    // --- REAL 2FA Handlers ---
+const handleEnable2FA = async () => {
     if (is2FAEnabled) {
-      // In a full app, you'd send a DELETE request here to turn it off in the DB
-      setIs2FAEnabled(false);
-      showToast('Two-Factor Authentication disabled.', 'info');
+      // --- THE NEW DISABLE LOGIC ---
+      try {
+        const token = localStorage.getItem("token");
+        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/disable-2fa`, {
+            method: 'PUT',
+            headers: { "Authorization": `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+            setIs2FAEnabled(false); // Update the React UI
+            showToast('Two-Factor Authentication disabled.', 'info');
+        } else {
+            showToast('Failed to disable 2FA. Please try again.', 'error');
+        }
+      } catch {
+        showToast('Server connection failed', 'error');
+      }
     } else {
       setShow2FAModal(true); // Open the popup
       
@@ -380,9 +417,9 @@ const handleSaveProfile = async (e) => {
         showToast('Failed to load QR code', 'error');
       }
     }
-  };
+};
 
-  const verify2FACode = async (e) => {
+const verify2FACode = async (e) => {
     e.preventDefault();
     if (verificationCode.trim().length !== 6) {
       return showToast('Please enter a valid 6-digit code.', 'error');
@@ -412,18 +449,45 @@ const handleSaveProfile = async (e) => {
     } catch {
         showToast('Server connection failed', 'error');
     }
+};
+
+// --- Real Session Management Handlers ---
+  const handleRevokeSession = async (id) => {
+      try {
+          const token = localStorage.getItem("token");
+          const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/sessions/${id}`, {
+              method: 'DELETE',
+              headers: { "Authorization": `Bearer ${token}` }
+          });
+          
+          if (response.ok) {
+              setActiveSessions(activeSessions.filter(s => s.id !== id));
+              showToast('Session revoked successfully.');
+          } else {
+              showToast('Failed to revoke session.', 'error');
+          }
+      } catch {
+          showToast('Server connection failed.', 'error');
+      }
   };
 
-
-  
-  const handleRevokeSession = (id) => {
-    setActiveSessions(activeSessions.filter(s => s.id !== id));
-    showToast('Session revoked successfully.');
-  };
-
-  const handleSignOutOtherSessions = () => {
-    setActiveSessions(activeSessions.filter(s => s.isCurrent));
-    showToast('All other sessions signed out.');
+  const handleSignOutOtherSessions = async () => {
+      try {
+          const token = localStorage.getItem("token");
+          const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/sessions/others`, {
+              method: 'DELETE',
+              headers: { "Authorization": `Bearer ${token}` }
+          });
+          
+          if (response.ok) {
+              setActiveSessions(activeSessions.filter(s => s.isCurrent));
+              showToast('All other sessions signed out.');
+          } else {
+              showToast('Failed to sign out other sessions.', 'error');
+          }
+      } catch {
+          showToast('Server connection failed.', 'error');
+      }
   };
     
     
@@ -1029,6 +1093,8 @@ const handleSaveProfile = async (e) => {
                 </div>
             </div>
         )}
+
+        
         
 
         
