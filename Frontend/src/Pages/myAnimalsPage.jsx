@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { 
   Search, 
   SlidersHorizontal, 
@@ -15,76 +15,6 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 
-// Initial animals mock data
-const INITIAL_ANIMALS = [
-  {
-    id: "1",
-    name: "Bessie",
-    species: "Cattle",
-    breed: "Holstein",
-    age: "4 Years",
-    weight: "650 kg",
-    lastVisit: "10 Oct, 2023",
-    status: "Healthy",
-    image: "https://images.unsplash.com/photo-1570042225831-d98fa7577f1e?auto=format&fit=crop&q=80&w=600"
-  },
-  {
-    id: "2",
-    name: "Max",
-    species: "Dog",
-    breed: "Golden Retriever",
-    age: "2 Years",
-    weight: "32 kg",
-    lastVisit: "24 Sep, 2023",
-    status: "Under Treatment",
-    image: "https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&q=80&w=600"
-  },
-  {
-    id: "3",
-    name: "Flock A",
-    species: "Poultry",
-    breed: "Leghorn",
-    age: "6 Months",
-    weight: "Avg 2 kg",
-    lastVisit: "15 Aug, 2023",
-    status: "Healthy",
-    image: "https://images.unsplash.com/photo-1548550023-2bdb3c5beed7?auto=format&fit=crop&q=80&w=600"
-  },
-  {
-    id: "4",
-    name: "Luna",
-    species: "Cat",
-    breed: "Siamese",
-    age: "1 Year",
-    weight: "4 kg",
-    lastVisit: "01 Nov, 2023",
-    status: "Healthy",
-    image: "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?auto=format&fit=crop&q=80&w=600"
-  }
-];
-
-// Pre-defined medical histories for animals
-const ANIMAL_HISTORIES = {
-  "1": [
-    { date: "10 Oct, 2023", type: "Vaccination", title: "Foot-and-Mouth Disease (FMD) Vaccine", vet: "Dr. Emily Smith", notes: "Routine vaccine booster. Clean health bill." },
-    { date: "12 May, 2023", type: "Checkup", title: "Weight and Nutrition Assessment", vet: "Dr. Emily Smith", notes: "Weight healthy at 650kg. Recommended continuing standard silage feed." },
-    { date: "04 Jan, 2023", type: "Procedure", title: "Hoof Trimming & Care", vet: "Dr. Mark R.", notes: "Routine preventative hoof maintenance." }
-  ],
-  "2": [
-    { date: "24 Sep, 2023", type: "Diagnostic", title: "Blood Check & Parasite Panel", vet: "Dr. Sarah Connor", notes: "Undergoing standard heartworm prevention treatment." },
-    { date: "10 Aug, 2023", type: "Consultation", title: "Limping Investigation", vet: "Dr. Sarah Connor", notes: "Minor joint strain. Prescribed anti-inflammatory medication (Under Treatment)." },
-    { date: "15 Jan, 2023", type: "Vaccination", title: "Rabies Booster", vet: "Dr. Sarah Connor", notes: "Annual rabies vaccination completed." }
-  ],
-  "3": [
-    { date: "15 Aug, 2023", type: "Inspection", title: "Flock Health Assessment", vet: "Dr. Arthur Vance", notes: "Evaluated 120 layers. Excellent egg laying quality. Feed ratios stable." },
-    { date: "10 Mar, 2023", type: "Vaccination", title: "Avian Influenza Deworming", vet: "Dr. Arthur Vance", notes: "Water-based flock-wide treatment." }
-  ],
-  "4": [
-    { date: "01 Nov, 2023", type: "Checkup", title: "Annual Dental Inspection", vet: "Dr. Lisa Cuddy", notes: "Teeth cleaned, gums look robust. Cat is active and healthy." },
-    { date: "14 Jun, 2023", type: "Vaccination", title: "Feline Leukemia Booster", vet: "Dr. Lisa Cuddy", notes: "Regular booster completed. Responding beautifully." }
-  ]
-};
-
 // Default high-quality images based on species
 const SPECIES_IMAGES = {
   Cattle: "https://images.unsplash.com/photo-1570042225831-d98fa7577f1e?auto=format&fit=crop&q=80&w=600",
@@ -97,7 +27,10 @@ const SPECIES_IMAGES = {
 };
 
 export default function MyAnimalsPage() {
-  const [animals, setAnimals] = useState(INITIAL_ANIMALS);
+  const [animals, setAnimals] = useState([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [selectedAnimalHistory, setSelectedAnimalHistory] = useState([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState("All");
   const [filterStatus, setFilterStatus] = useState("All");
@@ -126,6 +59,40 @@ export default function MyAnimalsPage() {
   // Action Menu State
   const [activeMenuId, setActiveMenuId] = useState(null);
 
+   // Retrieve user and token from localStorage
+  const user = JSON.parse(localStorage.getItem("user") || "null");
+  const ownerId = user ? user.id : null;
+  const token = localStorage.getItem("token") || "";
+  // Load animals from backend
+  const fetchAnimals = async () => {
+    if (!ownerId) {
+      setIsLoadingData(false);
+      return;
+    }
+    try {
+      setIsLoadingData(true);
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/animals?ownerId=${ownerId}`, {
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAnimals(data);
+      } else {
+        toast.error("Failed to load animal profiles");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Could not connect to server");
+    } finally {
+      setIsLoadingData(false);
+    }
+  };
+  useEffect(() => {
+    fetchAnimals();
+  }, [ownerId]);
+
   // Open Create modal
   const handleOpenCreateModal = () => {
     setEditingAnimal(null);
@@ -149,16 +116,36 @@ export default function MyAnimalsPage() {
     setFormAge(animal.age);
     setFormWeight(animal.weight);
     setFormStatus(animal.status);
-    setFormImage(animal.image);
+    setFormImage(animal.image || "");
     setShowFormModal(true);
     setActiveMenuId(null);
   };
 
-  // Open History modal
-  const handleOpenHistoryModal = (animal) => {
+  // Open History modal and fetch history dynamically
+  const handleOpenHistoryModal = async (animal) => {
     setSelectedHistoryAnimal(animal);
     setShowHistoryModal(true);
     setActiveMenuId(null);
+    setSelectedAnimalHistory([]);
+    setIsLoadingHistory(true);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/animals/${animal.id}/history`, {
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSelectedAnimalHistory(data);
+      } else {
+        toast.error("Failed to load medical records");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Could not retrieve medical history");
+    } finally {
+      setIsLoadingHistory(false);
+    }
   };
 
   // Open Delete Confirm modal
@@ -169,46 +156,96 @@ export default function MyAnimalsPage() {
   };
 
   // Form Submission
-  const handleSubmit = (e) => {
+  const handleSubmit = async(e) => {
     e.preventDefault();
     if (!formName.trim() || !formBreed.trim() || !formAge.trim() || !formWeight.trim()) {
       toast.error("Please fill in all standard fields");
       return;
     }
+    if (!ownerId) {
+      toast.error("User session expired. Please log in again.");
+      return;
+    }
 
     const animalData = {
+      owner_id: ownerId,
       name: formName.trim(),
       species: formSpecies,
       breed: formBreed.trim(),
       age: formAge.trim(),
       weight: formWeight.trim(),
       status: formStatus,
-      image: formImage.trim() || SPECIES_IMAGES[formSpecies] || SPECIES_IMAGES.Other,
-      lastVisit: new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+      image: formImage.trim() || SPECIES_IMAGES[formSpecies] || SPECIES_IMAGES.Other
     };
 
-    if (editingAnimal) {
-      // Update
-      setAnimals(animals.map((a) => (a.id === editingAnimal.id ? { ...a, ...animalData } : a)));
-      toast.success(`${formName} updated successfully!`);
-    } else {
-      // Create
-      const newAnimal = {
-        ...animalData,
-        id: String(Date.now())
-      };
-      setAnimals([newAnimal, ...animals]);
-      toast.success(`${formName} registered successfully!`);
+    try {
+      if (editingAnimal) {
+        // Update animal profile in database
+        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/animals/${editingAnimal.id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify(animalData)
+        });
+        const data = await res.json();
+        if (res.ok) {
+          // Replace locally
+          setAnimals(animals.map((a) => (a.id === editingAnimal.id ? data.animal : a)));
+          toast.success(`${formName} updated successfully!`);
+          setShowFormModal(false);
+        } else {
+          toast.error(data.message || "Failed to update profile");
+        }
+      } else {
+        // Create new animal profile in database
+        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/animals`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify(animalData)
+        });
+        const data = await res.json();
+        if (res.ok) {
+          // Prepend locally
+          setAnimals([data.animal, ...animals]);
+          toast.success(`${formName} registered successfully!`);
+          setShowFormModal(false);
+        } else {
+          toast.error(data.message || "Failed to register profile");
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to communicate with server");
     }
 
-    setShowFormModal(false);
   };
 
-  // Execute deletion
-  const handleDelete = () => {
-    setAnimals(animals.filter((a) => a.id !== deletingAnimalId));
-    toast.success("Animal profile removed successfully!");
-    setShowDeleteConfirm(false);
+  // Execute deletion in database
+  const handleDelete = async () => {
+    try {
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/animals/${deletingAnimalId}`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setAnimals(animals.filter((a) => a.id !== deletingAnimalId));
+        toast.success("Animal profile removed successfully!");
+        setShowDeleteConfirm(false);
+      } else {
+        toast.error(data.message || "Failed to delete profile");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to communicate with server");
+    }
   };
 
   // Computed & Filtered Animals List
@@ -374,7 +411,12 @@ export default function MyAnimalsPage() {
       </div>
 
       {/* 3. Main animal profile cards grid */}
-      {filteredAnimals.length > 0 ? (
+       {isLoadingData ? (
+        <div className="flex flex-col items-center justify-center py-20 space-y-4 bg-white rounded-2xl border border-slate-200/60 shadow-sm">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+          <p className="text-slate-500 font-semibold text-sm">Loading your registered animals...</p>
+        </div>
+      ) : filteredAnimals.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {filteredAnimals.map((animal) => (
             <div 
@@ -659,9 +701,14 @@ export default function MyAnimalsPage() {
 
             {/* Timeline Record content */}
             <div className="p-6 max-h-[70vh] overflow-y-auto space-y-6">
-              {ANIMAL_HISTORIES[selectedHistoryAnimal.id] && ANIMAL_HISTORIES[selectedHistoryAnimal.id].length > 0 ? (
+             {isLoadingHistory ? (
+                <div className="flex flex-col items-center justify-center py-10 space-y-3">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+                  <p className="text-xs text-slate-400">Retrieving clinical records...</p>
+                </div>
+              ) : selectedAnimalHistory && selectedAnimalHistory.length > 0 ? (
                 <div className="relative pl-6 border-l border-slate-200/80 space-y-6 ml-2 py-2">
-                  {ANIMAL_HISTORIES[selectedHistoryAnimal.id].map((record, index) => (
+                  {selectedAnimalHistory.map((record, index) => (
                     <div key={index} className="relative space-y-1.5">
                       {/* Timeline Dot icon */}
                       <span className="absolute -left-[31px] top-0.5 bg-white border-2 border-green-500 rounded-full h-4.5 w-4.5 flex items-center justify-center shadow-sm">
