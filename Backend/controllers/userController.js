@@ -808,7 +808,6 @@ export const verifyLogin2FA = (req, res) => {
             saveUserSession(user.id, role, cleanDeviceString, token, (err) => {
                 if (err) console.error("Failed to save 2FA session:", err);
             });
-            // --------------------------------------------
 
             // Remove sensitive data before sending it to React
             const { password, two_factor_secret, ...safeUserData } = user;
