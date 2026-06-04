@@ -47,6 +47,12 @@ export function registerUser(req, res) {
         });
     }
 
+    //Create the link string based on what multer saved
+    let databaseLink = "/default.jpg"; 
+    if (req.file) {
+        databaseLink = `/uploads/${req.file.filename}`; 
+    }
+
     // 2. Check if email already exists in either table
     checkEmailExists(data.email, (err, results) => {
         if (err) {
@@ -78,6 +84,7 @@ export function registerUser(req, res) {
                         zip: data.zip,             
                         country: data.country,
                         numberOfAnimals: data.numberOfAnimals, // Matched to frontend payload exactly
+                        image: databaseLink,
                         provider: 'local'
                     },
                     (err, result) => {
@@ -99,6 +106,7 @@ export function registerUser(req, res) {
                         specialization: data.specialization,
                         years_of_experience: data.years_of_experience,
                         consultation_fee: data.consultation_fee,
+                        image: databaseLink,
                         provider: 'local'
                     },
                     (err, result) => {
@@ -808,7 +816,7 @@ export const verifyLogin2FA = (req, res) => {
             saveUserSession(user.id, role, cleanDeviceString, token, (err) => {
                 if (err) console.error("Failed to save 2FA session:", err);
             });
-            // --------------------------------------------
+            
 
             // Remove sensitive data before sending it to React
             const { password, two_factor_secret, ...safeUserData } = user;
