@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { 
   Search, 
   SlidersHorizontal, 
@@ -27,6 +28,7 @@ const SPECIES_IMAGES = {
 };
 
 export default function MyAnimalsPage() {
+  const location = useLocation();
   const [animals, setAnimals] = useState([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [selectedAnimalHistory, setSelectedAnimalHistory] = useState([]);
@@ -92,6 +94,26 @@ export default function MyAnimalsPage() {
   useEffect(() => {
     fetchAnimals();
   }, [ownerId]);
+
+  useEffect(() => {
+    if (animals.length > 0 && location.state?.selectedAnimalId) {
+      const targetAnimalId = location.state.selectedAnimalId;
+      const animal = animals.find(a => a.id === targetAnimalId || String(a.id) === String(targetAnimalId));
+      if (animal) {
+        // Clear history state to prevent reopening on reload
+        window.history.replaceState({}, document.title);
+        handleOpenHistoryModal(animal);
+      }
+    }
+  }, [animals, location.state]);
+
+  useEffect(() => {
+    if (location.state?.openRegisterModal) {
+      // Clear history state to prevent reopening on reload
+      window.history.replaceState({}, document.title);
+      handleOpenCreateModal();
+    }
+  }, [location.state]);
 
   // Open Create modal
   const handleOpenCreateModal = () => {
@@ -430,7 +452,10 @@ export default function MyAnimalsPage() {
                   alt={animal.name} 
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
                   onError={(e) => {
-                    e.target.src = SPECIES_IMAGES[animal.species] || SPECIES_IMAGES.Other;
+                    const fallback = SPECIES_IMAGES[animal.species] || SPECIES_IMAGES.Other;
+                    if (e.target.src !== fallback) {
+                      e.target.src = fallback;
+                    }
                   }}
                 />
                 
