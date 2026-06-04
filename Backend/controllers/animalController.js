@@ -10,6 +10,7 @@ import {
     addMedicalHistoryRecord,
     updateMedicalHistoryRecord,
     deleteMedicalHistoryRecord
+    
 } from "../models/Animal.js";
 
 // Get all animals for an owner
@@ -79,9 +80,16 @@ export const createNewAnimal = (req, res) => {
         }
 
         const newAnimalId = result.insertId;
-        return res.status(201).json({
-            message: "Animal registered successfully.",
-            animal: { id: newAnimalId, ...animalData }
+
+        // Seed default medical records for the newly registered animal based on its species
+        seedDefaultHistory(newAnimalId, species, (seedErr) => {
+            if (seedErr) {
+                console.error("Error seeding default history for new animal:", seedErr);
+            }
+            return res.status(201).json({
+                message: "Animal registered successfully.",
+                animal: { id: newAnimalId, ...animalData }
+            });
         });
     });
 };
