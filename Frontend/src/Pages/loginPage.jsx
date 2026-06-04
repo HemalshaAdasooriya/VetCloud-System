@@ -107,7 +107,19 @@ export default function LoginPage() {
             // 2FA Success! Now we officially log them in.
             localStorage.setItem("token", data.token);
             localStorage.setItem("user", JSON.stringify(data.user));
-            navigate("/dashboard"); // Redirect to the app
+            const currentRole = tempLoginData.role;
+            
+            if (currentRole === "farmer") {
+                navigate("/dashboard/user");
+            } else if (currentRole === "doctor") {
+                navigate("/dashboard/doctor");
+            } else if (currentRole === "admin") {
+                navigate("/dashboard/admin");
+            } else {
+                // Fallback just in case
+                navigate("/login");
+                toast.error("Unknown role. Please login again."); 
+            }
         } else {
             toast.error(data.message || "Invalid Code", "error");
         }

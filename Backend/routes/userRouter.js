@@ -17,7 +17,11 @@ import {
     changePassword,
     generate2FA,
     verifyAndEnable2FA,
-    verifyLogin2FA
+    verifyLogin2FA,
+    disable2FA,
+    getActiveSessions,
+    revokeSession,
+    revokeOtherSessions
 } from "../controllers/userController.js";
 
 //... Navindu
@@ -68,6 +72,11 @@ userRouter.put("/change-password", changePassword);
 userRouter.get("/generate-2fa", generate2FA);
 userRouter.post("/verify-2fa", verifyAndEnable2FA);
 userRouter.post("/verify-login-2fa", verifyLogin2FA);
+userRouter.put("/disable-2fa", disable2FA);
+
+userRouter.get("/sessions", getActiveSessions);
+userRouter.delete("/sessions/:id", revokeSession);
+userRouter.delete("/sessions/others", revokeOtherSessions);
 
 
 
