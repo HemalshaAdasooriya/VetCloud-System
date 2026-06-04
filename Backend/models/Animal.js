@@ -1,3 +1,4 @@
+// models/Animal.js
 import db from "../config/db.js";
 
 // Fetch all animals for a specific pet owner
@@ -116,3 +117,52 @@ export const seedDefaultHistory = (animalId, species, callback) => {
     const values = records.map(r => [animalId, r.date, r.type, r.title, r.vet, r.notes]);
     db.query(sql, [values], callback);
 };
+
+// Add a single medical history record
+export const addMedicalHistoryRecord = (historyData, callback) => {
+    const sql = `
+        INSERT INTO animal_medical_histories (animal_id, date, type, title, vet, notes)
+        VALUES (?, ?, ?, ?, ?, ?)
+    `;
+    db.query(
+        sql,
+        [
+            historyData.animal_id,
+            historyData.date,
+            historyData.type,
+            historyData.title,
+            historyData.vet,
+            historyData.notes
+        ],
+        callback
+    );
+};
+
+// Update an existing medical history record
+export const updateMedicalHistoryRecord = (id, historyData, callback) => {
+    const sql = `
+        UPDATE animal_medical_histories
+        SET date = ?, type = ?, title = ?, vet = ?, notes = ?
+        WHERE id = ?
+    `;
+    db.query(
+        sql,
+        [
+            historyData.date,
+            historyData.type,
+            historyData.title,
+            historyData.vet,
+            historyData.notes,
+            id
+        ],
+        callback
+    );
+};
+
+// Delete a medical history record
+export const deleteMedicalHistoryRecord = (id, callback) => {
+    const sql = "DELETE FROM animal_medical_histories WHERE id = ?";
+    db.query(sql, [id], callback);
+};
+
+
