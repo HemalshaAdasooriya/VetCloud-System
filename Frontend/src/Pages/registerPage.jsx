@@ -9,6 +9,7 @@ import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 import FacebookLogin, { FacebookLoginClient } from '@greatsumini/react-facebook-login';
 import CustomGoogleButton from "../layouts/CustomGoogleButton";
 import CustomFacebookButton from "../layouts/CustomFacebookButton";
+import { useRef } from "react";
 
 
 
@@ -42,6 +43,10 @@ export default function RegisterPage() {
     const [state, setState] = useState("");
     const [zip, setZip] = useState("");
     const [country, setCountry] = useState("");
+
+    const [profileImage, setProfileImage] = useState(null);
+    const [previewUrl, setPreviewUrl] = useState(null);
+    const fileInputRef = useRef(null);
 
     const getPasswordStrength = () => {
         if (!password) return 0;
@@ -125,31 +130,42 @@ export default function RegisterPage() {
 
         const backendRole = role === 'user' ? "Farmer/PetOwner" : "Veterinary Doctor";
 
-        let payload = { firstName, lastName, email, password, contact_No: phone, role: backendRole };
+        const formData = new FormData();
+    
+            // 2. Put the text data in the box
+            formData.append("firstName", firstName);
+            formData.append("lastName", lastName);
+            formData.append("email", email);
+            formData.append("password", password);
+            formData.append("contact_No", phone);
+            formData.append("role", backendRole);
 
-        if (role === 'user') {
-            
-            payload.numberOfAnimals = numberOfAnimals ? parseInt(numberOfAnimals, 10) : 0;
+            // 3. Put the physical image in the box (if the user selected one)
+            if (profileImage) {
+                formData.append("profileImage", profileImage);
+            }
 
-            payload.street = street;
-            payload.city = city;
-            payload.state = state;
-            payload.zip = zip;
-            payload.country = country;
+            // 4. Add the rest of the text data
+            if (role === 'user') {
+                formData.append("numberOfAnimals", numberOfAnimals || 0);
+                formData.append("street", street);
+                formData.append("city", city);
+                formData.append("state", state);
+                formData.append("zip", zip);
+                formData.append("country", country);
+            } else {
+                formData.append("license_number", license);
+                formData.append("specialization", specialization);
+                formData.append("years_of_experience", experience || 0);
+                formData.append("consultation_fee", fee || 0);
+            }
 
-        } else {
-            payload.license_number = license;
-            payload.specialization = specialization;
-            payload.years_of_experience = experience ? parseInt(experience, 10) : 0;
-            payload.consultation_fee = fee ? parseFloat(fee) : 0.00;
-        }
-
-        try {
-            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
-            });
+            try {
+                // 5. Send the box (CRITICAL: Do not write "Content-Type: application/json")
+                const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/`, {
+                    method: "POST",
+                    body: formData 
+                });
 
             const result = await response.json()
             if (response.status === 201) {
@@ -398,12 +414,34 @@ export default function RegisterPage() {
                             {/* Profile Picture Upload */}
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Profile Picture (Optional)</label>
-                                <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 flex flex-col items-center justify-center text-center hover:border-slate-300 transition-colors cursor-pointer bg-slate-50">
-                                    <div className="bg-white p-3 rounded-full shadow-sm mb-3">
-                                        <Camera className="h-6 w-6 text-slate-400" />
-                                    </div>
+                                <div 
+                                    onClick={() => fileInputRef.current.click()}
+                                    className="border-2 border-dashed border-slate-200 rounded-xl p-6 flex flex-col items-center justify-center text-center hover:border-slate-300 transition-colors cursor-pointer bg-slate-50 relative overflow-hidden"
+                                >
+                                    {/* The hidden input that actually grabs the file */}
+                                    <input 
+                                        type="file" 
+                                        ref={fileInputRef} 
+                                        accept="image/*"
+                                        className="hidden" 
+                                        onChange={(e) => {
+                                            const file = e.target.files[0];
+                                            if (file) {
+                                                setProfileImage(file); // Save physical file for the server
+                                                setPreviewUrl(URL.createObjectURL(file)); // Show preview to the user
+                                            }
+                                        }}
+                                    />
+                                    
+                                    {previewUrl ? (
+                                        <img src={previewUrl} alt="Preview" className="h-24 w-24 object-cover rounded-full shadow-sm mb-3 z-10" />
+                                    ) : (
+                                        <div className="bg-white p-3 rounded-full shadow-sm mb-3">
+                                            <Camera className="h-6 w-6 text-slate-400" />
+                                        </div>
+                                    )}
+                                    
                                     <p className="text-sm font-medium text-slate-700">Click to upload photo</p>
-                                    <p className="text-xs text-slate-500 mt-1">JPG, PNG or GIF (max. 5MB)</p>
                                 </div>
                             </div>
                         </div>
