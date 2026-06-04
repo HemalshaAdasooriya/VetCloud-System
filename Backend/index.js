@@ -5,6 +5,7 @@ import cors from "cors";
 import http from "http";
 import { Server } from "socket.io";
 import mapRouter from "./routes/mapRouter.js";
+import animalRouter from "./routes/animalRouter.js";
 
 dotenv.config();
 
@@ -34,6 +35,7 @@ app.use(express.json());
 
 app.use("/api/users", userRouter);
 app.use("/api/map", mapRouter);
+app.use("/api/animals", animalRouter);
 app.use("/uploads", express.static("uploads"));
 
 server.listen(5000, () => {
