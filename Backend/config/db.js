@@ -16,6 +16,7 @@ db.connect((err) => {
         console.log("MySQL Connected");
 
 // myanimalpage //
+       // myanimalpage //
         const createAnimalsTable = `
             CREATE TABLE IF NOT EXISTS \`animals\` (
               \`id\` INT AUTO_INCREMENT PRIMARY KEY,
@@ -31,7 +32,7 @@ db.connect((err) => {
               FOREIGN KEY (\`owner_id\`) REFERENCES \`pet_owners\`(\`id\`) ON DELETE CASCADE
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
         `;
-        
+
         const createHistoryTable = `
             CREATE TABLE IF NOT EXISTS \`animal_medical_histories\` (
               \`id\` INT AUTO_INCREMENT PRIMARY KEY,
@@ -56,9 +57,8 @@ db.connect((err) => {
                 });
             }
         });
-    
+
     }
 
 });
-
 export default db;
