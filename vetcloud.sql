@@ -11,7 +11,7 @@
  Target Server Version : 80407 (8.4.7)
  File Encoding         : 65001
 
- Date: 01/06/2026 12:11:55
+ Date: 04/06/2026 11:23:27
 */
 
 SET NAMES utf8mb4;
@@ -29,10 +29,6 @@ CREATE TABLE `password_resets`  (
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 13 CHARACTER SET = latin1 COLLATE = latin1_swedish_ci ROW_FORMAT = Dynamic;
-
--- ----------------------------
--- Records of password_resets
--- ----------------------------
 
 -- ----------------------------
 -- Table structure for pet_owner_profiles
@@ -56,12 +52,6 @@ CREATE TABLE `pet_owner_profiles`  (
 ) ENGINE = MyISAM AUTO_INCREMENT = 5 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
--- Records of pet_owner_profiles
--- ----------------------------
-INSERT INTO `pet_owner_profiles` VALUES (4, 9, 'janith', 'kamal', '', '', 'hello friends', 'mahathanna', 'muttettuwegama', 'pambahinna', '244234', 'Sri Lanka');
-INSERT INTO `pet_owner_profiles` VALUES (3, 8, 'john', 'Deo', 'jonnyyyy', '12hec', 'hiii jonnyyy', 'mahathanna', 'muttettuwegama', 'pambahinna', '244234', 'srilanka');
-
--- ----------------------------
 -- Table structure for pet_owners
 -- ----------------------------
 DROP TABLE IF EXISTS `pet_owners`;
@@ -77,15 +67,26 @@ CREATE TABLE `pet_owners`  (
   `is_Active` tinyint(1) NULL DEFAULT 0,
   `image` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT '/default.jpg',
   `provider` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT 'local',
+  `two_factor_secret` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL,
+  `is_two_factor_enabled` tinyint(1) NULL DEFAULT 0,
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `email`(`email` ASC) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 10 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
--- Records of pet_owners
+-- Table structure for user_sessions
 -- ----------------------------
-INSERT INTO `pet_owners` VALUES (8, 'john@gmail.com', '$2b$11$behPTM5MoIHs1TWtF8vl2OCNGLi2OqaExTR4HH6hV159n.vlj3zg2', 'john Deo', '0786565435', 'mahathanna, muttettuwegama, pambahinna, 244234, srilanka', -1, 0, 0, '/default.jpg', 'local');
-INSERT INTO `pet_owners` VALUES (9, 'navindu@gmail.com', '$2b$11$m54JeydAul2ZCB9wo4YWqezBLsmHgzjLJ7ulMt67n66zWosalP2y.', 'janith kamal', '0766543232', 'mahathanna, muttettuwegama, pambahinna, 244234, Sri Lanka', 6, 0, 0, '/default.jpg', 'local');
+DROP TABLE IF EXISTS `user_sessions`;
+CREATE TABLE `user_sessions`  (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `user_id` int NOT NULL,
+  `user_role` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `device` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `location` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT 'Unknown Location',
+  `login_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `token` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  PRIMARY KEY (`id`) USING BTREE
+) ENGINE = MyISAM AUTO_INCREMENT = 3 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for veterinarian_profiles
@@ -101,11 +102,6 @@ CREATE TABLE `veterinarian_profiles`  (
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `vet_id`(`vet_id`) USING BTREE
 ) ENGINE = MyISAM AUTO_INCREMENT = 3 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = Dynamic;
-
--- ----------------------------
--- Records of veterinarian_profiles
--- ----------------------------
-INSERT INTO `veterinarian_profiles` VALUES (2, 5, 'kasun', 'kalhara', '', '');
 
 -- ----------------------------
 -- Table structure for veterinarians
@@ -125,15 +121,11 @@ CREATE TABLE `veterinarians`  (
   `is_Active` tinyint(1) NULL DEFAULT 0,
   `image` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT '/default.jpg',
   `provider` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT 'local',
+  `two_factor_secret` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL,
+  `is_two_factor_enabled` tinyint(1) NULL DEFAULT 0,
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `email`(`email` ASC) USING BTREE,
   UNIQUE INDEX `license_number`(`license_number` ASC) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 6 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci ROW_FORMAT = DYNAMIC;
-
--- ----------------------------
--- Records of veterinarians
--- ----------------------------
-INSERT INTO `veterinarians` VALUES (1, 'kavee@gmail.com', '$2b$11$AUWl2wOGyK1EyUY6uNtYteDNsbkJZaXhY91CNdfVPeowhXmeXt55O', 'hemalsha', '0987676546', '34uihjdfhdf', 'large', 3, 0.09, 0, 0, '/default.jpg', 'local');
-INSERT INTO `veterinarians` VALUES (5, 'kasun@gmail.com', '$2b$11$KOZkqdqAhlStBcGC5d/aEO.p5/T7X8dbWgI3mwYHyISKVhMv8dIOq', 'kasun kalhara', '0766543434', 'jhhghjg66', 'large', 6, 6.99, 0, 0, '/default.jpg', 'local');
 
 SET FOREIGN_KEY_CHECKS = 1;
