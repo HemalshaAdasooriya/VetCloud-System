@@ -323,13 +323,14 @@ export const updateVeterinarianProfile = (vetId, profileData, callback) => {
     // Query 1: Insert or Update the detailed profile table (No address fields here)
     const profileSql = `
         INSERT INTO veterinarian_profiles 
-        (vet_id, firstName, lastName, clinicName, bio)
-        VALUES (?, ?, ?, ?, ?)
+        (vet_id, firstName, lastName, clinicName, bio, professional_title)
+        VALUES (?, ?, ?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE 
             firstName = VALUES(firstName),
             lastName = VALUES(lastName),
             clinicName = VALUES(clinicName),
-            bio = VALUES(bio)
+            bio = VALUES(bio),
+            professional_title = VALUES(professional_title)
     `;
 
     const profileValues = [
@@ -337,7 +338,8 @@ export const updateVeterinarianProfile = (vetId, profileData, callback) => {
         profileData.firstName, 
         profileData.lastName,
         profileData.clinicName, 
-        profileData.bio
+        profileData.bio,
+        profileData.professional_title
     ];
 
     // Query 2: Update the main table's fullName and phone number
@@ -469,4 +471,31 @@ export const deleteSessionById = (sessionId, callback) => {
 export const deleteOtherSessions = (userId, role, currentToken, callback) => {
     const sql = `DELETE FROM user_sessions WHERE user_id = ? AND user_role = ? AND token != ?`;
     db.query(sql, [userId, role, currentToken], callback);
+};
+
+// --- Fetch complete Veterinarian profile by joining the two tables ---
+export const getFullVeterinarianProfile = (vetId, callback) => {
+    const sql = `
+        SELECT 
+            main.email, main.contact_No, main.license_number, main.specialization, 
+            main.years_of_experience, main.consultation_fee, main.image, main.is_two_factor_enabled,
+            profile.firstName, profile.lastName, profile.clinicName, profile.bio, profile.professional_title
+        FROM veterinarians main
+        LEFT JOIN veterinarian_profiles profile ON main.id = profile.vet_id
+        WHERE main.id = ?
+    `;
+
+    db.query(sql, [vetId], (err, results) => {
+        if (err) {
+            return callback(err, null);
+        }
+        
+        // If the doctor doesn't exist
+        if (results.length === 0) {
+            return callback({ message: "User not found" }, null);
+        }
+        
+        // Return the single combined user object
+        callback(null, results[0]); 
+    });
 };

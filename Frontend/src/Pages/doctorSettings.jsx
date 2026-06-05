@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   User, Building2, Bell, Shield, Wallet,
   MapPin, Clock, Camera, Check, Upload, Save, CreditCard, Plus, Trash2, Building, Eye, EyeOff, Lock, Mail
@@ -11,6 +11,17 @@ import { Button, Card, Input } from '../components/Ui/ui';
 export default function DoctorSettings() {
 
     const [activeTab, setActiveTab] = useState('profile');
+    const [personalInfo, setPersonalInfo] = useState({
+        firstName: '',
+        lastName: '',
+        professional_title: '',
+        specializations: '',
+        bio: ''
+    });
+
+    const [isLoading, setIsLoading] = useState(true);
+    const [toastMessage, setToastMessage] = useState(null);
+
     const [paymentMethods, setPaymentMethods] = useState([
         { id: 1, type: 'bank', name: 'Chase Bank - Business Account', accountNumber: '****6789', isPrimary: true },
         { id: 2, type: 'mobile', name: 'M-Pesa', accountNumber: '+254712****90', isPrimary: false },
@@ -33,6 +44,75 @@ export default function DoctorSettings() {
         { id: 'security', name: 'Security & Login', icon: Shield },
         { id: 'billing', name: 'Billing & Payouts', icon: Wallet },
     ];
+
+    useEffect(() => {
+        const fetchDoctorProfile = async () => {
+            try {
+                const token = localStorage.getItem("token");
+                if (!token) {
+                    console.error("No token found");
+                    return;
+                }
+
+                const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/profile`, {
+                    method: "GET",
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // Map the backend data to your state
+                    setPersonalInfo({
+                        firstName: data.firstName || '',
+                        lastName: data.lastName || '',
+                        professional_title: data.professional_title || '', 
+                        specializations: data.specialization || '', // Mapped from your registration fields
+                        bio: data.bio || ''
+                    });
+                } else {
+                    console.error("Failed to fetch profile");
+                }
+            } catch (error) {
+                console.error("Error fetching doctor profile:", error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchDoctorProfile();
+    }, []);
+
+    // 3. Save updated profile data
+    const handleSaveProfile = async (e) => {
+        if (e) e.preventDefault();
+        
+        try {
+            const token = localStorage.getItem("token");
+            if (!token) return;
+
+            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/profile`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                },
+                body: JSON.stringify(personalInfo)
+            });
+
+            if (response.ok) {
+                setToastMessage("Profile updated successfully!");
+                // Optionally clear the toast after 3 seconds
+                setTimeout(() => setToastMessage(null), 3000);
+            } else {
+                const errorData = await response.json();
+                setToastMessage(errorData.message || "Failed to update profile");
+            }
+        } catch (error) {
+            console.error("Save error:", error);
+            setToastMessage("Server connection failed");
+        }
+    };
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-5xl mx-auto pb-12">
@@ -66,56 +146,72 @@ export default function DoctorSettings() {
         {/* Settings Content */}
         <div className="md:col-span-3 space-y-6">
           
-          {/* Profile Settings */}
-          {activeTab === 'profile' && (
+            {/* Profile Settings */}
+            {activeTab === 'profile' && (
             <Card className="p-6 border-slate-200 shadow-sm animate-in fade-in">
-              <h3 className="text-lg font-semibold text-slate-800 mb-5 border-b border-slate-100 pb-3">Personal Profile</h3>
-              
-              <div className="flex items-center gap-6 mb-8">
-                <div className="relative">
-                  <div className="h-24 w-24 rounded-full bg-slate-100 border-4 border-white shadow-md flex items-center justify-center overflow-hidden">
-                    <User size={40} className="text-slate-300" />
-                  </div>
-                  <button className="absolute bottom-0 right-0 p-1.5 bg-green-600 text-white rounded-full shadow-sm hover:bg-green-700 transition-colors">
-                    <Camera size={14} />
-                  </button>
+                <h3 className="text-lg font-semibold text-slate-800 mb-5 border-b border-slate-100 pb-3">Personal Profile</h3>
+                
+                {toastMessage && (
+                <div className="mb-4 p-3 bg-blue-50 text-blue-700 rounded-md text-sm">
+                    {toastMessage}
                 </div>
-                <div>
-                  <h4 className="font-medium text-slate-800">Profile Picture</h4>
-                  <p className="text-sm text-slate-500 mb-2">JPG, GIF or PNG. Max size of 5MB.</p>
-                  <Button variant="outline" size="sm" className="text-xs h-8">
-                    <Upload size={14} className="mr-2" /> Upload New
-                  </Button>
-                </div>
-              </div>
+                )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-slate-700">First Name</label>
-                  <Input defaultValue="Sarah" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-slate-700">Last Name</label>
-                  <Input defaultValue="Jenkins" />
-                </div>
-                <div className="space-y-1.5 sm:col-span-2">
-                  <label className="text-sm font-medium text-slate-700">Professional Title</label>
-                  <Input defaultValue="DVM, MS - Senior Veterinarian" />
-                </div>
-                <div className="space-y-1.5 sm:col-span-2">
-                  <label className="text-sm font-medium text-slate-700">Specializations (comma separated)</label>
-                  <Input defaultValue="Large Animals, Bovine Health, Equine Medicine" />
-                </div>
-                <div className="space-y-1.5 sm:col-span-2">
-                  <label className="text-sm font-medium text-slate-700">Bio / About</label>
-                  <textarea 
-                    className="w-full min-h-[100px] p-3 rounded-lg border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-colors resize-y"
-                    defaultValue="Over 15 years of experience treating farm animals. Dedicated to providing compassionate care for livestock and helping farmers maintain healthy herds."
-                  />
-                </div>
-              </div>
+                {/* ... Profile Picture Section remains the same ... */}
+
+                {isLoading ? (
+                    <p className="text-slate-500">Loading profile...</p>
+                ) : (
+                    <form className="grid grid-cols-1 sm:grid-cols-2 gap-5" onSubmit={handleSaveProfile}>
+                    <div className="space-y-1.5">
+                        <label className="text-sm font-medium text-slate-700">First Name</label>
+                        <Input 
+                            value={personalInfo.firstName} 
+                            onChange={(e) => setPersonalInfo({...personalInfo, firstName: e.target.value})}
+                        />
+                    </div>
+                    <div className="space-y-1.5">
+                        <label className="text-sm font-medium text-slate-700">Last Name</label>
+                        <Input 
+                            value={personalInfo.lastName}
+                            onChange={(e) => setPersonalInfo({...personalInfo, lastName: e.target.value})}
+                        />
+                    </div>
+                    <div className="space-y-1.5 sm:col-span-2">
+                        <label className="text-sm font-medium text-slate-700">Professional Title</label>
+                        <Input 
+                            value={personalInfo.professional_title}
+                            onChange={(e) => setPersonalInfo({...personalInfo, professional_title: e.target.value})}
+                            placeholder="e.g., DVM, MS - Senior Veterinarian" 
+                        />
+                    </div>
+                    <div className="space-y-1.5 sm:col-span-2">
+                        <label className="text-sm font-medium text-slate-700">Specializations (comma separated)</label>
+                        <Input 
+                            value={personalInfo.specializations}
+                            onChange={(e) => setPersonalInfo({...personalInfo, specializations: e.target.value})}
+                            placeholder="e.g., Large Animals, Equine Medicine" 
+                        />
+                    </div>
+                    <div className="space-y-1.5 sm:col-span-2">
+                        <label className="text-sm font-medium text-slate-700">Bio / About</label>
+                        <textarea 
+                        value={personalInfo.bio}
+                        onChange={(e) => setPersonalInfo({...personalInfo, bio: e.target.value})}
+                        className="w-full min-h-[100px] p-3 rounded-lg border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-colors resize-y"
+                        placeholder="Tell us about your experience..."
+                        />
+                    </div>
+                    
+                    <div className="sm:col-span-2 flex justify-end pt-4">
+                        <Button type="submit" className="bg-green-600 hover:bg-green-700 text-white">
+                            <Save size={16} className="mr-2" /> Save Profile
+                        </Button>
+                    </div>
+                    </form>
+                )}
             </Card>
-          )}
+            )}
 
           {/* Clinic Details */}
           {activeTab === 'clinic' && (

@@ -28,7 +28,8 @@ import {
     saveUserSession,
     getUserSessions,
     deleteSessionById,
-    deleteOtherSessions
+    deleteOtherSessions,
+    getFullVeterinarianProfile
 } from "../models/User.js";
 //... Navindu
 import fs from "fs";
@@ -284,7 +285,7 @@ export async function facebookLogin(req, res) {
     const { token, role } = req.body;
 
     if (!token) {
-        console.error("❌ FACEBOOK ERROR: No token received from frontend.");
+        console.error("FACEBOOK ERROR: No token received from frontend.");
         return res.status(400).json({ message: "No token received." });
     }
 
@@ -689,10 +690,21 @@ export const getUserProfile = (req, res) => {
                 // Success! Send the data back to React
                 return res.status(200).json(profileData);
             });
+        } else if (userRole === "Veterinary Doctor" || userRole === "vet" || userRole === "doctor") {
+            
+            getFullVeterinarianProfile(userId, (err, profileData) => {
+                if (err) {
+                    console.error("Database Error:", err);
+                    return res.status(500).json({ message: "Error fetching doctor profile" });
+                }
+                if (!profileData) {
+                    return res.status(404).json({ message: "Doctor profile not found in database" });
+                }
+                
+                // Success! Send the data back to React
+                return res.status(200).json(profileData);
+            });
 
-        } else if (userRole === "Veterinary Doctor" || userRole === "vet") {
-            // Placeholder for when you build the Doctor's fetch function
-            return res.status(501).json({ message: "Doctor profile fetching coming soon" });
         } else {
             return res.status(400).json({ message: "Invalid user role" });
         }
