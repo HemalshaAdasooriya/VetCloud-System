@@ -409,7 +409,7 @@ export const updateVeterinarianProfile = (vetId, profileData, callback) => {
 export const getFullPetOwnerProfile = (ownerId, callback) => {
     const sql = `
         SELECT 
-            main.email, main.contact_No, main.numberOfAnimals, main.image,
+            main.email, main.contact_No, main.numberOfAnimals, main.image, main.is_two_factor_enabled,
             profile.firstName, profile.lastName, profile.farmName, profile.farmSize, 
             profile.bio, profile.street, profile.city, profile.state, profile.zip, profile.country
         FROM pet_owners main
@@ -452,4 +452,57 @@ export const updateUserPasswordById = (id, role, newPasswordHash, callback) => {
     const sql = `UPDATE ${tableName} SET password = ? WHERE id = ?`;
     
     db.query(sql, [newPasswordHash, id], callback);
+};
+
+// --- Save 2FA Secret to Database ---
+export const enableUser2FA = (userId, role, secret, callback) => {
+    let tableName = (role === "Farmer/PetOwner" || role === "farmer") ? "pet_owners" : "veterinarians";
+    
+    const sql = `UPDATE ${tableName} SET two_factor_secret = ?, is_two_factor_enabled = TRUE WHERE id = ?`;
+    
+    db.query(sql, [secret, userId], callback);
+};
+
+// --- Fetch a user by ID for 2FA Verification ---
+export const getUserByIdAndRole = (id, role, callback) => {
+    let tableName = (role === "Farmer/PetOwner" || role === "farmer") ? "pet_owners" : "veterinarians";
+    const sql = `SELECT * FROM ${tableName} WHERE id = ?`;
+    
+    db.query(sql, [id], (err, results) => {
+        if (err) return callback(err, null);
+        if (results.length === 0) return callback({ message: "User not found" }, null);
+        
+        callback(null, results[0]); // Send the user data back to the controller
+    });
+};
+
+// --- Disable 2FA by removing the secret and setting the flag to false ---
+export const disableUser2FA = (userId, role, callback) => {
+    let tableName = (role === "Farmer/PetOwner" || role === "farmer") ? "pet_owners" : "veterinarians";
+    
+    const sql = `UPDATE ${tableName} SET two_factor_secret = NULL, is_two_factor_enabled = FALSE WHERE id = ?`;
+    
+    db.query(sql, [userId], callback);
+};
+
+// --- Session Management Database Functions ---
+
+export const saveUserSession = (userId, role, device, token, callback) => {
+    const sql = `INSERT INTO user_sessions (user_id, user_role, device, token) VALUES (?, ?, ?, ?)`;
+    db.query(sql, [userId, role, device, token], callback);
+};
+
+export const getUserSessions = (userId, role, callback) => {
+    const sql = `SELECT id, device, location, login_time, token FROM user_sessions WHERE user_id = ? AND user_role = ? ORDER BY login_time DESC`;
+    db.query(sql, [userId, role], callback);
+};
+
+export const deleteSessionById = (sessionId, callback) => {
+    const sql = `DELETE FROM user_sessions WHERE id = ?`;
+    db.query(sql, [sessionId], callback);
+};
+
+export const deleteOtherSessions = (userId, role, currentToken, callback) => {
+    const sql = `DELETE FROM user_sessions WHERE user_id = ? AND user_role = ? AND token != ?`;
+    db.query(sql, [userId, role, currentToken], callback);
 };

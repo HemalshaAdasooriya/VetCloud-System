@@ -17,7 +17,11 @@ import {
     changePassword,
     generate2FA,
     verifyAndEnable2FA,
-    verifyLogin2FA
+    verifyLogin2FA,
+    disable2FA,
+    getActiveSessions,
+    revokeSession,
+    revokeOtherSessions
 } from "../controllers/userController.js";
 
 //... Navindu
@@ -31,7 +35,6 @@ import fs from "fs";
 
 const userRouter = express.Router();
 
-userRouter.post("/", registerUser);
 userRouter.post("/google-login", googleLogin);
 userRouter.post("/facebook-login", facebookLogin);
 userRouter.post("/login", loginUser);
@@ -60,6 +63,8 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
+userRouter.post("/", upload.single('profileImage'), registerUser);
+
 userRouter.post("/upload-photo", upload.single('profileImage'), updateProfilePhoto);
 userRouter.delete("/remove-photo", removeProfilePhoto);
 userRouter.put("/profile", updateUserProfile);
@@ -68,6 +73,12 @@ userRouter.put("/change-password", changePassword);
 userRouter.get("/generate-2fa", generate2FA);
 userRouter.post("/verify-2fa", verifyAndEnable2FA);
 userRouter.post("/verify-login-2fa", verifyLogin2FA);
+userRouter.put("/disable-2fa", disable2FA);
+
+userRouter.get("/sessions", getActiveSessions);
+userRouter.delete("/sessions/:id", revokeSession);
+userRouter.delete("/sessions/others", revokeOtherSessions);
+
 
 
 

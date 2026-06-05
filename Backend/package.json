@@ -26,6 +26,7 @@
     "otp-generator": "^4.0.1",
     "qrcode": "^1.5.4",
     "socket.io": "^4.8.3",
-    "speakeasy": "^2.0.0"
+    "speakeasy": "^2.0.0",
+    "ua-parser-js": "^2.0.10"
   }
 }

@@ -3,7 +3,7 @@ import dotenv from "dotenv";
 dotenv.config();
 import speakeasy from 'speakeasy';
 import qrcode from 'qrcode';
-import { createPetOwner, createVeterinarian, checkEmailExists, getUserByEmailAndRole, getFullPetOwnerProfile } from "../models/user.js";
+import { createPetOwner, createVeterinarian, checkEmailExists, getUserByEmailAndRole, getFullPetOwnerProfile } from "../models/User.js";
 import bcrypt from "bcryptjs";
 import { OAuth2Client } from "google-auth-library";
 import axios from "axios";
@@ -11,6 +11,7 @@ import jwt from "jsonwebtoken";
 //Navindu 2026/05/27 ... Forgot Password FunctionalityupdateUserProfile
 import nodemailer from "nodemailer";
 import otpGenerator from "otp-generator";
+import { UAParser } from "ua-parser-js";
 
 import {
     savePasswordResetOTP,
@@ -19,7 +20,14 @@ import {
     updateVeterinarianPassword,
     updateUserImage,
     updatePetOwnerProfile,
-    updateVeterinarianProfile
+    updateVeterinarianProfile,
+    enableUser2FA,
+    getUserByIdAndRole,
+    disableUser2FA,
+    saveUserSession,
+    getUserSessions,
+    deleteSessionById,
+    deleteOtherSessions
 } from "../models/User.js";
 //... Navindu
 import fs from "fs";
@@ -37,6 +45,12 @@ export function registerUser(req, res) {
         return res.status(400).json({
             message: "Missing required fields."
         });
+    }
+
+    //Create the link string based on what multer saved
+    let databaseLink = "/default.jpg"; 
+    if (req.file) {
+        databaseLink = `/uploads/${req.file.filename}`; 
     }
 
     // 2. Check if email already exists in either table
@@ -70,6 +84,7 @@ export function registerUser(req, res) {
                         zip: data.zip,             
                         country: data.country,
                         numberOfAnimals: data.numberOfAnimals, // Matched to frontend payload exactly
+                        image: databaseLink,
                         provider: 'local'
                     },
                     (err, result) => {
@@ -91,6 +106,7 @@ export function registerUser(req, res) {
                         specialization: data.specialization,
                         years_of_experience: data.years_of_experience,
                         consultation_fee: data.consultation_fee,
+                        image: databaseLink,
                         provider: 'local'
                     },
                     (err, result) => {
@@ -116,68 +132,6 @@ export function registerUser(req, res) {
     });
 }
 
-// 4. STANDARD LOGIN FUNCTION
-// export async function loginUser(req, res) {
-//     const { email, password, role } = req.body;
-
-//     // Basic validation
-//     if (!email || !password || !role) {
-//         return res.status(400).json({ message: "Email, password, and role are required." });
-//     }
-
-//     // Fetch user from the appropriate table
-//     getUserByEmailAndRole(email, role, async (err, results) => {
-//         if (err) {
-//             return res.status(500).json({ message: "Database error during login." });
-//         }
-
-//         // Check if user exists
-//         if (results.length === 0) {
-//             return res.status(404).json({ message: "User not found. Check your email or role." });
-//         }
-
-//         const user = results[0];
-
-//         try {
-//             // Verify the hashed password
-//             // Note: If registering via Google/Facebook, password might be NULL
-//             if (!user.password) {
-//                 return res.status(401).json({ message: "Please log in using Google or Facebook." });
-//             }
-
-//             const isPasswordValid = await bcrypt.compare(password, user.password);
-
-//             if (!isPasswordValid) {
-//                 return res.status(401).json({ message: "Invalid credentials." });
-//             }
-
-            
-//             const token = jwt.sign(
-//                 { 
-//                     id: user.id, 
-//                     email: user.email, 
-//                     role: role 
-//                 }, 
-//                 process.env.JWT_SECRET, 
-//                 // { expiresIn: "24h" }
-//             );
-
-//             const { password: userPassword, ...safeUserData } = user;
-
-//             safeUserData.role = req.body.role;
-
-//             return res.status(200).json({
-//                 message: "Login successful",
-//                 token: token,
-//                 user: safeUserData
-//             });
-
-//         } catch (error) {
-//             console.error("Error during password verification:", error);
-//             return res.status(500).json({ message: "Server error during password verification." });
-//         }
-//     });
-// }
 
 // 4. STANDARD LOGIN FUNCTION (UPDATED WITH 2FA)
 export async function loginUser(req, res) {
@@ -224,15 +178,29 @@ export async function loginUser(req, res) {
                 });
             }
 
-            // If 2FA is OFF, proceed with normal login and issue the Token
+    
+            // 1. Generate the JWT Token
+            console.log("STEP 1: Generating Token...");
             const token = jwt.sign(
-                { 
-                    id: user.id, 
-                    email: user.email, 
-                    role: role 
-                }, 
+                {   id: user.id, 
+                    email: user.email,
+                    role: role }, 
                 process.env.JWT_SECRET
             );
+
+            const rawUserAgent = req.headers['user-agent'] || '';
+            const parser = new UAParser(rawUserAgent);
+            const cleanDeviceString = `${parser.getBrowser().name || 'Unknown'} on ${parser.getOS().name || 'Unknown'}`;
+
+            // 2. Save the session
+            console.log("Attempting to save to database with Device:", cleanDeviceString);
+            saveUserSession(user.id, role, cleanDeviceString, token, (err) => {
+                if (err) {
+                    console.error("Database failed!", err);
+                } else {
+                    console.log("Session inserted into database!");
+                }
+            });
 
             const { password: userPassword, ...safeUserData } = user;
             safeUserData.role = req.body.role;
@@ -250,6 +218,7 @@ export async function loginUser(req, res) {
     });
 }
 
+
 // 2. GOOGLE LOGIN / REGISTRATION
 export async function googleLogin(req, res) {
     const { token, role } = req.body;
@@ -261,7 +230,8 @@ export async function googleLogin(req, res) {
         });
         const payload = ticket.getPayload();
         
-        handleSocialLogin(res, payload.email, payload.name, payload.picture, role, 'google');
+        // Notice we are now passing 'req' so we can read the device info
+        handleSocialLogin(req, res, payload.email, payload.name, payload.picture, role, 'google');
     } catch (error) {
         return res.status(401).json({ message: "Invalid Google Token" });
     }
@@ -278,40 +248,80 @@ export async function facebookLogin(req, res) {
         const { email, name, picture } = fbResponse.data;
         const imageUrl = picture?.data?.url || "/default.jpg";
 
-        handleSocialLogin(res, email, name, imageUrl, role, 'facebook');
+        // Notice we are now passing 'req' here too
+        handleSocialLogin(req, res, email, name, imageUrl, role, 'facebook');
     } catch (error) {
         return res.status(401).json({ message: "Invalid Facebook Token" });
     }
 }
 
 // --- Helper Function to avoid repeating code for Social Logins ---
-function handleSocialLogin(res, email, name, image, role, provider) {
+function handleSocialLogin(req, res, email, name, image, role, provider) {
     const nameParts = name.split(" ");
     const splitFirstName = nameParts[0] || "";
     const splitLastName = nameParts.slice(1).join(" ") || "";
+    
+    // Map frontend role to backend database role names
+    const dbRole = (role === "Farmer/PetOwner" || role === "farmer") ? "farmer" : "doctor";
 
     checkEmailExists(email, (err, results) => {
         if (err) return res.status(500).json(err);
 
         if (results.length > 0) {
-            // User already exists in DB -> Log them in!
-            return res.status(200).json({ message: "Login successful", email, role });
+            // User already exists in DB -> Fetch full user details to issue a proper session
+            getUserByEmailAndRole(email, dbRole, (fetchErr, userResults) => {
+                if (fetchErr || userResults.length === 0) return res.status(500).json({ message: "Database error during social login." });
+                issueTokenAndSession(req, res, userResults[0], dbRole);
+            });
         } else {
             // New user -> Register them instantly
             const userData = { email, password: null, firstName: splitFirstName, lastName: splitLastName, image, provider };
             
-            if (role === "Farmer/PetOwner") {
-                createPetOwner(userData, (err, result) => {
-                    if (err) return res.status(500).json(err);
-                    return res.status(201).json({ message: `Registered via ${provider}` });
+            const callback = (regErr, result) => {
+                if (regErr) return res.status(500).json(regErr);
+                
+                // Fetch the newly created user to issue a proper session
+                getUserByEmailAndRole(email, dbRole, (fetchErr, userResults) => {
+                    if (fetchErr || userResults.length === 0) return res.status(500).json({ message: "Database error during social registration." });
+                    issueTokenAndSession(req, res, userResults[0], dbRole);
                 });
-            } else if (role === "Veterinary Doctor") {
-                createVeterinarian(userData, (err, result) => {
-                    if (err) return res.status(500).json(err);
-                    return res.status(201).json({ message: `Registered via ${provider}` });
-                });
+            };
+
+            if (dbRole === "farmer") {
+                createPetOwner(userData, callback);
+            } else {
+                createVeterinarian(userData, callback);
             }
         }
+    });
+}
+
+// --- Standardized Function to Generate Token & Save Session ---
+function issueTokenAndSession(req, res, user, role) {
+    // 1. Generate the JWT Token
+    const token = jwt.sign(
+        { id: user.id, email: user.email, role: role }, 
+        process.env.JWT_SECRET
+    );
+
+    // 2. Parse the User-Agent for device info
+    const rawUserAgent = req.headers['user-agent'] || '';
+    const parser = new UAParser(rawUserAgent);
+    const cleanDeviceString = `${parser.getBrowser().name || 'Unknown'} on ${parser.getOS().name || 'Unknown'}`;
+
+    // 3. Save the session to the database
+    saveUserSession(user.id, role, cleanDeviceString, token, (err) => {
+        if (err) console.error("Failed to save session:", err);
+    });
+
+    // 4. Clean sensitive data and send response to React
+    const { password, two_factor_secret, ...safeUserData } = user;
+    safeUserData.role = role;
+
+    return res.status(200).json({
+        message: "Login successful",
+        token: token,
+        user: safeUserData
     });
 }
 
@@ -685,28 +695,91 @@ export const generate2FA = async (req, res) => {
     });
 };
 
+
 // Verify and Enable 2FA
 export const verifyAndEnable2FA = (req, res) => {
-    // Get userId and userRole from your JWT token just like your other routes
-    const { userId, userRole, token, secret } = req.body; 
+    // 1. Get the user from the JWT Token
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ message: "Unauthorized" });
+    }
 
-    // Check if the 6-digit token matches the math of the secret
-    const verified = speakeasy.totp.verify({
-        secret: secret,
-        encoding: 'base32',
-        token: token
-    });
+    const jwtToken = authHeader.split(" ")[1];
 
-    if (verified) {
-        // Run a database UPDATE query here to save the 'secret' to the user's row
-        // and set 'is_two_factor_enabled' to TRUE.
-        res.status(200).json({ message: "2FA Enabled Successfully!" });
-    } else {
-        res.status(400).json({ message: "Invalid 6-digit code" });
+    try {
+        const decoded = jwt.verify(jwtToken, process.env.JWT_SECRET);
+        const userId = decoded.id;
+        const userRole = decoded.role;
+        
+        // 'token' here is the 6-digit code they typed
+        const { token, secret } = req.body; 
+
+        // 2. Do the math to verify the 6-digit code
+        const verified = speakeasy.totp.verify({
+            secret: secret,
+            encoding: 'base32',
+            token: token
+        });
+
+        if (verified) {
+            // 3. ACTUALLY SAVE IT TO THE DATABASE!
+            enableUser2FA(userId, userRole, secret, (err) => {
+                if (err) return res.status(500).json({ message: "Failed to save to database" });
+                
+                return res.status(200).json({ message: "2FA Enabled Successfully!" });
+            });
+        } else {
+            return res.status(400).json({ message: "Invalid 6-digit code" });
+        }
+    } catch (error) {
+        return res.status(401).json({ message: "Invalid session token" });
     }
 };
 
 // --- Verify 2FA Code During Login ---
+// export const verifyLogin2FA = (req, res) => {
+//     const { userId, role, code } = req.body;
+
+//     if (!userId || !role || !code) {
+//         return res.status(400).json({ message: "Missing required information" });
+//     }
+
+//     // 1. Ask the Model to fetch the user's secret from the database
+//     getUserByIdAndRole(userId, role, (err, user) => {
+//         if (err || !user) {
+//             console.error("Database Error during 2FA:", err);
+//             return res.status(500).json({ message: "Database error or user not found" });
+//         }
+
+//         // 2. Verify the 6-digit code against their saved secret
+//         const verified = speakeasy.totp.verify({
+//             secret: user.two_factor_secret,
+//             encoding: 'base32',
+//             token: code
+//         });
+
+//         if (verified) {
+//             // 3. Success! Issue the real JWT Token
+//             const token = jwt.sign(
+//                 { id: user.id, email: user.email, role: role }, 
+//                 process.env.JWT_SECRET
+//             );
+
+//             // Remove sensitive data before sending it to React
+//             const { password, two_factor_secret, ...safeUserData } = user;
+//             safeUserData.role = role;
+
+//             return res.status(200).json({ 
+//                 message: "Login successful",
+//                 token: token, 
+//                 user: safeUserData 
+//             });
+//         } else {
+//             return res.status(400).json({ message: "Invalid 6-digit code" });
+//         }
+//     });
+// };
+
 export const verifyLogin2FA = (req, res) => {
     const { userId, role, code } = req.body;
 
@@ -714,22 +787,14 @@ export const verifyLogin2FA = (req, res) => {
         return res.status(400).json({ message: "Missing required information" });
     }
 
-    // 1. Find the correct table
-    let tableName = (role === "Farmer/PetOwner" || role === "farmer") ? "pet_owners" : "veterinarians";
-    
-    // 2. Get the user's secret from the database
-    const sql = `SELECT * FROM ${tableName} WHERE id = ?`;
-    
-    // Note: ensure you import 'db' at the top of your controller if it isn't there, 
-    // or place this query inside your User.js model and call it here!
-    db.query(sql, [userId], (err, results) => {
-        if (err || results.length === 0) {
+    // 1. Ask the Model to fetch the user's secret from the database
+    getUserByIdAndRole(userId, role, (err, user) => {
+        if (err || !user) {
+            console.error("Database Error during 2FA:", err);
             return res.status(500).json({ message: "Database error or user not found" });
         }
 
-        const user = results[0];
-
-        // 3. Verify the 6-digit code against their saved secret
+        // 2. Verify the 6-digit code against their saved secret
         const verified = speakeasy.totp.verify({
             secret: user.two_factor_secret,
             encoding: 'base32',
@@ -737,13 +802,23 @@ export const verifyLogin2FA = (req, res) => {
         });
 
         if (verified) {
-            // 4. Success! Issue the real JWT Token
+            // 3. Success! Issue the real JWT Token
             const token = jwt.sign(
                 { id: user.id, email: user.email, role: role }, 
                 process.env.JWT_SECRET
             );
 
-            // Remove sensitive data before sending to React
+            // --- THE MISSING PIECE: Save the Session! ---
+            const rawUserAgent = req.headers['user-agent'] || '';
+            const parser = new UAParser(rawUserAgent);
+            const cleanDeviceString = `${parser.getBrowser().name || 'Unknown'} on ${parser.getOS().name || 'Unknown'}`;
+
+            saveUserSession(user.id, role, cleanDeviceString, token, (err) => {
+                if (err) console.error("Failed to save 2FA session:", err);
+            });
+            
+
+            // Remove sensitive data before sending it to React
             const { password, two_factor_secret, ...safeUserData } = user;
             safeUserData.role = role;
 
@@ -756,4 +831,91 @@ export const verifyLogin2FA = (req, res) => {
             return res.status(400).json({ message: "Invalid 6-digit code" });
         }
     });
+};
+
+// --- Disable 2FA Controller ---
+export const disable2FA = (req, res) => {
+    // 1. Verify the User Token
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const token = authHeader.split(" ")[1];
+
+    try {
+        // 2. Decode the token to get the ID and Role
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const userId = decoded.id;
+        const userRole = decoded.role;
+
+        // 3. Ask the Database to wipe the 2FA settings
+        disableUser2FA(userId, userRole, (err) => {
+            if (err) {
+                console.error("Database Error:", err);
+                return res.status(500).json({ message: "Failed to disable 2FA in database" });
+            }
+            
+            return res.status(200).json({ message: "Two-Factor Authentication disabled successfully." });
+        });
+
+    } catch (error) {
+        return res.status(401).json({ message: "Invalid session token" });
+    }
+};
+
+
+// --- Fetch All Active Sessions ---
+export const getActiveSessions = (req, res) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return res.status(401).json({ message: "Unauthorized" });
+    
+    const currentToken = authHeader.split(" ")[1];
+    
+    try {
+        const decoded = jwt.verify(currentToken, process.env.JWT_SECRET);
+
+        getUserSessions(decoded.id, decoded.role, (err, results) => {
+            if (err) return res.status(500).json({ message: "Database error" });
+
+            const formattedSessions = results.map(session => ({
+                id: session.id,
+                device: session.device,
+                location: session.location,
+                time: session.login_time,
+                isCurrent: session.token === currentToken 
+            }));
+
+            res.status(200).json(formattedSessions);
+        });
+    } catch (error) {
+        return res.status(401).json({ message: "Invalid token" });
+    }
+};
+
+// --- Revoke a Specific Session ---
+export const revokeSession = (req, res) => {
+    const sessionId = req.params.id; 
+    
+    deleteSessionById(sessionId, (err) => {
+        if (err) return res.status(500).json({ message: "Failed to revoke session" });
+        res.status(200).json({ message: "Session revoked successfully" });
+    });
+};
+
+// --- Revoke All Other Sessions ---
+export const revokeOtherSessions = (req, res) => {
+    const authHeader = req.headers.authorization;
+    const currentToken = authHeader.split(" ")[1];
+    
+    try {
+        const decoded = jwt.verify(currentToken, process.env.JWT_SECRET);
+
+        deleteOtherSessions(decoded.id, decoded.role, currentToken, (err) => {
+            if (err) return res.status(500).json({ message: "Failed to revoke other sessions" });
+            res.status(200).json({ message: "All other sessions signed out" });
+        });
+    } catch (error) {
+        return res.status(401).json({ message: "Invalid token" });
+    }
 };
