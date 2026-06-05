@@ -54,7 +54,7 @@ export const createPetOwner = (userData, callback) => {
         userData.email,
         userData.password,
         fullName,
-        userData.contact_No,
+        userData.contact_No || "",
         fullAddress,
         userData.numberOfAnimals || 0,
         userData.image || "/default.jpg",
@@ -95,42 +95,6 @@ export const createPetOwner = (userData, callback) => {
 };
 
 // 2. Insert into Veterinarians Table
-// export const createVeterinarian = (userData, callback) => {
-//     const sql = `
-//         INSERT INTO veterinarians
-//         (
-//             email, 
-//             password, 
-//             fullName, 
-//             contact_No, 
-//             license_number, 
-//             specialization, 
-//             years_of_experience, 
-//             consultation_fee,
-//             image,
-//             provider
-//         )
-//         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-//     `;
-
-//     db.query(
-//         sql,
-//         [
-//             userData.email,
-//             userData.password,
-//             userData.fullName,
-//             userData.contact_No,
-//             userData.license_number,
-//             userData.specialization,
-//             userData.years_of_experience || 0,
-//             userData.consultation_fee || 0.00,
-//             userData.image || "/default.jpg",
-//             userData.provider || "local"
-//         ],
-//         callback
-//     );
-// };
-
 export const createVeterinarian = (userData, callback) => {
     // Stitch the name together for the main table
     const fullName = `${userData.firstName || ''} ${userData.lastName || ''}`.trim();
@@ -146,9 +110,9 @@ export const createVeterinarian = (userData, callback) => {
         userData.email,
         userData.password,
         fullName,
-        userData.contact_No,
-        userData.license_number,
-        userData.specialization,
+        userData.contact_No || "",
+        userData.license_number || `PENDING-${Math.floor(100000 + Math.random() * 900000)}`,
+        userData.specialization || "General Medicine",
         userData.years_of_experience || 0,
         userData.consultation_fee || 0.00,
         userData.image || "/default.jpg",
