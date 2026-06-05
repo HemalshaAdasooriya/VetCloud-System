@@ -29,7 +29,8 @@ import {
     getUserSessions,
     deleteSessionById,
     deleteOtherSessions,
-    getFullVeterinarianProfile
+    getFullVeterinarianProfile,
+    updateClinicDetails
 } from "../models/User.js";
 //... Navindu
 import fs from "fs";
@@ -994,6 +995,26 @@ export const revokeOtherSessions = (req, res) => {
         deleteOtherSessions(decoded.id, decoded.role, currentToken, (err) => {
             if (err) return res.status(500).json({ message: "Failed to revoke other sessions" });
             res.status(200).json({ message: "All other sessions signed out" });
+        });
+    } catch (error) {
+        return res.status(401).json({ message: "Invalid token" });
+    }
+};
+
+export const saveClinicDetails = (req, res) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const token = authHeader.split(" ")[1];
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        
+        updateClinicDetails(decoded.id, req.body, (err, result) => {
+            if (err) return res.status(500).json({ message: "Database error saving clinic details" });
+            return res.status(200).json({ message: "Clinic details saved successfully!" });
         });
     } catch (error) {
         return res.status(401).json({ message: "Invalid token" });

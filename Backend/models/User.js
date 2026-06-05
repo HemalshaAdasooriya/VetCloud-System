@@ -479,7 +479,7 @@ export const getFullVeterinarianProfile = (vetId, callback) => {
         SELECT 
             main.email, main.contact_No, main.license_number, main.specialization, 
             main.years_of_experience, main.consultation_fee, main.image, main.is_two_factor_enabled,
-            profile.firstName, profile.lastName, profile.clinicName, profile.bio, profile.professional_title
+            profile.firstName, profile.lastName, profile.bio, profile.professional_title
         FROM veterinarians main
         LEFT JOIN veterinarian_profiles profile ON main.id = profile.vet_id
         WHERE main.id = ?
@@ -497,5 +497,42 @@ export const getFullVeterinarianProfile = (vetId, callback) => {
         
         // Return the single combined user object
         callback(null, results[0]); 
+    });
+};
+
+
+// Function to Insert OR Update the clinic details in the new dedicated table
+export const updateClinicDetails = (userId, clinicData, callback) => {
+    
+    // The "Upsert" Query: Insert if new, Update if it already exists!
+    const query = `
+        INSERT INTO clinics 
+        (veterinarian_id, clinic_name, registration_number, address, city, state, zip_code, phone) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE 
+            clinic_name = VALUES(clinic_name),
+            registration_number = VALUES(registration_number),
+            address = VALUES(address),
+            city = VALUES(city),
+            state = VALUES(state),
+            zip_code = VALUES(zip_code),
+            phone = VALUES(phone)
+    `;
+
+    // Map the React data to the query variables
+    const values = [
+        userId,                                 // veterinarian_id
+        clinicData.clinicName,                  // From React
+        clinicData.clinicRegistrationNumber,    // From React
+        clinicData.address,                     // From React
+        clinicData.city,                        // From React
+        clinicData.state,                       // From React
+        clinicData.zipCode,                     // From React
+        clinicData.clinicPhone                  // From React
+    ];
+
+    db.query(query, values, (err, result) => {
+        if (err) return callback(err, null);
+        return callback(null, result);
     });
 };

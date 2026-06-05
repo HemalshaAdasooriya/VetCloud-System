@@ -21,7 +21,8 @@ import {
     disable2FA,
     getActiveSessions,
     revokeSession,
-    revokeOtherSessions
+    revokeOtherSessions,
+    saveClinicDetails
 } from "../controllers/userController.js";
 
 //... Navindu
@@ -78,6 +79,7 @@ userRouter.put("/disable-2fa", disable2FA);
 userRouter.get("/sessions", getActiveSessions);
 userRouter.delete("/sessions/:id", revokeSession);
 userRouter.delete("/sessions/others", revokeOtherSessions);
+userRouter.put("/clinic", saveClinicDetails);
 
 
 

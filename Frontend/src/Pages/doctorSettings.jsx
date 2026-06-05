@@ -11,6 +11,15 @@ import { Button, Card, Input } from '../components/Ui/ui';
 export default function DoctorSettings() {
 
     const [activeTab, setActiveTab] = useState('profile');
+    const [clinicInfo, setClinicInfo] = useState({
+        clinicName: '',
+        clinicRegistrationNumber: '',
+        address: '',
+        city: '',
+        state: '',
+        zipCode: '',
+        clinicPhone: ''
+    });
     const [personalInfo, setPersonalInfo] = useState({
         firstName: '',
         lastName: '',
@@ -114,6 +123,88 @@ export default function DoctorSettings() {
         }
     };
 
+    // Function to save Clinic Details
+    const handleSaveClinic = async (e) => {
+        if (e) e.preventDefault(); // Stop the page from refreshing
+        setIsLoading(true);
+        
+        try {
+            const token = localStorage.getItem("token");
+            if (!token) return;
+
+            // Send the crate to the backend desk we built earlier
+            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/clinic`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                },
+                body: JSON.stringify(clinicInfo) // Attach the memory bank
+            });
+
+            if (response.ok) {
+                setToastMessage("Clinic details saved successfully!");
+                setTimeout(() => setToastMessage(null), 3000);
+            } else {
+                const errorData = await response.json();
+                setToastMessage(errorData.message || "Failed to save clinic details");
+            }
+        } catch (error) {
+            console.error("Save error:", error);
+            setToastMessage("Server connection failed");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    
+    const handleUpdatePassword = async () => {
+    setPasswordError('');
+    setPasswordSuccess('');
+
+    // Frontend Validation
+    if (!currentPassword || !newPassword || !confirmNewPassword) {
+        setPasswordError('Please fill in all password fields.');
+        return;
+    }
+    if (newPassword.length < 8) {
+        setPasswordError('New password must be at least 8 characters long.');
+        return;
+    }
+    if (newPassword !== confirmNewPassword) {
+        setPasswordError('New passwords do not match.');
+        return;
+    }
+
+    try {
+        const token = localStorage.getItem("token");
+        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/change-password`, {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify({ currentPassword, newPassword })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            setPasswordSuccess(data.message || 'Password changed successfully!');
+            setCurrentPassword('');
+            setNewPassword('');
+            setConfirmNewPassword('');
+            setTimeout(() => setPasswordSuccess(''), 3000);
+        } else {
+            setPasswordError(data.message || 'Failed to update password');
+        }
+    } catch (error) {
+        console.error("Password change error:", error);
+        setPasswordError("Server connection failed");
+    }
+};
+
+
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-5xl mx-auto pb-12">
       <div>
@@ -213,43 +304,81 @@ export default function DoctorSettings() {
             </Card>
             )}
 
+          
           {/* Clinic Details */}
           {activeTab === 'clinic' && (
             <Card className="p-6 border-slate-200 shadow-sm animate-in fade-in">
               <h3 className="text-lg font-semibold text-slate-800 mb-5 border-b border-slate-100 pb-3">Clinic Information</h3>
               
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              {toastMessage && (
+                <div className="mb-4 p-3 bg-blue-50 text-blue-700 rounded-md text-sm">
+                    {toastMessage}
+                </div>
+              )}
+
+              {/* 🔍 FIX: Wrap in a form and attach the save function */}
+              <form className="grid grid-cols-1 sm:grid-cols-2 gap-5" onSubmit={handleSaveClinic}>
                 <div className="space-y-1.5 sm:col-span-2">
                   <label className="text-sm font-medium text-slate-700">Clinic Name</label>
-                  <Input defaultValue="Green Valley Veterinary Services" />
+                  {/* 🔍 FIX: Bind value and onChange to the state */}
+                  <Input 
+                    value={clinicInfo.clinicName} 
+                    onChange={(e) => setClinicInfo({...clinicInfo, clinicName: e.target.value})} 
+                    placeholder="e.g., Green Valley Veterinary Services"
+                  />
                 </div>
                 <div className="space-y-1.5 sm:col-span-2">
                   <label className="text-sm font-medium text-slate-700">Clinic Registration Number</label>
-                  <Input defaultValue="VET-2026-9876" />
+                  <Input 
+                    value={clinicInfo.clinicRegistrationNumber} 
+                    onChange={(e) => setClinicInfo({...clinicInfo, clinicRegistrationNumber: e.target.value})} 
+                  />
                 </div>
                 <div className="space-y-1.5 sm:col-span-2">
                   <label className="text-sm font-medium text-slate-700 flex items-center gap-2">
                     <MapPin size={14} className="text-slate-400"/> Primary Address
                   </label>
-                  <Input defaultValue="123 Farm Road, Suite A" />
+                  <Input 
+                    value={clinicInfo.address} 
+                    onChange={(e) => setClinicInfo({...clinicInfo, address: e.target.value})} 
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-slate-700">City</label>
-                  <Input defaultValue="Springfield" />
+                  <Input 
+                    value={clinicInfo.city} 
+                    onChange={(e) => setClinicInfo({...clinicInfo, city: e.target.value})} 
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-slate-700">State / Province</label>
-                  <Input defaultValue="IL" />
+                  <Input 
+                    value={clinicInfo.state} 
+                    onChange={(e) => setClinicInfo({...clinicInfo, state: e.target.value})} 
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-slate-700">Zip / Postal Code</label>
-                  <Input defaultValue="62701" />
+                  <Input 
+                    value={clinicInfo.zipCode} 
+                    onChange={(e) => setClinicInfo({...clinicInfo, zipCode: e.target.value})} 
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-slate-700">Clinic Phone</label>
-                  <Input defaultValue="(555) 123-4567" />
+                  <Input 
+                    value={clinicInfo.clinicPhone} 
+                    onChange={(e) => setClinicInfo({...clinicInfo, clinicPhone: e.target.value})} 
+                  />
                 </div>
-              </div>
+                
+                {/* 🔍 FIX: Add a specific submit button for this form */}
+                <div className="sm:col-span-2 flex justify-end pt-4">
+                    <Button type="submit" className="bg-green-600 hover:bg-green-700 text-white" disabled={isLoading}>
+                        <Save size={16} className="mr-2" /> {isLoading ? "Saving..." : "Save Clinic Info"}
+                    </Button>
+                </div>
+              </form>
             </Card>
           )}
 
@@ -370,7 +499,7 @@ export default function DoctorSettings() {
                   </div>
 
                   <div className="pt-4 border-t border-slate-100">
-                    <Button
+                    {/* <Button
                       onClick={() => {
                         setPasswordError('');
                         setPasswordSuccess('');
@@ -392,11 +521,17 @@ export default function DoctorSettings() {
                         setCurrentPassword('');
                         setNewPassword('');
                         setConfirmNewPassword('');
-                        setTimeout(() => setPasswordSuccess(''), 3000);
+                        setTimeout(() => setPasswordSuccess(''), 5000);
                       }}
                       className="bg-green-600 hover:bg-green-700 text-white"
                     >
                       <Lock size={16} className="mr-2" /> Update Password
+                    </Button> */}
+                    <Button
+                        onClick={handleUpdatePassword}
+                        className="bg-green-600 hover:bg-green-700 text-white"
+                    >
+                        <Lock size={16} className="mr-2" /> Update Password
                     </Button>
                   </div>
                 </div>
