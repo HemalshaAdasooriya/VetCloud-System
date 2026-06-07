@@ -3,27 +3,64 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Users, Calendar, Settings, LogOut, Bell, Stethoscope, Bird, ShieldCheck, Activity, Book, ClipboardList, Video, DollarSign, Database, MessageSquare, Star, BarChart3, UserCog, Search, MapPin } from 'lucide-react';
 import { BsDatabaseCheck } from 'react-icons/bs';
 import { PiDogFill } from "react-icons/pi";
+import { useEffect } from 'react';
 
 export function DashboardLayout() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  //Local Storage Integration 
-  const [user] = useState(() => {
+  // Local Storage Integration 
+  // const [user] = useState(() => {
+  //   const savedUser = localStorage.getItem("user");
+  //   if (savedUser) {
+  //       return JSON.parse(savedUser); // Sets the object right at the start
+  //   }
+  //   return null; // Fallback if no user is found
+  // });
+  const [user, setUser] = useState(() => {
     const savedUser = localStorage.getItem("user");
-    if (savedUser) {
-        return JSON.parse(savedUser); // Sets the object right at the start
-    }
-    return null; // Fallback if no user is found
+    return savedUser ? JSON.parse(savedUser) : null;
   });
 
+  useEffect(() => {
+    const handleStorageChange = () => {
+        // When the signal fires, pull the fresh data from localStorage
+        const updatedUser = localStorage.getItem("user");
+        if (updatedUser) {
+            setUser(JSON.parse(updatedUser)); // Instantly updates the top-right header!
+        }
+    };
+
+    // Listen for our custom event
+    window.addEventListener("profileImageUpdated", handleStorageChange);
+
+    // Clean up the listener when the user leaves the page
+    return () => window.removeEventListener("profileImageUpdated", handleStorageChange);
+  }, []);
+
   const defaultAvatar = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
+
+  // --- NEW: Profile Image Logic ---
+  const getProfileImage = () => {
+    if (!user || !user.image) return defaultAvatar;
+    
+    // If it's a Google/Facebook image, it already starts with 'http'
+    if (user.image.startsWith('http')) {
+        return user.image;
+    }
+    
+    // If it's a local upload, glue the backend URL to the front
+    return `${import.meta.env.VITE_BACKEND_URL}${user.image}`;
+  };
+
+  const profileImageUrl = getProfileImage();
+
 
   const isUser = location.pathname.includes('/user') || location.pathname === '/dashboard/user';
   const isVet = location.pathname.includes('/doctor') || location.pathname === '/dashboard/doctor';
   const isAdmin = location.pathname.includes('/admin') || location.pathname === '/dashboard/admin';
 
-  // Dynamic sidebar links based on role (Kept exactly as you had them)
+  // Dynamic sidebar links based on role
   const links = isUser ? [
     { name: 'Dashboard', path: '/dashboard/user', icon: LayoutDashboard },
     { name: 'My Animals', path: '/dashboard/user/animals', icon: PiDogFill },
@@ -50,9 +87,9 @@ export function DashboardLayout() {
 
   // Sign Out Handler
   const handleSignOut = () => {
-    localStorage.removeItem("token"); // Clear the token
-    localStorage.removeItem("user");  // Clear the user data
-    navigate('/'); // Send them back to the home/login page
+    localStorage.removeItem("token"); 
+    localStorage.removeItem("user");  
+    navigate('/'); 
   };
 
   return (
@@ -87,7 +124,6 @@ export function DashboardLayout() {
         </div>
 
         <div className="p-4 border-t border-slate-200 space-y-2">
-          {/* Updated this button to trigger the real handleSignOut function */}
           <button 
             onClick={handleSignOut} 
             className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 w-full transition-colors"
@@ -96,7 +132,6 @@ export function DashboardLayout() {
             Sign Out
           </button>
         </div>
-        
       </aside>
 
       {/* Main Content */}
@@ -123,20 +158,19 @@ export function DashboardLayout() {
             </button>
             <div className="flex items-center gap-3 border-l border-slate-200 pl-4">
               
-              {/* NEW: Dynamic Profile Display */}
+              {/* UPDATED: Dynamic Profile Display using our new logic */}
               <img 
-                // Uses the user's picture from local storage, or the fallback defaultAvatar
-                src={user?.image || defaultAvatar} 
+                src={profileImageUrl} 
                 alt="Profile Avatar" 
-                className="w-8 h-8 rounded-full object-cover shadow-sm" 
+                className="w-8 h-8 rounded-full object-cover shadow-sm"
+                referrerPolicy="no-referrer"
+                onError={(e) => { e.target.src = defaultAvatar; }} 
               />
               <div className="text-sm">
                 <p className="font-medium text-slate-700">
-                    {/* Uses the real name from local storage */}
                     {user?.fullName || 'Loading...'}
                 </p>
                 <p className="text-slate-500 text-xs">
-                    {/* Uses the real role from local storage */}
                     {user?.role || 'Guest'}
                 </p>
               </div>

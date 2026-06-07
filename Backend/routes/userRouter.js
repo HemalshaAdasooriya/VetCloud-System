@@ -35,7 +35,6 @@ import fs from "fs";
 
 const userRouter = express.Router();
 
-userRouter.post("/", registerUser);
 userRouter.post("/google-login", googleLogin);
 userRouter.post("/facebook-login", facebookLogin);
 userRouter.post("/login", loginUser);
@@ -64,6 +63,8 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
+userRouter.post("/", upload.single('profileImage'), registerUser);
+
 userRouter.post("/upload-photo", upload.single('profileImage'), updateProfilePhoto);
 userRouter.delete("/remove-photo", removeProfilePhoto);
 userRouter.put("/profile", updateUserProfile);
@@ -77,6 +78,7 @@ userRouter.put("/disable-2fa", disable2FA);
 userRouter.get("/sessions", getActiveSessions);
 userRouter.delete("/sessions/:id", revokeSession);
 userRouter.delete("/sessions/others", revokeOtherSessions);
+
 
 
 

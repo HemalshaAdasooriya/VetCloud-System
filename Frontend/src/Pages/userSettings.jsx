@@ -71,7 +71,15 @@ export default function UserSettings() {
                         country: data.country || '',
                     });
 
-                    if (data.image) setProfilePhoto(data.image);
+                    if (data.image) {
+                        if (data.image.startsWith('http')) {
+                            // It is a full URL (like from Google or Facebook)
+                            setProfilePhoto(data.image);
+                        } else {
+                            // It is a local database image, attach the backend server address
+                            setProfilePhoto(`${import.meta.env.VITE_BACKEND_URL}${data.image}`);
+                        }
+                 }
                 }else{
                     console.error("Backend returned an error:", response.status);
                 }
@@ -159,8 +167,17 @@ const [passwordData, setPasswordData] = useState({
 
       if (response.ok) {
         showToast('Profile photo updated successfully in database!');
-        // Optional: Update your state with the secure URL returned from the backend
-        // setProfilePhoto(data.imageUrl); 
+        const newImageUrl = `${import.meta.env.VITE_BACKEND_URL}${data.imageUrl}`;
+        setProfilePhoto(newImageUrl);
+
+        const currentUser = JSON.parse(localStorage.getItem("user"));
+        if (currentUser) {
+            currentUser.image = data.imageUrl; // Save the short link exactly as the DB has it
+            localStorage.setItem("user", JSON.stringify(currentUser));
+            
+            // 3. (Optional but recommended) Fire a signal to the window so the Dashboard knows to refresh its header
+            window.dispatchEvent(new Event("profileImageUpdated"));
+        }
       } else {
         showToast(data.message || 'Upload failed', 'error');
       }
@@ -541,7 +558,7 @@ const verify2FACode = async (e) => {
                     {/* Photo container with hover edit overlay */}
                     <div className="relative group cursor-pointer" onClick={triggerFileSelect}>
                         <img
-                        src={profilePhoto}
+                        src={profilePhoto || "https://cdn-icons-png.flaticon.com/512/149/149071.png"}
                         alt="Profile Avatar"
                         className="w-24 h-24 rounded-full object-cover border border-slate-100 shadow-md group-hover:brightness-95 transition-all duration-200"
                         />
