@@ -22,7 +22,8 @@ import {
     getActiveSessions,
     revokeSession,
     revokeOtherSessions,
-    saveClinicDetails
+    saveClinicDetails,
+    savePayoutSettings
 } from "../controllers/userController.js";
 
 //... Navindu
@@ -80,7 +81,7 @@ userRouter.get("/sessions", getActiveSessions);
 userRouter.delete("/sessions/:id", revokeSession);
 userRouter.delete("/sessions/others", revokeOtherSessions);
 userRouter.put("/clinic", saveClinicDetails);
-
+userRouter.put("/payout-settings", savePayoutSettings);
 
 
 

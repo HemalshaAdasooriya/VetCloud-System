@@ -323,23 +323,21 @@ export const updateVeterinarianProfile = (vetId, profileData, callback) => {
     // Query 1: Insert or Update the detailed profile table (No address fields here)
     const profileSql = `
         INSERT INTO veterinarian_profiles 
-        (vet_id, firstName, lastName, clinicName, bio, professional_title)
-        VALUES (?, ?, ?, ?, ?, ?)
+        (vet_id, firstName, lastName, bio, professional_title)
+        VALUES (?, ?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE 
             firstName = VALUES(firstName),
             lastName = VALUES(lastName),
-            clinicName = VALUES(clinicName),
             bio = VALUES(bio),
             professional_title = VALUES(professional_title)
     `;
 
     const profileValues = [
         vetId,
-        profileData.firstName, 
-        profileData.lastName,
-        profileData.clinicName, 
-        profileData.bio,
-        profileData.professional_title
+        profileData.firstName || "",
+        profileData.lastName || "",
+        profileData.bio || "",
+        profileData.professional_title || ""
     ];
 
     // Query 2: Update the main table's fullName and phone number
@@ -347,25 +345,31 @@ export const updateVeterinarianProfile = (vetId, profileData, callback) => {
         UPDATE veterinarians 
         SET 
             fullName = CONCAT(?, ' ', ?),
-            contact_No = ?
+            specialization = ?
         WHERE id = ?
     `;
 
     const mainTableValues = [
-        profileData.firstName, 
-        profileData.lastName,  
-        profileData.phone, 
+        profileData.firstName || "", 
+        profileData.lastName || "",  
+        profileData.specialization || "",
         vetId
     ];
 
     // Execute Query 1
     db.query(profileSql, profileValues, (err1, result1) => {
-        if (err1) return callback(err1, null);
+        if (err1) {
+            onsole.error("Profile Database Error:", err1);
+            return callback(err1, null)
+        };
 
         // If Query 1 succeeds, execute Query 2
         db.query(mainTableSql, mainTableValues, (err2, result2) => {
-            if (err2) return callback(err2, null);
-            
+            if (err2) {
+                console.error("Main Table Database Error:", err2);
+                return callback(err2, null);
+            }
+
             callback(null, { message: "Veterinarian Profile and Full Name updated successfully" });
         });
     });
@@ -475,13 +479,20 @@ export const deleteOtherSessions = (userId, role, currentToken, callback) => {
 
 // --- Fetch complete Veterinarian profile by joining the two tables ---
 export const getFullVeterinarianProfile = (vetId, callback) => {
+    
     const sql = `
         SELECT 
             main.email, main.contact_No, main.license_number, main.specialization, 
             main.years_of_experience, main.consultation_fee, main.image, main.is_two_factor_enabled,
-            profile.firstName, profile.lastName, profile.bio, profile.professional_title
+            profile.firstName, profile.lastName, profile.bio, profile.professional_title,
+            clinic.clinic_name, clinic.registration_number, clinic.address AS clinic_address, 
+            clinic.city AS clinic_city, clinic.state AS clinic_state, 
+            clinic.zip_code AS clinic_zip, clinic.phone AS clinic_phone,
+            bank.bank_name, bank.account_name, bank.account_number, bank.branch_code, bank.payout_schedule
         FROM veterinarians main
         LEFT JOIN veterinarian_profiles profile ON main.id = profile.vet_id
+        LEFT JOIN clinics clinic ON main.id = clinic.veterinarian_id
+        LEFT JOIN veterinarian_bank_details bank ON main.id = bank.vet_id
         WHERE main.id = ?
     `;
 
@@ -490,12 +501,10 @@ export const getFullVeterinarianProfile = (vetId, callback) => {
             return callback(err, null);
         }
         
-        // If the doctor doesn't exist
         if (results.length === 0) {
             return callback({ message: "User not found" }, null);
         }
         
-        // Return the single combined user object
         callback(null, results[0]); 
     });
 };
@@ -536,3 +545,4 @@ export const updateClinicDetails = (userId, clinicData, callback) => {
         return callback(null, result);
     });
 };
+

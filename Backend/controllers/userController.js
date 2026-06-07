@@ -13,6 +13,7 @@ import https from "https";
 import nodemailer from "nodemailer";
 import otpGenerator from "otp-generator";
 import { UAParser } from "ua-parser-js";
+import { updatePayoutSettings } from "../models/Payment.js";
 
 import {
     savePasswordResetOTP,
@@ -1018,5 +1019,34 @@ export const saveClinicDetails = (req, res) => {
         });
     } catch (error) {
         return res.status(401).json({ message: "Invalid token" });
+    }
+};
+
+
+export const savePayoutSettings = (req, res) => {
+    // 1. Check for the security badge (Token)
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ message: "Unauthorized: No token provided" });
+    }
+
+    const token = authHeader.split(" ")[1];
+
+    try {
+        // 2. Read the badge to see which doctor this is
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const vetId = decoded.id;
+        
+        // 3. Send the data to the Payment Model to save in the database
+        updatePayoutSettings(vetId, req.body, (err, result) => {
+            if (err) {
+                console.error("Database Error:", err.sqlMessage || err);
+                return res.status(500).json({ message: "Database error saving payouts" });
+            }
+            return res.status(200).json({ message: "Payout details updated successfully!" });
+        });
+        
+    } catch (error) {
+        return res.status(401).json({ message: "Invalid or expired token" });
     }
 };

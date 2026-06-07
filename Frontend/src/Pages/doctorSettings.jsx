@@ -11,6 +11,13 @@ import { Button, Card, Input } from '../components/Ui/ui';
 export default function DoctorSettings() {
 
     const [activeTab, setActiveTab] = useState('profile');
+    const [payoutInfo, setPayoutInfo] = useState({
+        bankName: '',
+        accountName: '',
+        accountNumber: '',
+        branchCode: '',
+        schedule: 'weekly'
+    });
     const [clinicInfo, setClinicInfo] = useState({
         clinicName: '',
         clinicRegistrationNumber: '',
@@ -27,14 +34,17 @@ export default function DoctorSettings() {
         specializations: '',
         bio: ''
     });
+    const [fees, setFees] = useState({
+        consultation_fee: '', 
+        videoFee: '',
+        farmFee: '',
+        emergencyFee: ''
+    });
 
     const [isLoading, setIsLoading] = useState(true);
     const [toastMessage, setToastMessage] = useState(null);
 
-    const [paymentMethods, setPaymentMethods] = useState([
-        { id: 1, type: 'bank', name: 'Chase Bank - Business Account', accountNumber: '****6789', isPrimary: true },
-        { id: 2, type: 'mobile', name: 'M-Pesa', accountNumber: '+254712****90', isPrimary: false },
-    ]);
+    const [paymentMethods, setPaymentMethods] = useState([]);
     const [showAddPayment, setShowAddPayment] = useState(false);
 
     // Password change state
@@ -79,6 +89,26 @@ export default function DoctorSettings() {
                         specializations: data.specialization || '', // Mapped from your registration fields
                         bio: data.bio || ''
                     });
+                    setClinicInfo({
+                        clinicName: data.clinic_name || '',
+                        clinicRegistrationNumber: data.registration_number || '',
+                        address: data.clinic_address || '',
+                        city: data.clinic_city || '',
+                        state: data.clinic_state || '',
+                        zipCode: data.clinic_zip || '',
+                        clinicPhone: data.clinic_phone || ''
+                    });
+                    setPayoutInfo({
+                        bankName: data.bank_name || '',
+                        accountName: data.account_name || '',
+                        accountNumber: data.account_number || '',
+                        branchCode: data.branch_code || '',
+                        schedule: data.payout_schedule || 'weekly'
+                    });
+                    setFees(prevFees => ({
+                        ...prevFees,
+                        consultation_fee: data.consultation_fee || ''
+                    }));
                 } else {
                     console.error("Failed to fetch profile");
                 }
@@ -203,6 +233,46 @@ export default function DoctorSettings() {
         setPasswordError("Server connection failed");
     }
 };
+
+// const handleSavePayouts = async (e) => {
+//     if (e) e.preventDefault();
+//     setIsLoading(true);
+    
+//     console.log("1. FRONTEND: Save button clicked!");
+//     console.log("2. FRONTEND: Data being sent:", payoutInfo);
+    
+//     try {
+//         const token = localStorage.getItem("token");
+//         const url = `${import.meta.env.VITE_BACKEND_URL}/api/users/payout-settings`;
+        
+//         console.log("3. FRONTEND: Sending request to URL:", url);
+
+//         const response = await fetch(url, {
+//             method: "PUT",
+//             headers: {
+//                 "Content-Type": "application/json",
+//                 "Authorization": `Bearer ${token}`
+//             },
+//             body: JSON.stringify(payoutInfo)
+//         });
+
+//         console.log("4. FRONTEND: Received response status:", response.status);
+
+//         if (response.ok) {
+//             setToastMessage("Bank & Payout settings saved successfully!");
+//             setTimeout(() => setToastMessage(null), 3000);
+//         } else {
+//             const errorData = await response.json();
+//             console.error("5. FRONTEND ERROR:", errorData);
+//             setToastMessage("Failed to save payout settings.");
+//         }
+//     } catch (error) {
+//         console.error("5. FRONTEND CRITICAL ERROR:", error);
+//         setToastMessage("Server connection failed");
+//     } finally {
+//         setIsLoading(false);
+//     }
+// };
 
 
     return (
@@ -609,49 +679,111 @@ export default function DoctorSettings() {
                   </Button>
                 </div>
 
+                {toastMessage && (
+                  <div className={`mb-4 p-3 rounded-md text-sm ${toastMessage.includes("Failed") ? 'bg-red-50 text-red-700' : 'bg-blue-50 text-blue-700'}`}>
+                      {toastMessage}
+                  </div>
+              )}
+
+              {/* Visual Display of Saved Bank Details */}
+              {payoutInfo.bankName && (
+                  <div className="mb-6 p-4 rounded-xl border border-slate-200 bg-white flex items-center justify-between shadow-sm">
+                      <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-lg bg-green-50 flex items-center justify-center">
+                              <Building className="text-green-600" size={24} />
+                          </div>
+                          <div>
+                              <div className="flex items-center gap-3">
+                                  <p className="font-semibold text-slate-800">
+                                      {payoutInfo.bankName} - {payoutInfo.accountName}
+                                  </p>
+                                  <span className="px-2.5 py-0.5 bg-green-100 text-green-700 text-xs font-bold rounded-md">
+                                      Primary
+                                  </span>
+                              </div>
+                              <p className="text-sm text-slate-500 mt-1">
+                                  {/* This creates the ****1234 masked effect */}
+                                  {payoutInfo.accountNumber.length > 4 
+                                      ? `****${payoutInfo.accountNumber.slice(-4)}` 
+                                      : payoutInfo.accountNumber}
+                              </p>
+                          </div>
+                      </div>
+                  </div>
+              )}
+
                 {/* Add Payment Form */}
                 {showAddPayment && (
                   <div className="mb-6 p-4 bg-green-50 border border-green-100 rounded-xl">
                     <h4 className="font-medium text-slate-800 mb-4">Add New Payment Method</h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-1.5 sm:col-span-2">
+                      {/* <div className="space-y-1.5 sm:col-span-2">
                         <label className="text-sm font-medium text-slate-700">Payment Type</label>
                         <select className="w-full h-10 px-3 rounded-md border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500">
                           <option value="">Select payment type</option>
-                          <option value="bank">Bank Account</option>
-                          <option value="mobile">Mobile Money</option>
-                          <option value="paypal">PayPal</option>
-                          <option value="stripe">Stripe</option>
+                          <option value="Card Payments">Card Payments</option>
+                          <option value="Mobile">Mobile Wallets & Apps</option>
+                          <option value="HelaPay">HelaPay</option>
+                          <option value="Paypal">Paypal</option>
                         </select>
+                      </div> */}
+                      <div className="space-y-1.5 sm:col-span-2">
+                          <label className="text-sm font-medium text-slate-700">Bank Name</label>
+                          <Input 
+                              value={payoutInfo.bankName} 
+                              onChange={(e) => setPayoutInfo({...payoutInfo, bankName: e.target.value})} 
+                              placeholder="e.g., Bank of Ceylon (BOC)"
+                              required
+                          />
                       </div>
                       <div className="space-y-1.5 sm:col-span-2">
-                        <label className="text-sm font-medium text-slate-700">Account Name / Label</label>
-                        <Input placeholder="e.g., Chase Business Account" />
+                          <label className="text-sm font-medium text-slate-700">Account Holder Name</label>
+                          <Input 
+                              value={payoutInfo.accountName} 
+                              onChange={(e) => setPayoutInfo({...payoutInfo, accountName: e.target.value})} 
+                              required
+                          />
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-sm font-medium text-slate-700">Account Number / ID</label>
-                        <Input placeholder="e.g., 1234567890" />
+                          <label className="text-sm font-medium text-slate-700">Account Number</label>
+                          <Input 
+                              value={payoutInfo.accountNumber} 
+                              onChange={(e) => setPayoutInfo({...payoutInfo, accountNumber: e.target.value})} 
+                              required
+                          />
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-sm font-medium text-slate-700">Bank Name / Provider</label>
-                        <Input placeholder="e.g., Chase Bank" />
+                          <label className="text-sm font-medium text-slate-700">Branch Code / Name</label>
+                          <Input 
+                              value={payoutInfo.branchCode} 
+                              onChange={(e) => setPayoutInfo({...payoutInfo, branchCode: e.target.value})} 
+                              required
+                          />
                       </div>
-                      <div className="space-y-1.5">
-                        <label className="text-sm font-medium text-slate-700">Routing Number / SWIFT (if applicable)</label>
-                        <Input placeholder="Optional" />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="text-sm font-medium text-slate-700">Branch Code (if applicable)</label>
-                        <Input placeholder="Optional" />
+
+                      <div className="space-y-1.5 sm:col-span-2">
+                          <label className="text-sm font-medium text-slate-700">Payout Schedule</label>
+                          {/* 2. Bind the select dropdown to our state */}
+                          <select 
+                              value={payoutInfo.schedule}
+                              onChange={(e) => setPayoutInfo({...payoutInfo, schedule: e.target.value})}
+                              className="w-full h-10 px-3 rounded-md border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500"
+                          >
+                              <option value="daily">Daily</option>
+                              <option value="weekly">Weekly (Every Monday)</option>
+                              <option value="biweekly">Bi-weekly</option>
+                              <option value="monthly">Monthly</option>
+                          </select>
                       </div>
                     </div>
                     <div className="flex gap-3 mt-4 pt-4 border-t border-green-200">
                       <Button
                         size="sm"
-                        onClick={() => setShowAddPayment(false)}
+                        type="submit"
+                        disabled={isLoading}
                         className="bg-green-600 hover:bg-green-700 text-white"
                       >
-                        <Check size={16} className="mr-1" /> Add Method
+                        <Check size={16} className="mr-2" /> {isLoading ? "Saving..." : "Save Payout Settings"}
                       </Button>
                       <Button
                         size="sm"
