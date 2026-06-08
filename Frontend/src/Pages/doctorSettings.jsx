@@ -47,6 +47,13 @@ export default function DoctorSettings() {
     const [paymentMethods, setPaymentMethods] = useState([]);
     const [showAddPayment, setShowAddPayment] = useState(false);
 
+    const [newPaymentData, setNewPaymentData] = useState({
+        bankName: '',
+        accountName: '',
+        accountNumber: '',
+        branchCode: ''
+    });
+
     // Password change state
     const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
@@ -234,46 +241,59 @@ export default function DoctorSettings() {
     }
 };
 
-// const handleSavePayouts = async (e) => {
-//     if (e) e.preventDefault();
-//     setIsLoading(true);
-    
-//     console.log("1. FRONTEND: Save button clicked!");
-//     console.log("2. FRONTEND: Data being sent:", payoutInfo);
-    
-//     try {
-//         const token = localStorage.getItem("token");
-//         const url = `${import.meta.env.VITE_BACKEND_URL}/api/users/payout-settings`;
+
+const handleAddPaymentMethod = async (e) => {
+        if (e) e.preventDefault();
+        setIsLoading(true);
         
-//         console.log("3. FRONTEND: Sending request to URL:", url);
+        try {
+            const token = localStorage.getItem("token");
+            const url = `${import.meta.env.VITE_BACKEND_URL}/api/users/payout-settings`;
+            
+            const response = await fetch(url, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                },
+                // Send the correct data (newPaymentData) to the backend!
+                body: JSON.stringify({
+                    bankName: newPaymentData.bankName,
+                    accountName: newPaymentData.accountName,
+                    accountNumber: newPaymentData.accountNumber,
+                    branchCode: newPaymentData.branchCode,
+                    schedule: 'weekly'
+                })
+            });
 
-//         const response = await fetch(url, {
-//             method: "PUT",
-//             headers: {
-//                 "Content-Type": "application/json",
-//                 "Authorization": `Bearer ${token}`
-//             },
-//             body: JSON.stringify(payoutInfo)
-//         });
+            if (response.ok) {
+                setToastMessage("Payment method saved successfully!");
+                
+                // 1. Add it to the visual list on the frontend
+                const newMethod = {
+                    id: Date.now(),
+                    type: 'bank',
+                    name: `${newPaymentData.bankName} - ${newPaymentData.accountName}`,
+                    accountNumber: newPaymentData.accountNumber,
+                    isPrimary: paymentMethods.length === 0
+                };
+                setPaymentMethods([...paymentMethods, newMethod]);
 
-//         console.log("4. FRONTEND: Received response status:", response.status);
+                // 2. Close the window and completely empty the input boxes
+                setShowAddPayment(false);
+                setNewPaymentData({ bankName: '', accountName: '', accountNumber: '', branchCode: '' });
 
-//         if (response.ok) {
-//             setToastMessage("Bank & Payout settings saved successfully!");
-//             setTimeout(() => setToastMessage(null), 3000);
-//         } else {
-//             const errorData = await response.json();
-//             console.error("5. FRONTEND ERROR:", errorData);
-//             setToastMessage("Failed to save payout settings.");
-//         }
-//     } catch (error) {
-//         console.error("5. FRONTEND CRITICAL ERROR:", error);
-//         setToastMessage("Server connection failed");
-//     } finally {
-//         setIsLoading(false);
-//     }
-// };
-
+                setTimeout(() => setToastMessage(null), 3000);
+            } else {
+                const errorData = await response.json();
+                setToastMessage(errorData.message || "Failed to save payment method.");
+            }
+        } catch  {
+            setToastMessage("Server connection failed");
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-5xl mx-auto pb-12">
@@ -671,11 +691,15 @@ export default function DoctorSettings() {
                 <div className="flex items-center justify-between mb-5 border-b border-slate-100 pb-3">
                   <h3 className="text-lg font-semibold text-slate-800">Payment Methods</h3>
                   <Button
-                    size="sm"
-                    onClick={() => setShowAddPayment(!showAddPayment)}
-                    className="bg-green-600 hover:bg-green-700 text-white h-9"
+                      size="sm"
+                      // UPDATE THIS ONCLICK:
+                      onClick={() => {
+                          setShowAddPayment(!showAddPayment);
+                          setNewPaymentData({ bankName: '', accountName: '', accountNumber: '', branchCode: '' });
+                      }}
+                      className="bg-green-600 hover:bg-green-700 text-white h-9"
                   >
-                    <Plus size={16} className="mr-1" /> Add Payment Method
+                      <Plus size={16} className="mr-1" /> Add Payment Method
                   </Button>
                 </div>
 
@@ -730,8 +754,8 @@ export default function DoctorSettings() {
                       <div className="space-y-1.5 sm:col-span-2">
                           <label className="text-sm font-medium text-slate-700">Bank Name</label>
                           <Input 
-                              value={payoutInfo.bankName} 
-                              onChange={(e) => setPayoutInfo({...payoutInfo, bankName: e.target.value})} 
+                              value={newPaymentData.bankName} 
+                              onChange={(e) => setNewPaymentData({...newPaymentData, bankName: e.target.value})} 
                               placeholder="e.g., Bank of Ceylon (BOC)"
                               required
                           />
@@ -739,24 +763,24 @@ export default function DoctorSettings() {
                       <div className="space-y-1.5 sm:col-span-2">
                           <label className="text-sm font-medium text-slate-700">Account Holder Name</label>
                           <Input 
-                              value={payoutInfo.accountName} 
-                              onChange={(e) => setPayoutInfo({...payoutInfo, accountName: e.target.value})} 
+                              value={newPaymentData.accountName} 
+                              onChange={(e) => setNewPaymentData({...newPaymentData, accountName: e.target.value})} 
                               required
                           />
                       </div>
                       <div className="space-y-1.5">
                           <label className="text-sm font-medium text-slate-700">Account Number</label>
                           <Input 
-                              value={payoutInfo.accountNumber} 
-                              onChange={(e) => setPayoutInfo({...payoutInfo, accountNumber: e.target.value})} 
+                              value={newPaymentData.accountNumber} 
+                              onChange={(e) => setNewPaymentData({...newPaymentData, accountNumber: e.target.value})} 
                               required
                           />
                       </div>
                       <div className="space-y-1.5">
                           <label className="text-sm font-medium text-slate-700">Branch Code / Name</label>
                           <Input 
-                              value={payoutInfo.branchCode} 
-                              onChange={(e) => setPayoutInfo({...payoutInfo, branchCode: e.target.value})} 
+                              value={newPaymentData.branchCode} 
+                              onChange={(e) => setNewPaymentData({...newPaymentData, branchCode: e.target.value})} 
                               required
                           />
                       </div>
@@ -780,6 +804,7 @@ export default function DoctorSettings() {
                       <Button
                         size="sm"
                         type="submit"
+                        onClick={handleAddPaymentMethod}
                         disabled={isLoading}
                         className="bg-green-600 hover:bg-green-700 text-white"
                       >
