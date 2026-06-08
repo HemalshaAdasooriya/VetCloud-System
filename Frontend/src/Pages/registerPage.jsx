@@ -2,19 +2,20 @@ import { Briefcase, Camera, CheckCircle2, Circle, DollarSign, Eye, EyeOff, Heart
 import { useState } from "react";
 import { CiHeart } from "react-icons/ci";
 import { TbStethoscope } from "react-icons/tb";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 
 import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 import FacebookLogin, { FacebookLoginClient } from '@greatsumini/react-facebook-login';
 import CustomGoogleButton from "../layouts/CustomGoogleButton";
 import CustomFacebookButton from "../layouts/CustomFacebookButton";
+import { useRef } from "react";
 
 
 
 
 export default function RegisterPage() {
-    // const navigate = useNavigate();
+    const navigate = useNavigate();
 
     const [role, setRole] = useState('user');
     const [firstName, setFirstName] = useState('');
@@ -43,6 +44,10 @@ export default function RegisterPage() {
     const [zip, setZip] = useState("");
     const [country, setCountry] = useState("");
 
+    const [profileImage, setProfileImage] = useState(null);
+    const [previewUrl, setPreviewUrl] = useState(null);
+    const fileInputRef = useRef(null);
+
     const getPasswordStrength = () => {
         if (!password) return 0;
         let strength = 0;
@@ -64,13 +69,22 @@ export default function RegisterPage() {
             const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/google-login`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ token: credentialResponse.credential, role: backendRole })
+                body: JSON.stringify({ token: credentialResponse.access_token, role: backendRole })
             });
             const data = await response.json();
             
             if (response.ok) {
                 toast.success("Google Authentication Successful!");
-                // navigate("/dashboard"); 
+                // 1. Print the ID Badge: Save the token and user data to the browser
+                if (data.token) localStorage.setItem("token", data.token);
+                if (data.user) localStorage.setItem("user", JSON.stringify(data.user));
+
+                // 2. Escort the User: Navigate to the correct dashboard based on role
+                if (role === 'user') {
+                    navigate("/dashboard/user");
+                } else if (role === 'vet') {
+                    navigate("/dashboard/doctor");
+                } 
             } else {
                 setSubmitMessage({ text: data.message || "Google registration failed", isError: true });
             }
@@ -84,26 +98,77 @@ export default function RegisterPage() {
     
     // FACEBOOK HANDLER
    
-    const handleFacebookResponse = async (response) => {
-        setIsLoading(true);
-        const backendRole = role === 'user' ? "Farmer/PetOwner" : "Veterinary Doctor";
+    // const handleFacebookResponse = async (response) => {
+    //     setIsLoading(true);
+    //     const backendRole = role === 'user' ? "Farmer/PetOwner" : "Veterinary Doctor";
         
+    //     try {
+    //         const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/facebook-login`, {
+    //             method: "POST",
+    //             headers: { "Content-Type": "application/json" },
+    //             body: JSON.stringify({ accessToken: response.accessToken, role: backendRole })
+    //         });
+    //         const data = await res.json();
+            
+    //         if (res.ok) {
+    //             toast.success("Facebook Authentication Successful!");
+    //             // navigate("/dashboard");
+    //         } else {
+    //             setSubmitMessage({ text: data.message || "Facebook registration failed", isError: true });
+    //         }
+    //     } catch{
+    //         setSubmitMessage({ text: "Server connection failed.", isError: true });
+    //     } finally {
+    //         setIsLoading(false);
+    //     }
+    // };
+    const handleFacebookResponse = async (response) => {
+        // 1. Tracker: This prints exactly what Facebook gives React in the console
+        console.log("FACEBOOK POPUP GAVE ME:", response);
+
+        // Ensure the user picked a role before clicking the button
+        if (!role) {
+            return toast.error("Please select a role first!");
+        }
+
+        setIsLoading(true);
+
+        // 2. Format the role to match what your MySQL database expects
+        const backendRole = role === 'farmer' ? "Farmer/PetOwner" : role === 'doctor' ? "Veterinary Doctor" : "Admin";
+
         try {
+            // 3. Send the request
             const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/facebook-login`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ accessToken: response.accessToken, role: backendRole })
+                
+                // 🔍 THE FIX: We use the word 'token' so the backend recognizes the package
+                body: JSON.stringify({ 
+                    token: response.accessToken, 
+                    role: backendRole 
+                })
             });
+            
             const data = await res.json();
             
             if (res.ok) {
-                toast.success("Facebook Authentication Successful!");
-                // navigate("/dashboard");
+                toast.success("Facebook Login Successful!");
+                
+                // 4. Save the Session (Print the digital ID Badge)
+                if (data.token) localStorage.setItem("token", data.token); 
+                if (data.user) localStorage.setItem("user", JSON.stringify(data.user));
+                
+                // 5. Navigate (Escort the user to their specific dashboard)
+                if (role === "farmer") navigate("/dashboard/user");
+                if (role === "doctor") navigate("/dashboard/doctor");
+                if (role === "admin") navigate("/dashboard/admin");
+                
             } else {
-                setSubmitMessage({ text: data.message || "Facebook registration failed", isError: true });
+                toast.error(data.message || "Facebook login failed");
             }
-        } catch{
-            setSubmitMessage({ text: "Server connection failed.", isError: true });
+        } catch (error) {
+            console.error("Frontend fetch error:", error);
+            toast.error("Server connection failed.");
         } finally {
             setIsLoading(false);
         }
@@ -125,31 +190,42 @@ export default function RegisterPage() {
 
         const backendRole = role === 'user' ? "Farmer/PetOwner" : "Veterinary Doctor";
 
-        let payload = { firstName, lastName, email, password, contact_No: phone, role: backendRole };
+        const formData = new FormData();
+    
+            // 2. Put the text data in the box
+            formData.append("firstName", firstName);
+            formData.append("lastName", lastName);
+            formData.append("email", email);
+            formData.append("password", password);
+            formData.append("contact_No", phone);
+            formData.append("role", backendRole);
 
-        if (role === 'user') {
-            
-            payload.numberOfAnimals = numberOfAnimals ? parseInt(numberOfAnimals, 10) : 0;
+            // 3. Put the physical image in the box (if the user selected one)
+            if (profileImage) {
+                formData.append("profileImage", profileImage);
+            }
 
-            payload.street = street;
-            payload.city = city;
-            payload.state = state;
-            payload.zip = zip;
-            payload.country = country;
+            // 4. Add the rest of the text data
+            if (role === 'user') {
+                formData.append("numberOfAnimals", numberOfAnimals || 0);
+                formData.append("street", street);
+                formData.append("city", city);
+                formData.append("state", state);
+                formData.append("zip", zip);
+                formData.append("country", country);
+            } else {
+                formData.append("license_number", license);
+                formData.append("specialization", specialization);
+                formData.append("years_of_experience", experience || 0);
+                formData.append("consultation_fee", fee || 0);
+            }
 
-        } else {
-            payload.license_number = license;
-            payload.specialization = specialization;
-            payload.years_of_experience = experience ? parseInt(experience, 10) : 0;
-            payload.consultation_fee = fee ? parseFloat(fee) : 0.00;
-        }
-
-        try {
-            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
-            });
+            try {
+                // 5. Send the box (CRITICAL: Do not write "Content-Type: application/json")
+                const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/`, {
+                    method: "POST",
+                    body: formData 
+                });
 
             const result = await response.json()
             if (response.status === 201) {
@@ -355,6 +431,7 @@ export default function RegisterPage() {
                                         value={numberOfAnimals} 
                                         onChange={(e) => setNumberOfAnimals(e.target.value)} 
                                         placeholder="e.g., 20" 
+                                        onWheel={(e) => e.target.blur()}
                                         className="w-full h-12 rounded-xl border border-slate-300 bg-transparent pl-4 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" 
                                     />
                                 </div>
@@ -398,12 +475,34 @@ export default function RegisterPage() {
                             {/* Profile Picture Upload */}
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Profile Picture (Optional)</label>
-                                <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 flex flex-col items-center justify-center text-center hover:border-slate-300 transition-colors cursor-pointer bg-slate-50">
-                                    <div className="bg-white p-3 rounded-full shadow-sm mb-3">
-                                        <Camera className="h-6 w-6 text-slate-400" />
-                                    </div>
+                                <div 
+                                    onClick={() => fileInputRef.current.click()}
+                                    className="border-2 border-dashed border-slate-200 rounded-xl p-6 flex flex-col items-center justify-center text-center hover:border-slate-300 transition-colors cursor-pointer bg-slate-50 relative overflow-hidden"
+                                >
+                                    {/* The hidden input that actually grabs the file */}
+                                    <input 
+                                        type="file" 
+                                        ref={fileInputRef} 
+                                        accept="image/*"
+                                        className="hidden" 
+                                        onChange={(e) => {
+                                            const file = e.target.files[0];
+                                            if (file) {
+                                                setProfileImage(file); // Save physical file for the server
+                                                setPreviewUrl(URL.createObjectURL(file)); // Show preview to the user
+                                            }
+                                        }}
+                                    />
+                                    
+                                    {previewUrl ? (
+                                        <img src={previewUrl} alt="Preview" className="h-24 w-24 object-cover rounded-full shadow-sm mb-3 z-10" />
+                                    ) : (
+                                        <div className="bg-white p-3 rounded-full shadow-sm mb-3">
+                                            <Camera className="h-6 w-6 text-slate-400" />
+                                        </div>
+                                    )}
+                                    
                                     <p className="text-sm font-medium text-slate-700">Click to upload photo</p>
-                                    <p className="text-xs text-slate-500 mt-1">JPG, PNG or GIF (max. 5MB)</p>
                                 </div>
                             </div>
                         </div>

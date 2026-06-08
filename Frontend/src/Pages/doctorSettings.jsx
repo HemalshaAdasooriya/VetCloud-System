@@ -1,7 +1,604 @@
+import { useState } from 'react';
+import {
+  User, Building2, Bell, Shield, Wallet,
+  MapPin, Clock, Camera, Check, Upload, Save, CreditCard, Plus, Trash2, Building, Eye, EyeOff, Lock, Mail
+} from 'lucide-react';
+import { Button, Card, Input } from '../components/Ui/ui';
+
+
+
+
 export default function DoctorSettings() {
+
+    const [activeTab, setActiveTab] = useState('profile');
+    const [paymentMethods, setPaymentMethods] = useState([
+        { id: 1, type: 'bank', name: 'Chase Bank - Business Account', accountNumber: '****6789', isPrimary: true },
+        { id: 2, type: 'mobile', name: 'M-Pesa', accountNumber: '+254712****90', isPrimary: false },
+    ]);
+    const [showAddPayment, setShowAddPayment] = useState(false);
+
+    // Password change state
+    const [currentPassword, setCurrentPassword] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmNewPassword, setConfirmNewPassword] = useState('');
+    const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+    const [showNewPassword, setShowNewPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const [passwordError, setPasswordError] = useState('');
+    const [passwordSuccess, setPasswordSuccess] = useState('');
+
+    const tabs = [
+        { id: 'profile', name: 'Personal Profile', icon: User },
+        { id: 'clinic', name: 'Clinic Details', icon: Building2 },
+        { id: 'security', name: 'Security & Login', icon: Shield },
+        { id: 'billing', name: 'Billing & Payouts', icon: Wallet },
+    ];
+
     return (
-        <div className="w-full h-screen flex items-center justify-center">
-            <h1 className="text-4xl font-bold text-slate-700">Doctor Settings</h1>
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-5xl mx-auto pb-12">
+      <div>
+        <h2 className="text-2xl font-bold text-slate-800">Account Settings</h2>
+        <p className="text-slate-500">Manage your profile, clinic details, and preferences</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        {/* Settings Navigation */}
+        <Card className="md:col-span-1 p-2 border-slate-200 shadow-sm h-fit">
+          <nav className="flex flex-col space-y-1">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`
+                  flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors text-left
+                  ${activeTab === tab.id 
+                    ? 'bg-green-50 text-green-700' 
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}
+                `}
+              >
+                <tab.icon size={18} className={activeTab === tab.id ? 'text-green-600' : 'text-slate-400'} />
+                {tab.name}
+              </button>
+            ))}
+          </nav>
+        </Card>
+
+        {/* Settings Content */}
+        <div className="md:col-span-3 space-y-6">
+          
+          {/* Profile Settings */}
+          {activeTab === 'profile' && (
+            <Card className="p-6 border-slate-200 shadow-sm animate-in fade-in">
+              <h3 className="text-lg font-semibold text-slate-800 mb-5 border-b border-slate-100 pb-3">Personal Profile</h3>
+              
+              <div className="flex items-center gap-6 mb-8">
+                <div className="relative">
+                  <div className="h-24 w-24 rounded-full bg-slate-100 border-4 border-white shadow-md flex items-center justify-center overflow-hidden">
+                    <User size={40} className="text-slate-300" />
+                  </div>
+                  <button className="absolute bottom-0 right-0 p-1.5 bg-green-600 text-white rounded-full shadow-sm hover:bg-green-700 transition-colors">
+                    <Camera size={14} />
+                  </button>
+                </div>
+                <div>
+                  <h4 className="font-medium text-slate-800">Profile Picture</h4>
+                  <p className="text-sm text-slate-500 mb-2">JPG, GIF or PNG. Max size of 5MB.</p>
+                  <Button variant="outline" size="sm" className="text-xs h-8">
+                    <Upload size={14} className="mr-2" /> Upload New
+                  </Button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700">First Name</label>
+                  <Input defaultValue="Sarah" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700">Last Name</label>
+                  <Input defaultValue="Jenkins" />
+                </div>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <label className="text-sm font-medium text-slate-700">Professional Title</label>
+                  <Input defaultValue="DVM, MS - Senior Veterinarian" />
+                </div>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <label className="text-sm font-medium text-slate-700">Specializations (comma separated)</label>
+                  <Input defaultValue="Large Animals, Bovine Health, Equine Medicine" />
+                </div>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <label className="text-sm font-medium text-slate-700">Bio / About</label>
+                  <textarea 
+                    className="w-full min-h-[100px] p-3 rounded-lg border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-colors resize-y"
+                    defaultValue="Over 15 years of experience treating farm animals. Dedicated to providing compassionate care for livestock and helping farmers maintain healthy herds."
+                  />
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {/* Clinic Details */}
+          {activeTab === 'clinic' && (
+            <Card className="p-6 border-slate-200 shadow-sm animate-in fade-in">
+              <h3 className="text-lg font-semibold text-slate-800 mb-5 border-b border-slate-100 pb-3">Clinic Information</h3>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div className="space-y-1.5 sm:col-span-2">
+                  <label className="text-sm font-medium text-slate-700">Clinic Name</label>
+                  <Input defaultValue="Green Valley Veterinary Services" />
+                </div>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <label className="text-sm font-medium text-slate-700">Clinic Registration Number</label>
+                  <Input defaultValue="VET-2026-9876" />
+                </div>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                    <MapPin size={14} className="text-slate-400"/> Primary Address
+                  </label>
+                  <Input defaultValue="123 Farm Road, Suite A" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700">City</label>
+                  <Input defaultValue="Springfield" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700">State / Province</label>
+                  <Input defaultValue="IL" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700">Zip / Postal Code</label>
+                  <Input defaultValue="62701" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700">Clinic Phone</label>
+                  <Input defaultValue="(555) 123-4567" />
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {/* Security & Login */}
+          {activeTab === 'security' && (
+            <>
+              <Card className="p-6 border-slate-200 shadow-sm animate-in fade-in">
+                <h3 className="text-lg font-semibold text-slate-800 mb-5 border-b border-slate-100 pb-3">Change Password</h3>
+
+                {passwordError && (
+                  <div className="mb-6 p-4 bg-red-50 text-red-600 text-sm font-medium rounded-xl border border-red-100 flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                    {passwordError}
+                  </div>
+                )}
+
+                {passwordSuccess && (
+                  <div className="mb-6 p-4 bg-green-50 text-green-600 text-sm font-medium rounded-xl border border-green-100 flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                    {passwordSuccess}
+                  </div>
+                )}
+
+                <div className="space-y-5">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-slate-700">Current Password</label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Lock className="h-5 w-5 text-slate-400" />
+                      </div>
+                      <Input
+                        type={showCurrentPassword ? "text" : "password"}
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                        placeholder="Enter current password"
+                        className="pl-11 pr-11 h-11 rounded-lg border-slate-200 focus:border-green-500 focus:ring-green-500/20"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none"
+                      >
+                        {showCurrentPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-slate-700">New Password</label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Lock className="h-5 w-5 text-slate-400" />
+                      </div>
+                      <Input
+                        type={showNewPassword ? "text" : "password"}
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="Enter new password (min. 8 characters)"
+                        className="pl-11 pr-11 h-11 rounded-lg border-slate-200 focus:border-green-500 focus:ring-green-500/20"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none"
+                      >
+                        {showNewPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-slate-700">Confirm New Password</label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Lock className="h-5 w-5 text-slate-400" />
+                      </div>
+                      <Input
+                        type={showConfirmPassword ? "text" : "password"}
+                        value={confirmNewPassword}
+                        onChange={(e) => setConfirmNewPassword(e.target.value)}
+                        placeholder="Re-enter new password"
+                        className="pl-11 pr-11 h-11 rounded-lg border-slate-200 focus:border-green-500 focus:ring-green-500/20"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none"
+                      >
+                        {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
+                    <p className="text-xs font-medium text-blue-800 mb-2">Password Requirements:</p>
+                    <ul className="text-xs text-blue-700 space-y-1.5">
+                      <li className="flex items-center gap-2">
+                        <div className={`w-1.5 h-1.5 rounded-full ${newPassword.length >= 8 ? 'bg-green-500' : 'bg-slate-300'}`} />
+                        At least 8 characters long
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <div className={`w-1.5 h-1.5 rounded-full ${/[A-Z]/.test(newPassword) ? 'bg-green-500' : 'bg-slate-300'}`} />
+                        Contains uppercase letter
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <div className={`w-1.5 h-1.5 rounded-full ${/[a-z]/.test(newPassword) ? 'bg-green-500' : 'bg-slate-300'}`} />
+                        Contains lowercase letter
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <div className={`w-1.5 h-1.5 rounded-full ${/[0-9]/.test(newPassword) ? 'bg-green-500' : 'bg-slate-300'}`} />
+                        Contains number
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <div className={`w-1.5 h-1.5 rounded-full ${/[!@#$%^&*(),.?":{}|<>]/.test(newPassword) ? 'bg-green-500' : 'bg-slate-300'}`} />
+                        Contains special character
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div className="pt-4 border-t border-slate-100">
+                    <Button
+                      onClick={() => {
+                        setPasswordError('');
+                        setPasswordSuccess('');
+
+                        if (!currentPassword || !newPassword || !confirmNewPassword) {
+                          setPasswordError('Please fill in all password fields.');
+                          return;
+                        }
+                        if (newPassword.length < 8) {
+                          setPasswordError('New password must be at least 8 characters long.');
+                          return;
+                        }
+                        if (newPassword !== confirmNewPassword) {
+                          setPasswordError('New passwords do not match.');
+                          return;
+                        }
+
+                        setPasswordSuccess('Password changed successfully!');
+                        setCurrentPassword('');
+                        setNewPassword('');
+                        setConfirmNewPassword('');
+                        setTimeout(() => setPasswordSuccess(''), 3000);
+                      }}
+                      className="bg-green-600 hover:bg-green-700 text-white"
+                    >
+                      <Lock size={16} className="mr-2" /> Update Password
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+
+              <Card className="p-6 border-slate-200 shadow-sm animate-in fade-in">
+                <h3 className="text-lg font-semibold text-slate-800 mb-5 border-b border-slate-100 pb-3">Login Information</h3>
+
+                <div className="space-y-5">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-slate-700">Email Address</label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Mail className="h-5 w-5 text-slate-400" />
+                      </div>
+                      <Input
+                        type="email"
+                        defaultValue="sarah.jenkins@vetcloud.com"
+                        className="pl-11 h-11 rounded-lg border-slate-200 focus:border-green-500 focus:ring-green-500/20"
+                      />
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">This email is used for login and account notifications.</p>
+                  </div>
+
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h4 className="font-medium text-slate-800 text-sm mb-1">Two-Factor Authentication</h4>
+                        <p className="text-xs text-slate-600">Add an extra layer of security to your account.</p>
+                      </div>
+                      <Button size="sm" variant="outline" className="h-8 text-xs">
+                        Enable 2FA
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t border-slate-100">
+                    <h4 className="text-sm font-medium text-slate-800 mb-3">Active Sessions</h4>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between p-3 bg-green-50 border border-green-100 rounded-lg">
+                        <div>
+                          <p className="text-sm font-medium text-slate-800">Current Device - Chrome on Windows</p>
+                          <p className="text-xs text-slate-500 mt-0.5">Last active: Just now</p>
+                        </div>
+                        <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded">Active</span>
+                      </div>
+                      <div className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                        <div>
+                          <p className="text-sm font-medium text-slate-800">iPhone - Safari</p>
+                          <p className="text-xs text-slate-500 mt-0.5">Last active: 2 hours ago</p>
+                        </div>
+                        <Button size="sm" variant="outline" className="h-7 text-xs text-red-600 hover:bg-red-50">
+                          Revoke
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            </>
+          )}
+
+          {/* Billing & Payment Options */}
+          {activeTab === 'billing' && (
+            <>
+              <Card className="p-6 border-slate-200 shadow-sm animate-in fade-in">
+                <div className="flex items-center justify-between mb-5 border-b border-slate-100 pb-3">
+                  <h3 className="text-lg font-semibold text-slate-800">Payment Methods</h3>
+                  <Button
+                    size="sm"
+                    onClick={() => setShowAddPayment(!showAddPayment)}
+                    className="bg-green-600 hover:bg-green-700 text-white h-9"
+                  >
+                    <Plus size={16} className="mr-1" /> Add Payment Method
+                  </Button>
+                </div>
+
+                {/* Add Payment Form */}
+                {showAddPayment && (
+                  <div className="mb-6 p-4 bg-green-50 border border-green-100 rounded-xl">
+                    <h4 className="font-medium text-slate-800 mb-4">Add New Payment Method</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-1.5 sm:col-span-2">
+                        <label className="text-sm font-medium text-slate-700">Payment Type</label>
+                        <select className="w-full h-10 px-3 rounded-md border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500">
+                          <option value="">Select payment type</option>
+                          <option value="bank">Bank Account</option>
+                          <option value="mobile">Mobile Money</option>
+                          <option value="paypal">PayPal</option>
+                          <option value="stripe">Stripe</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1.5 sm:col-span-2">
+                        <label className="text-sm font-medium text-slate-700">Account Name / Label</label>
+                        <Input placeholder="e.g., Chase Business Account" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-sm font-medium text-slate-700">Account Number / ID</label>
+                        <Input placeholder="e.g., 1234567890" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-sm font-medium text-slate-700">Bank Name / Provider</label>
+                        <Input placeholder="e.g., Chase Bank" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-sm font-medium text-slate-700">Routing Number / SWIFT (if applicable)</label>
+                        <Input placeholder="Optional" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-sm font-medium text-slate-700">Branch Code (if applicable)</label>
+                        <Input placeholder="Optional" />
+                      </div>
+                    </div>
+                    <div className="flex gap-3 mt-4 pt-4 border-t border-green-200">
+                      <Button
+                        size="sm"
+                        onClick={() => setShowAddPayment(false)}
+                        className="bg-green-600 hover:bg-green-700 text-white"
+                      >
+                        <Check size={16} className="mr-1" /> Add Method
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setShowAddPayment(false)}
+                        className="bg-white"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Saved Payment Methods */}
+                <div className="space-y-3">
+                  {paymentMethods.map((method) => (
+                    <div
+                      key={method.id}
+                      className="flex items-center justify-between p-4 rounded-lg border border-slate-200 hover:border-green-200 hover:bg-slate-50 transition-colors"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center">
+                          {method.type === 'bank' ? (
+                            <Building className="text-green-600" size={24} />
+                          ) : (
+                            <CreditCard className="text-green-600" size={24} />
+                          )}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-slate-800">{method.name}</p>
+                            {method.isPrimary && (
+                              <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded">
+                                Primary
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm text-slate-500 mt-0.5">{method.accountNumber}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {!method.isPrimary && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 text-xs"
+                          >
+                            Set as Primary
+                          </Button>
+                        )}
+                        <button className="p-2 text-red-500 hover:bg-red-50 rounded-md transition-colors">
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+
+              {/* Payout Settings */}
+              <Card className="p-6 border-slate-200 shadow-sm animate-in fade-in">
+                <h3 className="text-lg font-semibold text-slate-800 mb-5 border-b border-slate-100 pb-3">Payout Settings</h3>
+
+                <div className="space-y-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium text-slate-700">Payout Schedule</label>
+                      <select defaultValue="weekly" className="w-full h-10 px-3 rounded-md border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500">
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly (Every Monday)</option>
+                        <option value="biweekly">Bi-weekly</option>
+                        <option value="monthly">Monthly</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium text-slate-700">Minimum Payout Amount</label>
+                      <div className="relative">
+                        <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 text-sm">$</span>
+                        <Input defaultValue="100" className="pl-7" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-blue-50 border border-blue-100 rounded-lg">
+                    <h4 className="font-medium text-blue-900 text-sm mb-2">Current Balance</h4>
+                    <div className="flex items-baseline gap-2">
+                      <p className="text-3xl font-bold text-blue-900">$2,450.00</p>
+                      <p className="text-sm text-blue-700">Available for payout</p>
+                    </div>
+                    <div className="mt-3 pt-3 border-t border-blue-200">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-blue-700">Next scheduled payout:</span>
+                        <span className="font-medium text-blue-900">Monday, April 14, 2026</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-medium text-slate-800">Payout Notifications</h4>
+                    <label className="flex items-start gap-3 p-3 rounded-lg border border-slate-200 hover:border-green-300 hover:bg-slate-50 cursor-pointer transition-colors">
+                      <div className="mt-0.5">
+                        <input type="checkbox" className="w-4 h-4 text-green-600 rounded border-slate-300 focus:ring-green-500" defaultChecked />
+                      </div>
+                      <div>
+                        <p className="font-medium text-slate-800 text-sm">Email notifications for payouts</p>
+                        <p className="text-xs text-slate-500 mt-0.5">Get notified when a payout is processed to your account.</p>
+                      </div>
+                    </label>
+                    <label className="flex items-start gap-3 p-3 rounded-lg border border-slate-200 hover:border-green-300 hover:bg-slate-50 cursor-pointer transition-colors">
+                      <div className="mt-0.5">
+                        <input type="checkbox" className="w-4 h-4 text-green-600 rounded border-slate-300 focus:ring-green-500" defaultChecked />
+                      </div>
+                      <div>
+                        <p className="font-medium text-slate-800 text-sm">SMS notifications for large payouts</p>
+                        <p className="text-xs text-slate-500 mt-0.5">Receive SMS alerts for payouts exceeding $500.</p>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Consultation Fees */}
+              <Card className="p-6 border-slate-200 shadow-sm animate-in fade-in">
+                <h3 className="text-lg font-semibold text-slate-800 mb-5 border-b border-slate-100 pb-3">Consultation Fees</h3>
+
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium text-slate-700">Video Consultation Fee</label>
+                      <div className="relative">
+                        <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 text-sm">$</span>
+                        <Input defaultValue="50" className="pl-7" />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium text-slate-700">In-Clinic Visit Fee</label>
+                      <div className="relative">
+                        <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 text-sm">$</span>
+                        <Input defaultValue="75" className="pl-7" />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium text-slate-700">Farm Visit Fee (Base)</label>
+                      <div className="relative">
+                        <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 text-sm">$</span>
+                        <Input defaultValue="120" className="pl-7" />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium text-slate-700">Emergency Consultation Fee</label>
+                      <div className="relative">
+                        <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 text-sm">$</span>
+                        <Input defaultValue="150" className="pl-7" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                    <p className="text-xs text-slate-600">
+                      <strong>Platform Fee:</strong> VetCloud charges a 10% platform fee on all consultations.
+                      The amounts shown above are what you'll receive after the platform fee is deducted.
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            </>
+          )}
+
+          {/* Action Buttons */}
+          <div className="flex justify-end gap-3 pt-4">
+            <Button variant="outline" className="bg-white">Cancel</Button>
+            <Button className="bg-green-600 hover:bg-green-700 text-white">
+              <Save size={16} className="mr-2" /> Save Changes
+            </Button>
+          </div>
+
         </div>
+      </div>
+    </div>
     )
 }
