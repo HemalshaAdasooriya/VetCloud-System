@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   User, Building2, Bell, Shield, Wallet,
   MapPin, Clock, Camera, Check, Upload, Save, CreditCard, Plus, Trash2, Building, Eye, EyeOff, Lock, Mail
@@ -11,11 +11,48 @@ import { Button, Card, Input } from '../components/Ui/ui';
 export default function DoctorSettings() {
 
     const [activeTab, setActiveTab] = useState('profile');
-    const [paymentMethods, setPaymentMethods] = useState([
-        { id: 1, type: 'bank', name: 'Chase Bank - Business Account', accountNumber: '****6789', isPrimary: true },
-        { id: 2, type: 'mobile', name: 'M-Pesa', accountNumber: '+254712****90', isPrimary: false },
-    ]);
+    const [payoutInfo, setPayoutInfo] = useState({
+        bankName: '',
+        accountName: '',
+        accountNumber: '',
+        branchCode: '',
+        schedule: 'weekly'
+    });
+    const [clinicInfo, setClinicInfo] = useState({
+        clinicName: '',
+        clinicRegistrationNumber: '',
+        address: '',
+        city: '',
+        state: '',
+        zipCode: '',
+        clinicPhone: ''
+    });
+    const [personalInfo, setPersonalInfo] = useState({
+        firstName: '',
+        lastName: '',
+        professional_title: '',
+        specializations: '',
+        bio: ''
+    });
+    const [fees, setFees] = useState({
+        consultation_fee: '', 
+        videoFee: '',
+        farmFee: '',
+        emergencyFee: ''
+    });
+
+    const [isLoading, setIsLoading] = useState(true);
+    const [toastMessage, setToastMessage] = useState(null);
+
+    const [paymentMethods, setPaymentMethods] = useState([]);
     const [showAddPayment, setShowAddPayment] = useState(false);
+
+    const [newPaymentData, setNewPaymentData] = useState({
+        bankName: '',
+        accountName: '',
+        accountNumber: '',
+        branchCode: ''
+    });
 
     // Password change state
     const [currentPassword, setCurrentPassword] = useState('');
@@ -33,6 +70,230 @@ export default function DoctorSettings() {
         { id: 'security', name: 'Security & Login', icon: Shield },
         { id: 'billing', name: 'Billing & Payouts', icon: Wallet },
     ];
+
+    useEffect(() => {
+        const fetchDoctorProfile = async () => {
+            try {
+                const token = localStorage.getItem("token");
+                if (!token) {
+                    console.error("No token found");
+                    return;
+                }
+
+                const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/profile`, {
+                    method: "GET",
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // Map the backend data to your state
+                    setPersonalInfo({
+                        firstName: data.firstName || '',
+                        lastName: data.lastName || '',
+                        professional_title: data.professional_title || '', 
+                        specializations: data.specialization || '', // Mapped from your registration fields
+                        bio: data.bio || ''
+                    });
+                    setClinicInfo({
+                        clinicName: data.clinic_name || '',
+                        clinicRegistrationNumber: data.registration_number || '',
+                        address: data.clinic_address || '',
+                        city: data.clinic_city || '',
+                        state: data.clinic_state || '',
+                        zipCode: data.clinic_zip || '',
+                        clinicPhone: data.clinic_phone || ''
+                    });
+                    setPayoutInfo({
+                        bankName: data.bank_name || '',
+                        accountName: data.account_name || '',
+                        accountNumber: data.account_number || '',
+                        branchCode: data.branch_code || '',
+                        schedule: data.payout_schedule || 'weekly'
+                    });
+                    setFees(prevFees => ({
+                        ...prevFees,
+                        consultation_fee: data.consultation_fee || ''
+                    }));
+                } else {
+                    console.error("Failed to fetch profile");
+                }
+            } catch (error) {
+                console.error("Error fetching doctor profile:", error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchDoctorProfile();
+    }, []);
+
+    // 3. Save updated profile data
+    const handleSaveProfile = async (e) => {
+        if (e) e.preventDefault();
+        
+        try {
+            const token = localStorage.getItem("token");
+            if (!token) return;
+
+            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/profile`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                },
+                body: JSON.stringify(personalInfo)
+            });
+
+            if (response.ok) {
+                setToastMessage("Profile updated successfully!");
+                // Optionally clear the toast after 3 seconds
+                setTimeout(() => setToastMessage(null), 3000);
+            } else {
+                const errorData = await response.json();
+                setToastMessage(errorData.message || "Failed to update profile");
+            }
+        } catch (error) {
+            console.error("Save error:", error);
+            setToastMessage("Server connection failed");
+        }
+    };
+
+    // Function to save Clinic Details
+    const handleSaveClinic = async (e) => {
+        if (e) e.preventDefault(); // Stop the page from refreshing
+        setIsLoading(true);
+        
+        try {
+            const token = localStorage.getItem("token");
+            if (!token) return;
+
+            // Send the crate to the backend desk we built earlier
+            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/clinic`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                },
+                body: JSON.stringify(clinicInfo) // Attach the memory bank
+            });
+
+            if (response.ok) {
+                setToastMessage("Clinic details saved successfully!");
+                setTimeout(() => setToastMessage(null), 3000);
+            } else {
+                const errorData = await response.json();
+                setToastMessage(errorData.message || "Failed to save clinic details");
+            }
+        } catch (error) {
+            console.error("Save error:", error);
+            setToastMessage("Server connection failed");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    
+    const handleUpdatePassword = async () => {
+    setPasswordError('');
+    setPasswordSuccess('');
+
+    // Frontend Validation
+    if (!currentPassword || !newPassword || !confirmNewPassword) {
+        setPasswordError('Please fill in all password fields.');
+        return;
+    }
+    if (newPassword.length < 8) {
+        setPasswordError('New password must be at least 8 characters long.');
+        return;
+    }
+    if (newPassword !== confirmNewPassword) {
+        setPasswordError('New passwords do not match.');
+        return;
+    }
+
+    try {
+        const token = localStorage.getItem("token");
+        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/change-password`, {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify({ currentPassword, newPassword })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            setPasswordSuccess(data.message || 'Password changed successfully!');
+            setCurrentPassword('');
+            setNewPassword('');
+            setConfirmNewPassword('');
+            setTimeout(() => setPasswordSuccess(''), 3000);
+        } else {
+            setPasswordError(data.message || 'Failed to update password');
+        }
+    } catch (error) {
+        console.error("Password change error:", error);
+        setPasswordError("Server connection failed");
+    }
+};
+
+
+const handleAddPaymentMethod = async (e) => {
+        if (e) e.preventDefault();
+        setIsLoading(true);
+        
+        try {
+            const token = localStorage.getItem("token");
+            const url = `${import.meta.env.VITE_BACKEND_URL}/api/users/payout-settings`;
+            
+            const response = await fetch(url, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                },
+                // Send the correct data (newPaymentData) to the backend!
+                body: JSON.stringify({
+                    bankName: newPaymentData.bankName,
+                    accountName: newPaymentData.accountName,
+                    accountNumber: newPaymentData.accountNumber,
+                    branchCode: newPaymentData.branchCode,
+                    schedule: 'weekly'
+                })
+            });
+
+            if (response.ok) {
+                setToastMessage("Payment method saved successfully!");
+                
+                // 1. Add it to the visual list on the frontend
+                const newMethod = {
+                    id: Date.now(),
+                    type: 'bank',
+                    name: `${newPaymentData.bankName} - ${newPaymentData.accountName}`,
+                    accountNumber: newPaymentData.accountNumber,
+                    isPrimary: paymentMethods.length === 0
+                };
+                setPaymentMethods([...paymentMethods, newMethod]);
+
+                // 2. Close the window and completely empty the input boxes
+                setShowAddPayment(false);
+                setNewPaymentData({ bankName: '', accountName: '', accountNumber: '', branchCode: '' });
+
+                setTimeout(() => setToastMessage(null), 3000);
+            } else {
+                const errorData = await response.json();
+                setToastMessage(errorData.message || "Failed to save payment method.");
+            }
+        } catch  {
+            setToastMessage("Server connection failed");
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-5xl mx-auto pb-12">
@@ -66,94 +327,148 @@ export default function DoctorSettings() {
         {/* Settings Content */}
         <div className="md:col-span-3 space-y-6">
           
-          {/* Profile Settings */}
-          {activeTab === 'profile' && (
+            {/* Profile Settings */}
+            {activeTab === 'profile' && (
             <Card className="p-6 border-slate-200 shadow-sm animate-in fade-in">
-              <h3 className="text-lg font-semibold text-slate-800 mb-5 border-b border-slate-100 pb-3">Personal Profile</h3>
-              
-              <div className="flex items-center gap-6 mb-8">
-                <div className="relative">
-                  <div className="h-24 w-24 rounded-full bg-slate-100 border-4 border-white shadow-md flex items-center justify-center overflow-hidden">
-                    <User size={40} className="text-slate-300" />
-                  </div>
-                  <button className="absolute bottom-0 right-0 p-1.5 bg-green-600 text-white rounded-full shadow-sm hover:bg-green-700 transition-colors">
-                    <Camera size={14} />
-                  </button>
+                <h3 className="text-lg font-semibold text-slate-800 mb-5 border-b border-slate-100 pb-3">Personal Profile</h3>
+                
+                {toastMessage && (
+                <div className="mb-4 p-3 bg-blue-50 text-blue-700 rounded-md text-sm">
+                    {toastMessage}
                 </div>
-                <div>
-                  <h4 className="font-medium text-slate-800">Profile Picture</h4>
-                  <p className="text-sm text-slate-500 mb-2">JPG, GIF or PNG. Max size of 5MB.</p>
-                  <Button variant="outline" size="sm" className="text-xs h-8">
-                    <Upload size={14} className="mr-2" /> Upload New
-                  </Button>
-                </div>
-              </div>
+                )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-slate-700">First Name</label>
-                  <Input defaultValue="Sarah" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-slate-700">Last Name</label>
-                  <Input defaultValue="Jenkins" />
-                </div>
-                <div className="space-y-1.5 sm:col-span-2">
-                  <label className="text-sm font-medium text-slate-700">Professional Title</label>
-                  <Input defaultValue="DVM, MS - Senior Veterinarian" />
-                </div>
-                <div className="space-y-1.5 sm:col-span-2">
-                  <label className="text-sm font-medium text-slate-700">Specializations (comma separated)</label>
-                  <Input defaultValue="Large Animals, Bovine Health, Equine Medicine" />
-                </div>
-                <div className="space-y-1.5 sm:col-span-2">
-                  <label className="text-sm font-medium text-slate-700">Bio / About</label>
-                  <textarea 
-                    className="w-full min-h-[100px] p-3 rounded-lg border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-colors resize-y"
-                    defaultValue="Over 15 years of experience treating farm animals. Dedicated to providing compassionate care for livestock and helping farmers maintain healthy herds."
-                  />
-                </div>
-              </div>
+                {/* ... Profile Picture Section remains the same ... */}
+
+                {isLoading ? (
+                    <p className="text-slate-500">Loading profile...</p>
+                ) : (
+                    <form className="grid grid-cols-1 sm:grid-cols-2 gap-5" onSubmit={handleSaveProfile}>
+                    <div className="space-y-1.5">
+                        <label className="text-sm font-medium text-slate-700">First Name</label>
+                        <Input 
+                            value={personalInfo.firstName} 
+                            onChange={(e) => setPersonalInfo({...personalInfo, firstName: e.target.value})}
+                        />
+                    </div>
+                    <div className="space-y-1.5">
+                        <label className="text-sm font-medium text-slate-700">Last Name</label>
+                        <Input 
+                            value={personalInfo.lastName}
+                            onChange={(e) => setPersonalInfo({...personalInfo, lastName: e.target.value})}
+                        />
+                    </div>
+                    <div className="space-y-1.5 sm:col-span-2">
+                        <label className="text-sm font-medium text-slate-700">Professional Title</label>
+                        <Input 
+                            value={personalInfo.professional_title}
+                            onChange={(e) => setPersonalInfo({...personalInfo, professional_title: e.target.value})}
+                            placeholder="e.g., DVM, MS - Senior Veterinarian" 
+                        />
+                    </div>
+                    <div className="space-y-1.5 sm:col-span-2">
+                        <label className="text-sm font-medium text-slate-700">Specializations (comma separated)</label>
+                        <Input 
+                            value={personalInfo.specializations}
+                            onChange={(e) => setPersonalInfo({...personalInfo, specializations: e.target.value})}
+                            placeholder="e.g., Large Animals, Equine Medicine" 
+                        />
+                    </div>
+                    <div className="space-y-1.5 sm:col-span-2">
+                        <label className="text-sm font-medium text-slate-700">Bio / About</label>
+                        <textarea 
+                        value={personalInfo.bio}
+                        onChange={(e) => setPersonalInfo({...personalInfo, bio: e.target.value})}
+                        className="w-full min-h-[100px] p-3 rounded-lg border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-colors resize-y"
+                        placeholder="Tell us about your experience..."
+                        />
+                    </div>
+                    
+                    <div className="sm:col-span-2 flex justify-end pt-4">
+                        <Button type="submit" className="bg-green-600 hover:bg-green-700 text-white">
+                            <Save size={16} className="mr-2" /> Save Profile
+                        </Button>
+                    </div>
+                    </form>
+                )}
             </Card>
-          )}
+            )}
 
+          
           {/* Clinic Details */}
           {activeTab === 'clinic' && (
             <Card className="p-6 border-slate-200 shadow-sm animate-in fade-in">
               <h3 className="text-lg font-semibold text-slate-800 mb-5 border-b border-slate-100 pb-3">Clinic Information</h3>
               
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              {toastMessage && (
+                <div className="mb-4 p-3 bg-blue-50 text-blue-700 rounded-md text-sm">
+                    {toastMessage}
+                </div>
+              )}
+
+              {/* 🔍 FIX: Wrap in a form and attach the save function */}
+              <form className="grid grid-cols-1 sm:grid-cols-2 gap-5" onSubmit={handleSaveClinic}>
                 <div className="space-y-1.5 sm:col-span-2">
                   <label className="text-sm font-medium text-slate-700">Clinic Name</label>
-                  <Input defaultValue="Green Valley Veterinary Services" />
+                  {/* 🔍 FIX: Bind value and onChange to the state */}
+                  <Input 
+                    value={clinicInfo.clinicName} 
+                    onChange={(e) => setClinicInfo({...clinicInfo, clinicName: e.target.value})} 
+                    placeholder="e.g., Green Valley Veterinary Services"
+                  />
                 </div>
                 <div className="space-y-1.5 sm:col-span-2">
                   <label className="text-sm font-medium text-slate-700">Clinic Registration Number</label>
-                  <Input defaultValue="VET-2026-9876" />
+                  <Input 
+                    value={clinicInfo.clinicRegistrationNumber} 
+                    onChange={(e) => setClinicInfo({...clinicInfo, clinicRegistrationNumber: e.target.value})} 
+                  />
                 </div>
                 <div className="space-y-1.5 sm:col-span-2">
                   <label className="text-sm font-medium text-slate-700 flex items-center gap-2">
                     <MapPin size={14} className="text-slate-400"/> Primary Address
                   </label>
-                  <Input defaultValue="123 Farm Road, Suite A" />
+                  <Input 
+                    value={clinicInfo.address} 
+                    onChange={(e) => setClinicInfo({...clinicInfo, address: e.target.value})} 
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-slate-700">City</label>
-                  <Input defaultValue="Springfield" />
+                  <Input 
+                    value={clinicInfo.city} 
+                    onChange={(e) => setClinicInfo({...clinicInfo, city: e.target.value})} 
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-slate-700">State / Province</label>
-                  <Input defaultValue="IL" />
+                  <Input 
+                    value={clinicInfo.state} 
+                    onChange={(e) => setClinicInfo({...clinicInfo, state: e.target.value})} 
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-slate-700">Zip / Postal Code</label>
-                  <Input defaultValue="62701" />
+                  <Input 
+                    value={clinicInfo.zipCode} 
+                    onChange={(e) => setClinicInfo({...clinicInfo, zipCode: e.target.value})} 
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-slate-700">Clinic Phone</label>
-                  <Input defaultValue="(555) 123-4567" />
+                  <Input 
+                    value={clinicInfo.clinicPhone} 
+                    onChange={(e) => setClinicInfo({...clinicInfo, clinicPhone: e.target.value})} 
+                  />
                 </div>
-              </div>
+                
+                {/* 🔍 FIX: Add a specific submit button for this form */}
+                <div className="sm:col-span-2 flex justify-end pt-4">
+                    <Button type="submit" className="bg-green-600 hover:bg-green-700 text-white" disabled={isLoading}>
+                        <Save size={16} className="mr-2" /> {isLoading ? "Saving..." : "Save Clinic Info"}
+                    </Button>
+                </div>
+              </form>
             </Card>
           )}
 
@@ -274,7 +589,7 @@ export default function DoctorSettings() {
                   </div>
 
                   <div className="pt-4 border-t border-slate-100">
-                    <Button
+                    {/* <Button
                       onClick={() => {
                         setPasswordError('');
                         setPasswordSuccess('');
@@ -296,11 +611,17 @@ export default function DoctorSettings() {
                         setCurrentPassword('');
                         setNewPassword('');
                         setConfirmNewPassword('');
-                        setTimeout(() => setPasswordSuccess(''), 3000);
+                        setTimeout(() => setPasswordSuccess(''), 5000);
                       }}
                       className="bg-green-600 hover:bg-green-700 text-white"
                     >
                       <Lock size={16} className="mr-2" /> Update Password
+                    </Button> */}
+                    <Button
+                        onClick={handleUpdatePassword}
+                        className="bg-green-600 hover:bg-green-700 text-white"
+                    >
+                        <Lock size={16} className="mr-2" /> Update Password
                     </Button>
                   </div>
                 </div>
@@ -370,57 +691,124 @@ export default function DoctorSettings() {
                 <div className="flex items-center justify-between mb-5 border-b border-slate-100 pb-3">
                   <h3 className="text-lg font-semibold text-slate-800">Payment Methods</h3>
                   <Button
-                    size="sm"
-                    onClick={() => setShowAddPayment(!showAddPayment)}
-                    className="bg-green-600 hover:bg-green-700 text-white h-9"
+                      size="sm"
+                      // UPDATE THIS ONCLICK:
+                      onClick={() => {
+                          setShowAddPayment(!showAddPayment);
+                          setNewPaymentData({ bankName: '', accountName: '', accountNumber: '', branchCode: '' });
+                      }}
+                      className="bg-green-600 hover:bg-green-700 text-white h-9"
                   >
-                    <Plus size={16} className="mr-1" /> Add Payment Method
+                      <Plus size={16} className="mr-1" /> Add Payment Method
                   </Button>
                 </div>
+
+                {toastMessage && (
+                  <div className={`mb-4 p-3 rounded-md text-sm ${toastMessage.includes("Failed") ? 'bg-red-50 text-red-700' : 'bg-blue-50 text-blue-700'}`}>
+                      {toastMessage}
+                  </div>
+              )}
+
+              {/* Visual Display of Saved Bank Details */}
+              {payoutInfo.bankName && (
+                  <div className="mb-6 p-4 rounded-xl border border-slate-200 bg-white flex items-center justify-between shadow-sm">
+                      <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-lg bg-green-50 flex items-center justify-center">
+                              <Building className="text-green-600" size={24} />
+                          </div>
+                          <div>
+                              <div className="flex items-center gap-3">
+                                  <p className="font-semibold text-slate-800">
+                                      {payoutInfo.bankName} - {payoutInfo.accountName}
+                                  </p>
+                                  <span className="px-2.5 py-0.5 bg-green-100 text-green-700 text-xs font-bold rounded-md">
+                                      Primary
+                                  </span>
+                              </div>
+                              <p className="text-sm text-slate-500 mt-1">
+                                  {/* This creates the ****1234 masked effect */}
+                                  {payoutInfo.accountNumber.length > 4 
+                                      ? `****${payoutInfo.accountNumber.slice(-4)}` 
+                                      : payoutInfo.accountNumber}
+                              </p>
+                          </div>
+                      </div>
+                  </div>
+              )}
 
                 {/* Add Payment Form */}
                 {showAddPayment && (
                   <div className="mb-6 p-4 bg-green-50 border border-green-100 rounded-xl">
                     <h4 className="font-medium text-slate-800 mb-4">Add New Payment Method</h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-1.5 sm:col-span-2">
+                      {/* <div className="space-y-1.5 sm:col-span-2">
                         <label className="text-sm font-medium text-slate-700">Payment Type</label>
                         <select className="w-full h-10 px-3 rounded-md border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500">
                           <option value="">Select payment type</option>
-                          <option value="bank">Bank Account</option>
-                          <option value="mobile">Mobile Money</option>
-                          <option value="paypal">PayPal</option>
-                          <option value="stripe">Stripe</option>
+                          <option value="Card Payments">Card Payments</option>
+                          <option value="Mobile">Mobile Wallets & Apps</option>
+                          <option value="HelaPay">HelaPay</option>
+                          <option value="Paypal">Paypal</option>
                         </select>
+                      </div> */}
+                      <div className="space-y-1.5 sm:col-span-2">
+                          <label className="text-sm font-medium text-slate-700">Bank Name</label>
+                          <Input 
+                              value={newPaymentData.bankName} 
+                              onChange={(e) => setNewPaymentData({...newPaymentData, bankName: e.target.value})} 
+                              placeholder="e.g., Bank of Ceylon (BOC)"
+                              required
+                          />
                       </div>
                       <div className="space-y-1.5 sm:col-span-2">
-                        <label className="text-sm font-medium text-slate-700">Account Name / Label</label>
-                        <Input placeholder="e.g., Chase Business Account" />
+                          <label className="text-sm font-medium text-slate-700">Account Holder Name</label>
+                          <Input 
+                              value={newPaymentData.accountName} 
+                              onChange={(e) => setNewPaymentData({...newPaymentData, accountName: e.target.value})} 
+                              required
+                          />
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-sm font-medium text-slate-700">Account Number / ID</label>
-                        <Input placeholder="e.g., 1234567890" />
+                          <label className="text-sm font-medium text-slate-700">Account Number</label>
+                          <Input 
+                              value={newPaymentData.accountNumber} 
+                              onChange={(e) => setNewPaymentData({...newPaymentData, accountNumber: e.target.value})} 
+                              required
+                          />
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-sm font-medium text-slate-700">Bank Name / Provider</label>
-                        <Input placeholder="e.g., Chase Bank" />
+                          <label className="text-sm font-medium text-slate-700">Branch Code / Name</label>
+                          <Input 
+                              value={newPaymentData.branchCode} 
+                              onChange={(e) => setNewPaymentData({...newPaymentData, branchCode: e.target.value})} 
+                              required
+                          />
                       </div>
-                      <div className="space-y-1.5">
-                        <label className="text-sm font-medium text-slate-700">Routing Number / SWIFT (if applicable)</label>
-                        <Input placeholder="Optional" />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="text-sm font-medium text-slate-700">Branch Code (if applicable)</label>
-                        <Input placeholder="Optional" />
+
+                      <div className="space-y-1.5 sm:col-span-2">
+                          <label className="text-sm font-medium text-slate-700">Payout Schedule</label>
+                          {/* 2. Bind the select dropdown to our state */}
+                          <select 
+                              value={payoutInfo.schedule}
+                              onChange={(e) => setPayoutInfo({...payoutInfo, schedule: e.target.value})}
+                              className="w-full h-10 px-3 rounded-md border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500"
+                          >
+                              <option value="daily">Daily</option>
+                              <option value="weekly">Weekly (Every Monday)</option>
+                              <option value="biweekly">Bi-weekly</option>
+                              <option value="monthly">Monthly</option>
+                          </select>
                       </div>
                     </div>
                     <div className="flex gap-3 mt-4 pt-4 border-t border-green-200">
                       <Button
                         size="sm"
-                        onClick={() => setShowAddPayment(false)}
+                        type="submit"
+                        onClick={handleAddPaymentMethod}
+                        disabled={isLoading}
                         className="bg-green-600 hover:bg-green-700 text-white"
                       >
-                        <Check size={16} className="mr-1" /> Add Method
+                        <Check size={16} className="mr-2" /> {isLoading ? "Saving..." : "Save Payout Settings"}
                       </Button>
                       <Button
                         size="sm"
