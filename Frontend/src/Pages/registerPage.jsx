@@ -2,7 +2,7 @@ import { Briefcase, Camera, CheckCircle2, Circle, DollarSign, Eye, EyeOff, Heart
 import { useState } from "react";
 import { CiHeart } from "react-icons/ci";
 import { TbStethoscope } from "react-icons/tb";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 
 import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
@@ -15,7 +15,7 @@ import { useRef } from "react";
 
 
 export default function RegisterPage() {
-    // const navigate = useNavigate();
+    const navigate = useNavigate();
 
     const [role, setRole] = useState('user');
     const [firstName, setFirstName] = useState('');
@@ -69,13 +69,22 @@ export default function RegisterPage() {
             const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/google-login`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ token: credentialResponse.credential, role: backendRole })
+                body: JSON.stringify({ token: credentialResponse.access_token, role: backendRole })
             });
             const data = await response.json();
             
             if (response.ok) {
                 toast.success("Google Authentication Successful!");
-                // navigate("/dashboard"); 
+                // 1. Print the ID Badge: Save the token and user data to the browser
+                if (data.token) localStorage.setItem("token", data.token);
+                if (data.user) localStorage.setItem("user", JSON.stringify(data.user));
+
+                // 2. Escort the User: Navigate to the correct dashboard based on role
+                if (role === 'user') {
+                    navigate("/dashboard/user");
+                } else if (role === 'vet') {
+                    navigate("/dashboard/doctor");
+                } 
             } else {
                 setSubmitMessage({ text: data.message || "Google registration failed", isError: true });
             }
@@ -89,26 +98,77 @@ export default function RegisterPage() {
     
     // FACEBOOK HANDLER
    
-    const handleFacebookResponse = async (response) => {
-        setIsLoading(true);
-        const backendRole = role === 'user' ? "Farmer/PetOwner" : "Veterinary Doctor";
+    // const handleFacebookResponse = async (response) => {
+    //     setIsLoading(true);
+    //     const backendRole = role === 'user' ? "Farmer/PetOwner" : "Veterinary Doctor";
         
+    //     try {
+    //         const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/facebook-login`, {
+    //             method: "POST",
+    //             headers: { "Content-Type": "application/json" },
+    //             body: JSON.stringify({ accessToken: response.accessToken, role: backendRole })
+    //         });
+    //         const data = await res.json();
+            
+    //         if (res.ok) {
+    //             toast.success("Facebook Authentication Successful!");
+    //             // navigate("/dashboard");
+    //         } else {
+    //             setSubmitMessage({ text: data.message || "Facebook registration failed", isError: true });
+    //         }
+    //     } catch{
+    //         setSubmitMessage({ text: "Server connection failed.", isError: true });
+    //     } finally {
+    //         setIsLoading(false);
+    //     }
+    // };
+    const handleFacebookResponse = async (response) => {
+        // 1. Tracker: This prints exactly what Facebook gives React in the console
+        console.log("FACEBOOK POPUP GAVE ME:", response);
+
+        // Ensure the user picked a role before clicking the button
+        if (!role) {
+            return toast.error("Please select a role first!");
+        }
+
+        setIsLoading(true);
+
+        // 2. Format the role to match what your MySQL database expects
+        const backendRole = role === 'farmer' ? "Farmer/PetOwner" : role === 'doctor' ? "Veterinary Doctor" : "Admin";
+
         try {
+            // 3. Send the request
             const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/facebook-login`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ accessToken: response.accessToken, role: backendRole })
+                
+                // 🔍 THE FIX: We use the word 'token' so the backend recognizes the package
+                body: JSON.stringify({ 
+                    token: response.accessToken, 
+                    role: backendRole 
+                })
             });
+            
             const data = await res.json();
             
             if (res.ok) {
-                toast.success("Facebook Authentication Successful!");
-                // navigate("/dashboard");
+                toast.success("Facebook Login Successful!");
+                
+                // 4. Save the Session (Print the digital ID Badge)
+                if (data.token) localStorage.setItem("token", data.token); 
+                if (data.user) localStorage.setItem("user", JSON.stringify(data.user));
+                
+                // 5. Navigate (Escort the user to their specific dashboard)
+                if (role === "farmer") navigate("/dashboard/user");
+                if (role === "doctor") navigate("/dashboard/doctor");
+                if (role === "admin") navigate("/dashboard/admin");
+                
             } else {
-                setSubmitMessage({ text: data.message || "Facebook registration failed", isError: true });
+                toast.error(data.message || "Facebook login failed");
             }
-        } catch{
-            setSubmitMessage({ text: "Server connection failed.", isError: true });
+        } catch (error) {
+            console.error("Frontend fetch error:", error);
+            toast.error("Server connection failed.");
         } finally {
             setIsLoading(false);
         }
@@ -371,6 +431,7 @@ export default function RegisterPage() {
                                         value={numberOfAnimals} 
                                         onChange={(e) => setNumberOfAnimals(e.target.value)} 
                                         placeholder="e.g., 20" 
+                                        onWheel={(e) => e.target.blur()}
                                         className="w-full h-12 rounded-xl border border-slate-300 bg-transparent pl-4 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" 
                                     />
                                 </div>

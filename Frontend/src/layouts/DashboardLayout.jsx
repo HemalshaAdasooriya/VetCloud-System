@@ -163,6 +163,7 @@ export function DashboardLayout() {
                 src={profileImageUrl} 
                 alt="Profile Avatar" 
                 className="w-8 h-8 rounded-full object-cover shadow-sm"
+                referrerPolicy="no-referrer"
                 onError={(e) => { e.target.src = defaultAvatar; }} 
               />
               <div className="text-sm">
