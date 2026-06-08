@@ -61,6 +61,13 @@ export const createNewAnimal = (req, res) => {
         year: "numeric"
     });
 
+    // animal profile image
+     let imagePath = image || null;
+    if (req.file) {
+        imagePath = `/uploads/${req.file.filename}`;
+    }
+    //-----
+
     const animalData = {
         owner_id,
         name,
@@ -69,7 +76,7 @@ export const createNewAnimal = (req, res) => {
         age,
         weight,
         status: status || "Healthy",
-        image,
+        image: imagePath,
         lastVisit
     };
 
@@ -118,6 +125,13 @@ export const updateAnimalProfile = (req, res) => {
             return res.status(404).json({ message: "Animal profile not found." });
         }
 
+
+        //profile pic
+        let imagePath = image || existing.image;
+        if (req.file) {
+            imagePath = `/uploads/${req.file.filename}`;
+        }
+        //---
         const animalData = {
             name,
             species,
@@ -125,7 +139,7 @@ export const updateAnimalProfile = (req, res) => {
             age,
             weight,
             status,
-            image: image || existing.image,
+            image: imagePath,
             lastVisit: existing.lastVisit || new Date().toLocaleDateString("en-GB", {
                 day: "2-digit",
                 month: "short",
