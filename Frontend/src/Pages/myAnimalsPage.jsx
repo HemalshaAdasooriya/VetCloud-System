@@ -49,6 +49,7 @@ export default function MyAnimalsPage() {
   const [formWeight, setFormWeight] = useState("");
   const [formStatus, setFormStatus] = useState("Healthy");
   const [formImage, setFormImage] = useState("");
+  const [formImageFile, setFormImageFile] = useState(null);
 
   // History State
   const [showHistoryModal, setShowHistoryModal] = useState(false);
@@ -125,6 +126,7 @@ export default function MyAnimalsPage() {
     setFormWeight("");
     setFormStatus("Healthy");
     setFormImage("");
+    setFormImageFile(null);
     setShowFormModal(true);
     setActiveMenuId(null);
   };
@@ -139,6 +141,7 @@ export default function MyAnimalsPage() {
     setFormWeight(animal.weight);
     setFormStatus(animal.status);
     setFormImage(animal.image || "");
+    setFormImageFile(null);
     setShowFormModal(true);
     setActiveMenuId(null);
   };
@@ -189,16 +192,20 @@ export default function MyAnimalsPage() {
       return;
     }
 
-    const animalData = {
-      owner_id: ownerId,
-      name: formName.trim(),
-      species: formSpecies,
-      breed: formBreed.trim(),
-      age: formAge.trim(),
-      weight: formWeight.trim(),
-      status: formStatus,
-      image: formImage.trim() || SPECIES_IMAGES[formSpecies] || SPECIES_IMAGES.Other
-    };
+    const formData = new FormData();
+    formData.append("owner_id", ownerId);
+    formData.append("name", formName.trim());
+    formData.append("species", formSpecies);
+    formData.append("breed", formBreed.trim());
+    formData.append("age", formAge.trim());
+    formData.append("weight", formWeight.trim());
+    formData.append("status", formStatus);
+    
+    if (formImageFile) {
+      formData.append("image", formImageFile);
+    } else {
+      formData.append("image", formImage || SPECIES_IMAGES[formSpecies] || SPECIES_IMAGES.Other);
+    }
 
     try {
       if (editingAnimal) {
@@ -206,10 +213,9 @@ export default function MyAnimalsPage() {
         const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/animals/${editingAnimal.id}`, {
           method: "PUT",
           headers: {
-            "Content-Type": "application/json",
             "Authorization": `Bearer ${token}`
           },
-          body: JSON.stringify(animalData)
+          body: formData
         });
         const data = await res.json();
         if (res.ok) {
@@ -225,10 +231,9 @@ export default function MyAnimalsPage() {
         const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/animals`, {
           method: "POST",
           headers: {
-            "Content-Type": "application/json",
             "Authorization": `Bearer ${token}`
           },
-          body: JSON.stringify(animalData)
+          body: formData
         });
         const data = await res.json();
         if (res.ok) {
@@ -448,7 +453,11 @@ export default function MyAnimalsPage() {
               {/* Card Image */}
               <div className="h-44 w-full bg-slate-100 overflow-hidden relative">
                 <img 
-                  src={animal.image} 
+                  src={
+                    animal.image && animal.image.startsWith('/uploads/') 
+                      ? `${import.meta.env.VITE_BACKEND_URL}${animal.image}` 
+                      : (animal.image || SPECIES_IMAGES[animal.species] || SPECIES_IMAGES.Other)
+                  } 
                   alt={animal.name} 
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
                   onError={(e) => {
@@ -668,16 +677,51 @@ export default function MyAnimalsPage() {
                   </select>
                 </div>
 
-                {/* Image URL Field */}
-                <div className="col-span-2 space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-500 font-Inter">Profile Image URL (Optional)</label>
-                  <input 
-                    type="url" 
-                    placeholder="Paste an Unsplash or image link"
-                    value={formImage}
-                    onChange={(e) => setFormImage(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm text-slate-700 focus:ring-1 focus:ring-green-500 focus:border-green-500 focus:outline-none"
-                  />
+                {/* Profile Picture Uploader */}
+                <div className="col-span-2 space-y-2">
+                  <label className="text-xs font-semibold text-slate-500">Profile Picture</label>
+                  <div className="flex flex-col sm:flex-row items-center gap-4 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                    <img 
+                      src={
+                        formImageFile 
+                          ? URL.createObjectURL(formImageFile) 
+                          : (formImage && (formImage.startsWith('http') || formImage.startsWith('/uploads'))
+                              ? (formImage.startsWith('/uploads') ? `${import.meta.env.VITE_BACKEND_URL}${formImage}` : formImage)
+                              : (SPECIES_IMAGES[formSpecies] || SPECIES_IMAGES.Other))
+                      }
+                      alt="Preview" 
+                      className="w-16 h-16 rounded-xl object-cover border border-slate-200 bg-white"
+                    />
+                    <div className="flex-1 space-y-1">
+                      <input 
+                        type="file" 
+                        accept="image/*"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            setFormImageFile(e.target.files[0]);
+                          }
+                        }}
+                        id="animalImageUpload"
+                        className="hidden"
+                      />
+                      <label 
+                        htmlFor="animalImageUpload"
+                        className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 rounded-lg text-xs font-bold shadow-xs cursor-pointer active:scale-95 transition-all"
+                      >
+                        Upload Photo
+                      </label>
+                      {formImageFile && (
+                        <button
+                          type="button"
+                          onClick={() => setFormImageFile(null)}
+                          className="ml-3 text-xs font-bold text-red-500 hover:text-red-600 transition-colors"
+                        >
+                          Clear
+                        </button>
+                      )}
+                      <p className="text-[10px] text-slate-400">PNG, JPG or JPEG. If left empty, default system picture is used.</p>
+                    </div>
+                  </div>
                 </div>
               </div>
 
