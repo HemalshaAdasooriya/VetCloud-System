@@ -72,7 +72,11 @@ export default function UserSettings() {
                     });
 
                     if (data.image) {
-                        if (data.image.startsWith('http')) {
+                        if (data.image === "/default.jpg") {
+                            // Intercept the default string and generate the SVG
+                            setProfilePhoto(`https://api.dicebear.com/7.x/initials/svg?seed=${data.firstName}%20${data.lastName}&backgroundColor=10b981`);
+                        }
+                        else if (data.image.startsWith('http')) {
                             // It is a full URL (like from Google or Facebook)
                             setProfilePhoto(data.image);
                         } else {
@@ -193,7 +197,7 @@ const [passwordData, setPasswordData] = useState({
     }
   };
 
-  const handleRemovePhoto = async () => {
+const handleRemovePhoto = async () => {
     try {
       const token = localStorage.getItem("token");
       
@@ -207,8 +211,19 @@ const [passwordData, setPasswordData] = useState({
       const data = await response.json();
 
       if (response.ok) {
-        // Revert to a clean svg avatar generator placeholder
-        setProfilePhoto(`https://api.dicebear.com/7.x/initials/svg?seed=${personalInfo.firstName}%20${personalInfo.lastName}&backgroundColor=10b981`);
+        const svgAvatar = `https://api.dicebear.com/7.x/initials/svg?seed=${personalInfo.firstName}%20${personalInfo.lastName}&backgroundColor=10b981`;
+        setProfilePhoto(svgAvatar);
+
+        // 2. Update Local Storage so the Dashboard/Header updates immediately
+        const currentUser = JSON.parse(localStorage.getItem("user"));
+        if (currentUser) {
+            currentUser.image = data.imageUrl; 
+            localStorage.setItem("user", JSON.stringify(currentUser));
+            
+            // 3. Fire the signal to refresh the top navigation bar
+            window.dispatchEvent(new Event("profileImageUpdated"));
+        }
+
         showToast('Profile photo removed successfully!');
       } else {
         showToast(data.message || 'Failed to remove photo', 'error');
