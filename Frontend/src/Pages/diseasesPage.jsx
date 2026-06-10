@@ -188,6 +188,228 @@ const DISEASES_DATA = [
   }
 ];
 
+const getRiskStyles = (risk) => {
+  switch (risk) {
+    case 'Critical Risk':
+      return {
+        badge: 'bg-rose-50 border-rose-100 text-rose-600',
+        indicator: 'bg-rose-500'
+      };
+    case 'High Risk':
+      return {
+        badge: 'bg-amber-50 border-amber-100 text-amber-600',
+        indicator: 'bg-amber-500'
+      };
+    default:
+      return {
+        badge: 'bg-blue-50 border-blue-100 text-blue-600',
+        indicator: 'bg-blue-500'
+      };
+  }
+};
+function DiseaseGuideModal({ disease, onClose }) {
+  const [activeTab, setActiveTab] = useState('overview');
+  const riskStyles = getRiskStyles(disease.risk);
+  // Close on Escape key press
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Backdrop */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+        className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+      />
+      {/* Modal Container */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        transition={{ type: 'spring', duration: 0.4 }}
+        className="relative bg-white w-full max-w-3xl rounded-3xl shadow-2xl overflow-hidden z-10 flex flex-col max-h-[90vh]"
+      >
+        {/* Banner Image with Overlay */}
+        <div className="relative h-48 sm:h-64 bg-slate-100 shrink-0">
+          <img
+            src={disease.image}
+            alt={disease.name}
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent" />
+          
+          {/* Close button */}
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 p-2 bg-white/20 hover:bg-white/40 backdrop-blur-md text-white hover:text-white rounded-full transition-colors shadow-sm cursor-pointer border border-white/10"
+          >
+            <X size={20} />
+          </button>
+          {/* Badge & Title overlay */}
+          <div className="absolute bottom-6 left-6 right-6">
+            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold tracking-wide uppercase border mb-3 shadow-md ${riskStyles.badge} bg-white/95 backdrop-blur-xs`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${riskStyles.indicator}`} />
+              {disease.risk}
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-white leading-tight drop-shadow-sm">
+              {disease.name}
+            </h2>
+            <p className="text-emerald-300 font-semibold text-sm mt-1">
+              Affects: {disease.species.join(', ')}
+            </p>
+          </div>
+        </div>
+        {/* Tab Selection Row */}
+        <div className="flex border-b border-slate-100 bg-slate-50/50 px-6 overflow-x-auto shrink-0 scrollbar-none">
+          <button
+            onClick={() => setActiveTab('overview')}
+            className={`py-4 px-4 text-sm font-bold border-b-2 transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === 'overview'
+                ? 'border-green-600 text-green-700'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            Overview & Symptoms
+          </button>
+          <button
+            onClick={() => setActiveTab('prevention')}
+            className={`py-4 px-4 text-sm font-bold border-b-2 transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === 'prevention'
+                ? 'border-green-600 text-green-700'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            Prevention & Biosecurity
+          </button>
+          <button
+            onClick={() => setActiveTab('treatment')}
+            className={`py-4 px-4 text-sm font-bold border-b-2 transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === 'treatment'
+                ? 'border-green-600 text-green-700'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            Treatment & Protocol
+          </button>
+        </div>
+        {/* Scrollable Content Area */}
+        <div className="p-6 overflow-y-auto flex-1 space-y-6">
+          {activeTab === 'overview' && (
+            <div className="space-y-6 animate-in fade-in duration-200">
+              {/* Description */}
+              <div className="space-y-2">
+                <h3 className="text-base font-extrabold text-slate-800 flex items-center gap-2">
+                  <Info className="text-slate-400" size={18} />
+                  Disease Description
+                </h3>
+                <p className="text-sm text-slate-600 leading-relaxed font-medium">
+                  {disease.description}
+                </p>
+              </div>
+              {/* Incubation & Transmission */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-slate-50 border border-slate-100 p-4 rounded-2xl">
+                  <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Incubation Period</span>
+                  <p className="text-sm font-bold text-slate-700 mt-1">{disease.incubation}</p>
+                </div>
+                <div className="bg-slate-50 border border-slate-100 p-4 rounded-2xl">
+                  <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Transmission Mode</span>
+                  <p className="text-sm font-medium text-slate-600 mt-1 leading-relaxed">{disease.transmission}</p>
+                </div>
+              </div>
+              {/* Symptoms Details */}
+              <div className="space-y-3">
+                <h3 className="text-base font-extrabold text-slate-800 flex items-center gap-2">
+                  <AlertTriangle className="text-amber-500" size={18} />
+                  Clinical Signs & Identification
+                </h3>
+                <ul className="space-y-2.5">
+                  {disease.clinicalSigns.map((sign, index) => (
+                    <li key={index} className="flex gap-2.5 items-start text-sm text-slate-600 font-medium">
+                      <span className="h-5 w-5 rounded-full bg-amber-50 border border-amber-100 text-amber-600 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
+                        {index + 1}
+                      </span>
+                      <span className="leading-relaxed">{sign}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+          {activeTab === 'prevention' && (
+            <div className="space-y-6 animate-in fade-in duration-200">
+              <div className="space-y-3">
+                <h3 className="text-base font-extrabold text-slate-800 flex items-center gap-2">
+                  <ShieldCheck className="text-blue-500" size={18} />
+                  Prevention Measures
+                </h3>
+                <p className="text-sm text-slate-500 font-medium leading-relaxed mb-2">
+                  Implementing proactive biosecurity practices is the most effective way to protect your herd or flock from transmission.
+                </p>
+                <ul className="space-y-3">
+                  {disease.preventionSteps.map((step, index) => (
+                    <li key={index} className="flex gap-3 items-start text-sm text-slate-600 font-medium">
+                      <span className="h-2 w-2 rounded-full bg-blue-500 shrink-0 mt-2" />
+                      <span className="leading-relaxed">{step}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+          {activeTab === 'treatment' && (
+            <div className="space-y-6 animate-in fade-in duration-200">
+              {/* Treatment */}
+              <div className="space-y-3">
+                <h3 className="text-base font-extrabold text-slate-800 flex items-center gap-2">
+                  <Activity className="text-green-500" size={18} />
+                  Treatment & Supportive Care
+                </h3>
+                <ul className="space-y-3">
+                  {disease.treatmentSteps.map((step, index) => (
+                    <li key={index} className="flex gap-3 items-start text-sm text-slate-600 font-medium">
+                      <span className="h-2 w-2 rounded-full bg-green-500 shrink-0 mt-2" />
+                      <span className="leading-relaxed">{step}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              {/* Emergency Protocol alert */}
+              <div className="bg-rose-50 border border-rose-100 p-5 rounded-2xl flex gap-3.5 items-start">
+                <div className="p-2 bg-white rounded-xl text-rose-600 border border-rose-100 shadow-sm shrink-0">
+                  <AlertTriangle size={20} />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-sm font-extrabold text-rose-800">Emergency & Reporting Protocol</h4>
+                  <p className="text-xs text-rose-700 leading-relaxed font-semibold">
+                    {disease.emergencyProtocol}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+        {/* Modal Footer */}
+        <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/50 flex justify-end shrink-0">
+          <button
+            onClick={onClose}
+            className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-full text-sm font-bold active:scale-95 transition-all cursor-pointer shadow-md"
+          >
+            Close Guide
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 export default function DiseasesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -212,25 +434,6 @@ export default function DiseasesPage() {
     });
   }, [searchQuery, selectedCategory]);
 
-  const getRiskStyles = (risk) => {
-    switch (risk) {
-      case 'Critical Risk':
-        return {
-          badge: 'bg-rose-50 border-rose-100 text-rose-600',
-          indicator: 'bg-rose-500'
-        };
-      case 'High Risk':
-        return {
-          badge: 'bg-amber-50 border-amber-100 text-amber-600',
-          indicator: 'bg-amber-500'
-        };
-      default:
-        return {
-          badge: 'bg-blue-50 border-blue-100 text-blue-600',
-          indicator: 'bg-blue-500'
-        };
-    }
-  };
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50">
@@ -328,7 +531,7 @@ export default function DiseasesPage() {
                     className="w-full h-full object-cover"
                   />
                   {/* Risk Badge on Image */}
-                  <span className={`absolute top-4 left-4 z-10 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold tracking-wide uppercase border shadow-sm ${riskStyles.badge}`}>
+                   <span className={`absolute top-4 left-4 z-10 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold tracking-wide uppercase border shadow-sm ${riskStyles.badge} bg-white/95 backdrop-blur-xs`}>
                     <span className={`w-1.5 h-1.5 rounded-full ${riskStyles.indicator}`} />
                     {disease.risk}
                   </span>
@@ -394,6 +597,16 @@ export default function DiseasesPage() {
       </main>
 
       <Footer />
+
+      {/* Disease Guide Modal Overlay */}
+      <AnimatePresence>
+        {activeGuide && (
+          <DiseaseGuideModal
+            disease={activeGuide}
+            onClose={() => setActiveGuide(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
