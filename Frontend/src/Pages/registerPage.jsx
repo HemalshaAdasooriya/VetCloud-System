@@ -451,10 +451,17 @@ export default function RegisterPage() {
                                             <Briefcase className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
                                             <select value={specialization} onChange={(e) => setSpecialization(e.target.value)} required className="w-full h-12 rounded-xl border border-slate-300 bg-transparent pl-11 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer">
                                                 <option value="">Select Specialization</option>
-                                                <option value="large">Livestock & Large Animals</option>
-                                                <option value="small">Small Pets (Dogs, Cats)</option>
-                                                <option value="poultry">Poultry</option>
-                                                <option value="exotic">Exotic Animals</option>
+                                                <option value="Livestock & Large Animals">Livestock & Large Animals</option>
+                                                <option value="Small Pets">Small Pets (Dogs, Cats)</option>
+                                                <option value="Poultry">Poultry</option>
+                                                <option value="Exotic Animals">Exotic Animals</option>
+                                                <option value="Aquatic Animals">Aquatic Animals</option>
+                                                <option value="Veterinary Surgery">Veterinary Surgery</option>
+                                                <option value="Veterinary Dermatology">Veterinary Dermatology</option>
+                                                <option value="Veterinary Cardiology">Veterinary Cardiology</option>
+                                                <option value="Veterinary Ophthalmology">Veterinary Ophthalmology</option>
+                                                <option value="Veterinary Oncology">Veterinary Oncology</option>
+                                                <option value="Veterinary Reproduction">Veterinary Reproduction</option>
                                             </select>
                                         </div>
                                     </div>

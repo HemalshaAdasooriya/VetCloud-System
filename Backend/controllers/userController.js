@@ -13,6 +13,7 @@ import https from "https";
 import nodemailer from "nodemailer";
 import otpGenerator from "otp-generator";
 import { UAParser } from "ua-parser-js";
+import { updatePayoutSettings } from "../models/Payment.js";
 
 import {
     savePasswordResetOTP,
@@ -28,7 +29,9 @@ import {
     saveUserSession,
     getUserSessions,
     deleteSessionById,
-    deleteOtherSessions
+    deleteOtherSessions,
+    getFullVeterinarianProfile,
+    updateClinicDetails
 } from "../models/User.js";
 //... Navindu
 import fs from "fs";
@@ -284,7 +287,7 @@ export async function facebookLogin(req, res) {
     const { token, role } = req.body;
 
     if (!token) {
-        console.error("❌ FACEBOOK ERROR: No token received from frontend.");
+        console.error("FACEBOOK ERROR: No token received from frontend.");
         return res.status(400).json({ message: "No token received." });
     }
 
@@ -689,10 +692,21 @@ export const getUserProfile = (req, res) => {
                 // Success! Send the data back to React
                 return res.status(200).json(profileData);
             });
+        } else if (userRole === "Veterinary Doctor" || userRole === "vet" || userRole === "doctor") {
+            
+            getFullVeterinarianProfile(userId, (err, profileData) => {
+                if (err) {
+                    console.error("Database Error:", err);
+                    return res.status(500).json({ message: "Error fetching doctor profile" });
+                }
+                if (!profileData) {
+                    return res.status(404).json({ message: "Doctor profile not found in database" });
+                }
+                
+                // Success! Send the data back to React
+                return res.status(200).json(profileData);
+            });
 
-        } else if (userRole === "Veterinary Doctor" || userRole === "vet") {
-            // Placeholder for when you build the Doctor's fetch function
-            return res.status(501).json({ message: "Doctor profile fetching coming soon" });
         } else {
             return res.status(400).json({ message: "Invalid user role" });
         }
@@ -985,5 +999,54 @@ export const revokeOtherSessions = (req, res) => {
         });
     } catch (error) {
         return res.status(401).json({ message: "Invalid token" });
+    }
+};
+
+export const saveClinicDetails = (req, res) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const token = authHeader.split(" ")[1];
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        
+        updateClinicDetails(decoded.id, req.body, (err, result) => {
+            if (err) return res.status(500).json({ message: "Database error saving clinic details" });
+            return res.status(200).json({ message: "Clinic details saved successfully!" });
+        });
+    } catch (error) {
+        return res.status(401).json({ message: "Invalid token" });
+    }
+};
+
+
+export const savePayoutSettings = (req, res) => {
+    // 1. Check for the security badge (Token)
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ message: "Unauthorized: No token provided" });
+    }
+
+    const token = authHeader.split(" ")[1];
+
+    try {
+        // 2. Read the badge to see which doctor this is
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const vetId = decoded.id;
+        
+        // 3. Send the data to the Payment Model to save in the database
+        updatePayoutSettings(vetId, req.body, (err, result) => {
+            if (err) {
+                console.error("Database Error:", err.sqlMessage || err);
+                return res.status(500).json({ message: "Database error saving payouts" });
+            }
+            return res.status(200).json({ message: "Payout details updated successfully!" });
+        });
+        
+    } catch (error) {
+        return res.status(401).json({ message: "Invalid or expired token" });
     }
 };
