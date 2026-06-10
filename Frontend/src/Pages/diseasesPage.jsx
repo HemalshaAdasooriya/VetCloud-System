@@ -1,8 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Navigation from '../layouts/navigation';
 import Footer from '../layouts/footer';
 import { Badge, Button, Card, Input } from '../components/Ui/ui';
 import { Search, Filter, BookOpen, AlertTriangle, ShieldCheck, Activity, Info, X, ChevronRight } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const DISEASES_DATA = [
   {
@@ -16,6 +17,29 @@ const DISEASES_DATA = [
     prevention: 'Vaccination, strict biosecurity, quarantine of new stock',
     treatment: 'No specific treatment. Affected animals are isolated; supportive care can manage discomfort.',
     
+    description: 'A highly contagious viral disease affecting cloven-hoofed animals. It is characterized by high fever and vesicle formation in the mouth, muzzle, teats, and feet, leading to significant productivity loss.',
+    transmission: 'Direct contact with infected animals, airborne transmission (up to several kilometers in humid conditions), or indirect contact via contaminated vehicles, footwear, or uncooked food scraps.',
+    incubation: '2 - 14 days',
+    clinicalSigns: [
+      'High fever (up to 105°F / 41°C) and sudden shivering.',
+      'Vesicles (blisters) on the tongue, lips, gums, teats, and interdigital space of hooves.',
+      'Reluctance to move, lameness, and lying down frequently.',
+      'Heavy salivation (drooling) and a characteristic smacking or clicking sound of the lips.',
+      'Severe drop in milk yield in dairy cows and sudden abortions in pregnant females.'
+    ],
+    preventionSteps: [
+      'Regular vaccine boosters in endemic zones.',
+      'Strict quarantine of all new livestock for a minimum of 21 days.',
+      'Rigorous biosecurity: disinfection of vehicles, footwear, and equipment.',
+      'Never feeding swill or uncooked food scraps to pigs.'
+    ],
+    treatmentSteps: [
+      'Immediate isolation of all infected and suspected animals.',
+      'Providing soft, easy-to-chew feed (e.g., wet mash) and clean, fresh water.',
+      'Supportive wound care: cleaning blisters with mild antiseptics and keeping pens dry.',
+      'Reporting the outbreak immediately to government veterinary authorities.'
+    ],
+    emergencyProtocol: 'Immediate notification of district or state veterinary authorities. Do not move any animals off the property.'
   },
   {
     id: 'parvo',
@@ -28,6 +52,27 @@ const DISEASES_DATA = [
     prevention: 'Core vaccination starting at 6-8 weeks of age.',
     treatment: 'Intensive hospital care, IV fluids, anti-nausea medication',
     
+    description: 'A highly contagious viral disease of dogs causing severe, acute gastrointestinal illness. The virus is extremely resilient in the environment and can survive on surfaces and in soil for months or years.',
+    transmission: 'Direct contact with infected dogs, or indirectly by contact with contaminated surfaces, feces, footwear, clothing, or cage equipment.',
+    incubation: '3 - 7 days',
+    clinicalSigns: [
+      'Severe lethargy, depression, and marked reluctance to interact.',
+      'Persistent, severe vomiting that prevents retention of oral fluids.',
+      'Foul-smelling, bloody diarrhea leading to rapid, life-threatening dehydration.',
+      'High fever or subnormal body temperature, accompanied by rapid weight loss.'
+    ],
+    preventionSteps: [
+      'Complete the full puppy vaccination series (typically 3 doses at 6-8, 10-12, and 14-16 weeks).',
+      'Keep unvaccinated puppies away from public parks, pet stores, and unfamiliar dogs.',
+      'Sanitize contaminated spaces with a diluted bleach solution (1:30 ratio) or veterinary disinfectants.'
+    ],
+    treatmentSteps: [
+      'Immediate veterinary hospitalization for intensive supportive care.',
+      'Intravenous fluid therapy (IV fluids) to maintain hydration and restore electrolytes.',
+      'Administration of antiemetics (to stop vomiting) and broad-spectrum antibiotics to prevent secondary bacterial infections.',
+      'Plasma transfusions or immunoglobulins in critical cases.'
+    ],
+    emergencyProtocol: 'Immediate isolation from other dogs. Keep the dog indoors and seek urgent veterinary care.'
   },
   {
     id: 'birdflu',
@@ -40,6 +85,27 @@ const DISEASES_DATA = [
     prevention: 'Keep flocks away from wild birds, secure housing',
     treatment: 'Highly contagious and often fatal. Immediate reporting is required.',
     
+     description: 'A highly contagious viral infection affecting domestic poultry and wild birds. Highly Pathogenic Avian Influenza (HPAI) strains cause rapid system failure and near-total mortality in domestic flocks.',
+    transmission: 'Direct nose/beak contact with infected wild birds (particularly waterfowl) or contact with contaminated feces, water, feed, cages, and clothing.',
+    incubation: '1 - 7 days',
+    clinicalSigns: [
+      'Sudden death of multiple birds in the flock without prior signs.',
+      'Extreme swelling of the head, eyelids, comb, wattles, and hocks.',
+      'Purple discoloration (cyanosis) of the comb, wattles, and shanks.',
+      'Respiratory distress, coughing, sneezing, nasal discharge, and green watery diarrhea.'
+    ],
+    preventionSteps: [
+      'Install physical netting and enclosures to completely isolate domestic flocks from wild birds.',
+      'Enforce strict visitor restrictions and sanitize footwear/vehicles at the gate.',
+      'Use clean, treated water sources (never direct river or pond runoff water).'
+    ],
+    treatmentSteps: [
+      'No treatment is allowed for Highly Pathogenic Avian Influenza (HPAI).',
+      'The entire affected flock must be humanely culled to prevent regional spread.',
+      'Carcasses must be safely disposed of (buried/incinerated) under official supervision.',
+      'Establish a strict quarantine zone and wait for authority clearance.'
+    ],
+    emergencyProtocol: 'Mandatory reporting. Contact the state veterinarian or national animal health agency immediately.'
   },
   {
     id: 'brd',
@@ -52,6 +118,27 @@ const DISEASES_DATA = [
     prevention: 'Vaccination, minimizing stress during transport',
     treatment: 'Antibiotics, anti-inflammatory drugs, supportive care',
    
+    description: 'Also known as "shipping fever," Bovine Respiratory Disease (BRD) is a complex respiratory infection caused by a combination of viral agents, bacterial pathogens, and environmental stressors like transport or weather shifts.',
+    transmission: 'Airborne droplets (coughing/sneezing) and direct nose-to-nose contact. Easily spread in overcrowded, stressed, or poorly ventilated environments.',
+    incubation: '2 - 10 days post-stress',
+    clinicalSigns: [
+      'High fever (104°F to 106°F) and dull, depressed behavior.',
+      'Mucopurulent (pus-like) nasal discharge and watery eyes.',
+      'Frequent coughing, rapid shallow breathing, and audible grunting.',
+      'Loss of appetite (off-feed) and noticeable weight loss.'
+    ],
+    preventionSteps: [
+      'Pre-condition calves by vaccinating against common respiratory viruses (IBR, BVD, PI3, BRSV) 2-3 weeks before transport/weaning.',
+      'Ensure calves receive adequate quality colostrum at birth.',
+      'Minimize dust, provide good ventilation, and avoid mixing cattle from different sources.'
+    ],
+    treatmentSteps: [
+      'Isolate the sick animal in a clean, dry, draft-free pen.',
+      'Administer long-acting antibiotics as prescribed by a veterinarian.',
+      'Use Non-Steroidal Anti-Inflammatory Drugs (NSAIDs) to reduce fever and lung tissue damage.',
+      'Provide highly palatable, high-protein feed and fresh, clean water.'
+    ],
+    emergencyProtocol: 'Monitor the herd closely. Early intervention is crucial; treat any animal displaying respiratory signs immediately.'
   },
   {
     id: 'panleuk',
@@ -64,6 +151,27 @@ const DISEASES_DATA = [
     prevention: 'Core FVRCP vaccination starting at 6-8 weeks of age.',
     treatment: 'Aggressive supportive care, IV fluids, anti-emetics',
    
+    description: 'Feline Panleukopenia, commonly called feline distemper, is a highly contagious, life-threatening viral disease caused by the feline parvovirus. It attacks rapidly dividing cells, especially in the bone marrow, lymph nodes, and intestinal lining.',
+    transmission: 'Direct contact with infected cats, or indirect contact with contaminated bedding, food bowls, grooming tools, and environments. The virus is highly resistant to freezing and heat.',
+    incubation: '2 - 10 days',
+    clinicalSigns: [
+      'Profound depression, extreme lethargy, and general weakness.',
+      'Persistent vomiting and complete refusal of food or water.',
+      'Severe, watery, and frequently bloody diarrhea.',
+      'Hunched posture, sitting near the water bowl but refusing to drink.'
+    ],
+    preventionSteps: [
+      'Administer the standard FVRCP core vaccines starting at 6-8 weeks of age with proper booster schedules.',
+      'Keep indoor cats away from stray cats or outdoor enclosures.',
+      'Sanitize all feline equipment and cages using specialized virucidal disinfectants.'
+    ],
+    treatmentSteps: [
+      'Immediate veterinary isolation and hospitalization.',
+      'Intravenous fluid therapy to combat dehydration and maintain electrolyte balance.',
+      'Injectable antiemetics and broad-spectrum antibiotics to control secondary infections.',
+      'Assisted nutritional support once vomiting has been controlled.'
+    ],
+    emergencyProtocol: 'Separate the cat immediately from all other felines. Thoroughly wash your hands and change clothes after handling, and consult a vet.'
   },
   {
     id: 'asf',
@@ -75,6 +183,7 @@ const DISEASES_DATA = [
     symptoms: 'High fever, Loss of appetite, Skin hemorrhages, Sudden death',
     prevention: 'Strict biosecurity, ban feeding swill, quarantine, control wild boars',
     treatment: 'Highly contagious. No treatment or vaccine exists. Immediate reporting required.',
+    
     
   }
 ];
