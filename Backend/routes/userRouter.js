@@ -23,7 +23,8 @@ import {
     revokeSession,
     revokeOtherSessions,
     saveClinicDetails,
-    savePayoutSettings
+    savePayoutSettings,
+    saveConsultationFees
 } from "../controllers/userController.js";
 
 //... Navindu
@@ -82,6 +83,7 @@ userRouter.delete("/sessions/:id", revokeSession);
 userRouter.delete("/sessions/others", revokeOtherSessions);
 userRouter.put("/clinic", saveClinicDetails);
 userRouter.put("/payout-settings", savePayoutSettings);
+userRouter.put("/consultation-fees", saveConsultationFees);
 
 
 

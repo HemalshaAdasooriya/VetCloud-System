@@ -31,7 +31,8 @@ import {
     deleteSessionById,
     deleteOtherSessions,
     getFullVeterinarianProfile,
-    updateClinicDetails
+    updateClinicDetails,
+    updateConsultationFees
 } from "../models/User.js";
 //... Navindu
 import fs from "fs";
@@ -1046,6 +1047,28 @@ export const savePayoutSettings = (req, res) => {
             return res.status(200).json({ message: "Payout details updated successfully!" });
         });
         
+    } catch (error) {
+        return res.status(401).json({ message: "Invalid or expired token" });
+    }
+};
+
+
+ 
+export const saveConsultationFees = (req, res) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ message: "Unauthorized" });
+    }
+    const token = authHeader.split(" ")[1];
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        updateConsultationFees(decoded.id, req.body, (err, result) => {
+            if (err) {
+                console.error("DB error saving fees:", err.sqlMessage || err);
+                return res.status(500).json({ message: "Database error saving fees" });
+            }
+            return res.status(200).json({ message: "Consultation fees updated successfully!" });
+        });
     } catch (error) {
         return res.status(401).json({ message: "Invalid or expired token" });
     }

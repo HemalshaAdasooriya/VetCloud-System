@@ -546,3 +546,16 @@ export const updateClinicDetails = (userId, clinicData, callback) => {
     });
 };
 
+
+// ── Update Consultation Fees ──────────────────────────────────────────────────
+export const updateConsultationFees = (vetId, feesData, callback) => {
+    const sql = `
+        UPDATE veterinarians 
+        SET consultation_fee = ?
+        WHERE id = ?
+    `;
+    db.query(sql, [feesData.consultation_fee || 0, vetId], (err, result) => {
+        if (err) return callback(err, null);
+        return callback(null, { message: "Consultation fees updated successfully" });
+    });
+};
