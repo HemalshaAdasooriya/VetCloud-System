@@ -54,7 +54,7 @@ export const createPetOwner = (userData, callback) => {
         userData.email,
         userData.password,
         fullName,
-        userData.contact_No || "",
+        userData.contact_No,
         fullAddress,
         userData.numberOfAnimals || 0,
         userData.image || "/default.jpg",
@@ -95,6 +95,42 @@ export const createPetOwner = (userData, callback) => {
 };
 
 // 2. Insert into Veterinarians Table
+// export const createVeterinarian = (userData, callback) => {
+//     const sql = `
+//         INSERT INTO veterinarians
+//         (
+//             email, 
+//             password, 
+//             fullName, 
+//             contact_No, 
+//             license_number, 
+//             specialization, 
+//             years_of_experience, 
+//             consultation_fee,
+//             image,
+//             provider
+//         )
+//         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+//     `;
+
+//     db.query(
+//         sql,
+//         [
+//             userData.email,
+//             userData.password,
+//             userData.fullName,
+//             userData.contact_No,
+//             userData.license_number,
+//             userData.specialization,
+//             userData.years_of_experience || 0,
+//             userData.consultation_fee || 0.00,
+//             userData.image || "/default.jpg",
+//             userData.provider || "local"
+//         ],
+//         callback
+//     );
+// };
+
 export const createVeterinarian = (userData, callback) => {
     // Stitch the name together for the main table
     const fullName = `${userData.firstName || ''} ${userData.lastName || ''}`.trim();
@@ -110,9 +146,9 @@ export const createVeterinarian = (userData, callback) => {
         userData.email,
         userData.password,
         fullName,
-        userData.contact_No || "",
-        userData.license_number || `PENDING-${Math.floor(100000 + Math.random() * 900000)}`,
-        userData.specialization || "General Medicine",
+        userData.contact_No,
+        userData.license_number,
+        userData.specialization,
         userData.years_of_experience || 0,
         userData.consultation_fee || 0.00,
         userData.image || "/default.jpg",
@@ -323,21 +359,21 @@ export const updateVeterinarianProfile = (vetId, profileData, callback) => {
     // Query 1: Insert or Update the detailed profile table (No address fields here)
     const profileSql = `
         INSERT INTO veterinarian_profiles 
-        (vet_id, firstName, lastName, bio, professional_title)
+        (vet_id, firstName, lastName, clinicName, bio)
         VALUES (?, ?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE 
             firstName = VALUES(firstName),
             lastName = VALUES(lastName),
-            bio = VALUES(bio),
-            professional_title = VALUES(professional_title)
+            clinicName = VALUES(clinicName),
+            bio = VALUES(bio)
     `;
 
     const profileValues = [
         vetId,
-        profileData.firstName || "",
-        profileData.lastName || "",
-        profileData.bio || "",
-        profileData.professional_title || ""
+        profileData.firstName, 
+        profileData.lastName,
+        profileData.clinicName, 
+        profileData.bio
     ];
 
     // Query 2: Update the main table's fullName and phone number
@@ -345,31 +381,25 @@ export const updateVeterinarianProfile = (vetId, profileData, callback) => {
         UPDATE veterinarians 
         SET 
             fullName = CONCAT(?, ' ', ?),
-            specialization = ?
+            contact_No = ?
         WHERE id = ?
     `;
 
     const mainTableValues = [
-        profileData.firstName || "", 
-        profileData.lastName || "",  
-        profileData.specialization || "",
+        profileData.firstName, 
+        profileData.lastName,  
+        profileData.phone, 
         vetId
     ];
 
     // Execute Query 1
     db.query(profileSql, profileValues, (err1, result1) => {
-        if (err1) {
-            onsole.error("Profile Database Error:", err1);
-            return callback(err1, null)
-        };
+        if (err1) return callback(err1, null);
 
         // If Query 1 succeeds, execute Query 2
         db.query(mainTableSql, mainTableValues, (err2, result2) => {
-            if (err2) {
-                console.error("Main Table Database Error:", err2);
-                return callback(err2, null);
-            }
-
+            if (err2) return callback(err2, null);
+            
             callback(null, { message: "Veterinarian Profile and Full Name updated successfully" });
         });
     });
@@ -476,73 +506,3 @@ export const deleteOtherSessions = (userId, role, currentToken, callback) => {
     const sql = `DELETE FROM user_sessions WHERE user_id = ? AND user_role = ? AND token != ?`;
     db.query(sql, [userId, role, currentToken], callback);
 };
-
-// --- Fetch complete Veterinarian profile by joining the two tables ---
-export const getFullVeterinarianProfile = (vetId, callback) => {
-    
-    const sql = `
-        SELECT 
-            main.email, main.contact_No, main.license_number, main.specialization, 
-            main.years_of_experience, main.consultation_fee, main.image, main.is_two_factor_enabled,
-            profile.firstName, profile.lastName, profile.bio, profile.professional_title,
-            clinic.clinic_name, clinic.registration_number, clinic.address AS clinic_address, 
-            clinic.city AS clinic_city, clinic.state AS clinic_state, 
-            clinic.zip_code AS clinic_zip, clinic.phone AS clinic_phone,
-            bank.bank_name, bank.account_name, bank.account_number, bank.branch_code, bank.payout_schedule
-        FROM veterinarians main
-        LEFT JOIN veterinarian_profiles profile ON main.id = profile.vet_id
-        LEFT JOIN clinics clinic ON main.id = clinic.veterinarian_id
-        LEFT JOIN veterinarian_bank_details bank ON main.id = bank.vet_id
-        WHERE main.id = ?
-    `;
-
-    db.query(sql, [vetId], (err, results) => {
-        if (err) {
-            return callback(err, null);
-        }
-        
-        if (results.length === 0) {
-            return callback({ message: "User not found" }, null);
-        }
-        
-        callback(null, results[0]); 
-    });
-};
-
-
-// Function to Insert OR Update the clinic details in the new dedicated table
-export const updateClinicDetails = (userId, clinicData, callback) => {
-    
-    // The "Upsert" Query: Insert if new, Update if it already exists!
-    const query = `
-        INSERT INTO clinics 
-        (veterinarian_id, clinic_name, registration_number, address, city, state, zip_code, phone) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE 
-            clinic_name = VALUES(clinic_name),
-            registration_number = VALUES(registration_number),
-            address = VALUES(address),
-            city = VALUES(city),
-            state = VALUES(state),
-            zip_code = VALUES(zip_code),
-            phone = VALUES(phone)
-    `;
-
-    // Map the React data to the query variables
-    const values = [
-        userId,                                 // veterinarian_id
-        clinicData.clinicName,                  // From React
-        clinicData.clinicRegistrationNumber,    // From React
-        clinicData.address,                     // From React
-        clinicData.city,                        // From React
-        clinicData.state,                       // From React
-        clinicData.zipCode,                     // From React
-        clinicData.clinicPhone                  // From React
-    ];
-
-    db.query(query, values, (err, result) => {
-        if (err) return callback(err, null);
-        return callback(null, result);
-    });
-};
-
