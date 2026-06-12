@@ -22,7 +22,10 @@ import {
     getActiveSessions,
     revokeSession,
     revokeOtherSessions,
-    getAllVets
+    savePayoutSettings,
+    saveConsultationFees,
+    getAllVets,
+    saveClinicDetails
 } from "../controllers/userController.js";
 
 //... Navindu
@@ -76,8 +79,14 @@ userRouter.post("/verify-login-2fa", verifyLogin2FA);
 userRouter.put("/disable-2fa", disable2FA);
 
 userRouter.get("/sessions", getActiveSessions);
-userRouter.delete("/sessions/:id", revokeSession);
 userRouter.delete("/sessions/others", revokeOtherSessions);
+userRouter.delete("/sessions/:id", revokeSession);
+
+// userRouter.put("/clinic", saveClinicDetails);
+userRouter.put("/clinic", saveClinicDetails);
+userRouter.put("/payout-settings", savePayoutSettings);
+userRouter.put("/consultation-fees", saveConsultationFees);
+
 
 //Navindu 2026/06/10 ... Get All Vets Functionality
 userRouter.get("/vets", getAllVets);

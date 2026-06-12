@@ -1,38 +1,6 @@
 // models/userModel.js
 import db from "../config/db.js";
 
-// 1. Insert into Pet Owners Table
-// export const createPetOwner = (userData, callback) => {
-//     const sql = `
-//         INSERT INTO pet_owners
-//         (
-//             email, 
-//             password, 
-//             fullName, 
-//             contact_No, 
-//             address, 
-//             numberOfAnimals,
-//             image,
-//             provider
-//         )
-//         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-//     `;
-
-//     db.query(
-//         sql,
-//         [
-//             userData.email,
-//             userData.password,
-//             userData.fullName,
-//             userData.contact_No,
-//             userData.address || "",
-//             userData.numberOfAnimals || 0,
-//             userData.image || "/default.jpg",
-//             userData.provider || "local"
-//         ],
-//         callback
-//     );
-// };
 // 1. Insert into Pet Owners Table AND Profiles Table
 export const createPetOwner = (userData, callback) => {
     // Factory Assembly 1: Stitch the first and last name together
@@ -94,43 +62,7 @@ export const createPetOwner = (userData, callback) => {
     });
 };
 
-// 2. Insert into Veterinarians Table
-// export const createVeterinarian = (userData, callback) => {
-//     const sql = `
-//         INSERT INTO veterinarians
-//         (
-//             email, 
-//             password, 
-//             fullName, 
-//             contact_No, 
-//             license_number, 
-//             specialization, 
-//             years_of_experience, 
-//             consultation_fee,
-//             image,
-//             provider
-//         )
-//         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-//     `;
-
-//     db.query(
-//         sql,
-//         [
-//             userData.email,
-//             userData.password,
-//             userData.fullName,
-//             userData.contact_No,
-//             userData.license_number,
-//             userData.specialization,
-//             userData.years_of_experience || 0,
-//             userData.consultation_fee || 0.00,
-//             userData.image || "/default.jpg",
-//             userData.provider || "local"
-//         ],
-//         callback
-//     );
-// };
-
+// 2. Insert into Veterinarians Table AND Profiles Table
 export const createVeterinarian = (userData, callback) => {
     // Stitch the name together for the main table
     const fullName = `${userData.firstName || ''} ${userData.lastName || ''}`.trim();
@@ -161,9 +93,10 @@ export const createVeterinarian = (userData, callback) => {
         const newVetId = result.insertId;
 
         // Step 2: Insert the separated names into the profile table
+        // FIX: Match exact columns in the veterinarian_profiles table
         const insertProfileSql = `
             INSERT INTO veterinarian_profiles 
-            (vet_id, firstName, lastName, clinicName, bio)
+            (veterinarian_id, firstName, lastName, bio, professional_title)
             VALUES (?, ?, ?, ?, ?)
         `;
 
@@ -171,12 +104,18 @@ export const createVeterinarian = (userData, callback) => {
             newVetId, 
             userData.firstName || "", 
             userData.lastName || "", 
-            "", // Empty clinic name by default
-            ""  // Empty bio by default
+            "", // Empty bio by default
+            ""  // Empty professional title by default
         ];
 
         db.query(insertProfileSql, profileValues, (profileErr, profileResult) => {
-            if (profileErr) return callback(profileErr, null);
+            if (profileErr) {
+                console.error("❌ veterinarian_profiles insert failed:", profileErr.sqlMessage || profileErr);
+                // Rollback: delete the veterinarian row we just inserted
+                db.query("DELETE FROM veterinarians WHERE id = ?", [newVetId], () => {});
+                return callback(profileErr, null);
+            }
+            console.log("✅ veterinarian_profiles row created for vet_id:", newVetId);
             callback(null, result);
         });
     });
@@ -356,27 +295,26 @@ export const updatePetOwnerProfile = (ownerId, profileData, callback) => {
 };
 
 export const updateVeterinarianProfile = (vetId, profileData, callback) => {
-    // Query 1: Insert or Update the detailed profile table (No address fields here)
+    // FIXED: Using veterinarian_id instead of vet_id
     const profileSql = `
         INSERT INTO veterinarian_profiles 
-        (vet_id, firstName, lastName, clinicName, bio)
+        (veterinarian_id, firstName, lastName, bio, professional_title)
         VALUES (?, ?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE 
             firstName = VALUES(firstName),
             lastName = VALUES(lastName),
-            clinicName = VALUES(clinicName),
-            bio = VALUES(bio)
+            bio = VALUES(bio),
+            professional_title = VALUES(professional_title)
     `;
 
     const profileValues = [
         vetId,
         profileData.firstName, 
-        profileData.lastName,
-        profileData.clinicName, 
-        profileData.bio
+        profileData.lastName, 
+        profileData.bio,
+        profileData.professional_title
     ];
 
-    // Query 2: Update the main table's fullName and phone number
     const mainTableSql = `
         UPDATE veterinarians 
         SET 
@@ -392,14 +330,11 @@ export const updateVeterinarianProfile = (vetId, profileData, callback) => {
         vetId
     ];
 
-    // Execute Query 1
     db.query(profileSql, profileValues, (err1, result1) => {
         if (err1) return callback(err1, null);
 
-        // If Query 1 succeeds, execute Query 2
         db.query(mainTableSql, mainTableValues, (err2, result2) => {
             if (err2) return callback(err2, null);
-            
             callback(null, { message: "Veterinarian Profile and Full Name updated successfully" });
         });
     });
@@ -506,3 +441,89 @@ export const deleteOtherSessions = (userId, role, currentToken, callback) => {
     const sql = `DELETE FROM user_sessions WHERE user_id = ? AND user_role = ? AND token != ?`;
     db.query(sql, [userId, role, currentToken], callback);
 };
+
+// --- Fetch complete Veterinarian profile by joining the two tables ---
+export const getFullVeterinarianProfile = (vetId, callback) => {
+    
+    const sql = `
+        SELECT 
+            main.email, main.contact_No, main.license_number, main.specialization, 
+            main.years_of_experience, main.consultation_fee, main.image, main.is_two_factor_enabled,
+            profile.firstName, profile.lastName, profile.bio, profile.professional_title,
+            clinic.clinic_name, clinic.registration_number, clinic.address AS clinic_address, 
+            clinic.city AS clinic_city, clinic.state AS clinic_state, 
+            clinic.zip_code AS clinic_zip, clinic.phone AS clinic_phone,
+            bank.bank_name, bank.account_name, bank.account_number, bank.branch_code, bank.payout_schedule
+        FROM veterinarians main
+        /* FIXED: Changed profile.vet_id to profile.veterinarian_id */
+        LEFT JOIN veterinarian_profiles profile ON main.id = profile.veterinarian_id
+        LEFT JOIN clinics clinic ON main.id = clinic.veterinarian_id
+        LEFT JOIN veterinarian_bank_details bank ON main.id = bank.vet_id
+        WHERE main.id = ?
+    `;
+
+    db.query(sql, [vetId], (err, results) => {
+        if (err) {
+            return callback(err, null);
+        }
+        
+        if (results.length === 0) {
+            return callback({ message: "User not found" }, null);
+        }
+        
+        callback(null, results[0]); 
+    });
+};
+
+
+// Function to Insert OR Update the clinic details in the new dedicated table
+export const updateClinicDetails = (userId, clinicData, callback) => {
+    
+    // The "Upsert" Query: Insert if new, Update if it already exists!
+    const query = `
+        INSERT INTO clinics 
+        (veterinarian_id, clinic_name, registration_number, address, city, state, zip_code, phone) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE 
+            clinic_name = VALUES(clinic_name),
+            registration_number = VALUES(registration_number),
+            address = VALUES(address),
+            city = VALUES(city),
+            state = VALUES(state),
+            zip_code = VALUES(zip_code),
+            phone = VALUES(phone)
+    `;
+
+    // Map the React data to the query variables
+    const values = [
+        userId,                                 // veterinarian_id
+        clinicData.clinicName,                  // From React
+        clinicData.clinicRegistrationNumber,    // From React
+        clinicData.address,                     // From React
+        clinicData.city,                        // From React
+        clinicData.state,                       // From React
+        clinicData.zipCode,                     // From React
+        clinicData.clinicPhone                  // From React
+    ];
+
+    db.query(query, values, (err, result) => {
+        if (err) return callback(err, null);
+        return callback(null, result);
+    });
+};
+
+
+// ── Update Consultation Fees ──────────────────────────────────────────────────
+export const updateConsultationFees = (vetId, feesData, callback) => {
+    const sql = `
+        UPDATE veterinarians 
+        SET consultation_fee = ?
+        WHERE id = ?
+    `;
+    db.query(sql, [feesData.consultation_fee || 0, vetId], (err, result) => {
+        if (err) return callback(err, null);
+        return callback(null, { message: "Consultation fees updated successfully" });
+    });
+};
+
+
