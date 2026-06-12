@@ -22,13 +22,10 @@ import {
     getActiveSessions,
     revokeSession,
     revokeOtherSessions,
-<<<<<<< HEAD
-    saveClinicDetails,
     savePayoutSettings,
-    saveConsultationFees
-=======
-    getAllVets
->>>>>>> eae0f1e98ba068b06c93cd2bb10e6bc0bcf3c433
+    saveConsultationFees,
+    getAllVets,
+    saveClinicDetails
 } from "../controllers/userController.js";
 
 //... Navindu
@@ -82,15 +79,14 @@ userRouter.post("/verify-login-2fa", verifyLogin2FA);
 userRouter.put("/disable-2fa", disable2FA);
 
 userRouter.get("/sessions", getActiveSessions);
-userRouter.delete("/sessions/:id", revokeSession);
 userRouter.delete("/sessions/others", revokeOtherSessions);
-<<<<<<< HEAD
+userRouter.delete("/sessions/:id", revokeSession);
+
+// userRouter.put("/clinic", saveClinicDetails);
 userRouter.put("/clinic", saveClinicDetails);
 userRouter.put("/payout-settings", savePayoutSettings);
 userRouter.put("/consultation-fees", saveConsultationFees);
 
-=======
->>>>>>> eae0f1e98ba068b06c93cd2bb10e6bc0bcf3c433
 
 //Navindu 2026/06/10 ... Get All Vets Functionality
 userRouter.get("/vets", getAllVets);

@@ -5,13 +5,14 @@ import {
 } from 'lucide-react';
 import { Button, Card, Input } from '../components/Ui/ui';
 
-// ─── Toast Component ─────────────────────────────────────────────────────────
+// Toast Component 
 function Toast({ message, type = 'success', onClose }) {
   useEffect(() => {
     const t = setTimeout(onClose, 3500);
     return () => clearTimeout(t);
   }, [onClose]);
 
+  
   const styles = type === 'error'
     ? 'bg-red-50 text-red-700 border border-red-200'
     : 'bg-green-50 text-green-700 border border-green-200';
@@ -28,9 +29,22 @@ function Toast({ message, type = 'success', onClose }) {
 
 export default function DoctorSettings() {
 
+  // ── Login Info State ──────────────────────────────────────────────────────
+  const [loginInfo, setLoginInfo] = useState({
+    email: '',
+    is2FAEnabled: false
+  });
+
+  // ── 2FA Modal State 
+  const [show2FAModal, setShow2FAModal] = useState(false);
+  const [qrCodeUrl, setQrCodeUrl] = useState('');
+  const [twoFactorSecret, setTwoFactorSecret] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [isVerifying2FA, setIsVerifying2FA] = useState(false);
+
   const [activeTab, setActiveTab] = useState('profile');
 
-  // ── Profile & Clinic State ──────────────────────────────────────────────
+  // ── Profile & Clinic State 
   const [payoutInfo, setPayoutInfo] = useState({
     bankName: '', accountName: '', accountNumber: '', branchCode: '', schedule: 'weekly'
   });
@@ -100,6 +114,11 @@ export default function DoctorSettings() {
 
         if (response.ok) {
           const data = await response.json();
+          // Add this new block!
+          setLoginInfo({
+            email: data.email || '',
+            is2FAEnabled: Boolean(data.is_two_factor_enabled) // Converts MySQL 1/0 to true/false
+          });
           setPersonalInfo({
             firstName: data.firstName || '',
             lastName: data.lastName || '',
@@ -305,7 +324,78 @@ export default function DoctorSettings() {
   const maskAccount = (num) =>
     num && num.length > 4 ? `****${num.slice(-4)}` : num;
 
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── 2FA Handlers ─────────────────────────────────────────────────────────
+  const handleInitiate2FA = async () => {
+    try {
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/generate-2fa`);
+      if (res.ok) {
+        const data = await res.json();
+        setQrCodeUrl(data.qrCodeUrl);
+        setTwoFactorSecret(data.secret);
+        setShow2FAModal(true); // Open the modal
+      } else {
+        showToast("Failed to generate 2FA QR code", "error");
+      }
+    } catch {
+      showToast("Server connection failed", "error");
+    }
+  };
+
+  const handleVerify2FA = async () => {
+    if (verificationCode.length !== 6) {
+      showToast("Please enter a 6-digit code", "error");
+      return;
+    }
+    
+    setIsVerifying2FA(true);
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/verify-2fa`, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}` 
+        },
+        body: JSON.stringify({ token: verificationCode, secret: twoFactorSecret })
+      });
+
+      if (res.ok) {
+        showToast("Two-Factor Authentication Enabled Successfully!");
+        setLoginInfo(prev => ({ ...prev, is2FAEnabled: true }));
+        setShow2FAModal(false);
+        setVerificationCode('');
+      } else {
+        showToast("Invalid verification code. Try again.", "error");
+      }
+    } catch {
+      showToast("Server connection failed", "error");
+    } finally {
+      setIsVerifying2FA(false);
+    }
+  };
+
+  const handleDisable2FA = async () => {
+    if (!window.confirm("Are you sure you want to disable Two-Factor Authentication? This will make your account less secure.")) return;
+    
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/disable-2fa`, {
+        method: "PUT",
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+
+      if (res.ok) {
+        showToast("Two-Factor Authentication Disabled");
+        setLoginInfo(prev => ({ ...prev, is2FAEnabled: false }));
+      } else {
+        showToast("Failed to disable 2FA", "error");
+      }
+    } catch {
+      showToast("Server connection failed", "error");
+    }
+  };
+
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-5xl mx-auto pb-12">
 
@@ -479,6 +569,7 @@ export default function DoctorSettings() {
                   </div>
                 </div>
               </Card>
+              {/* login information */}
               <Card className="p-6 border-slate-200 shadow-sm animate-in fade-in">
                 <h3 className="text-lg font-semibold text-slate-800 mb-5 border-b border-slate-100 pb-3">Login Information</h3>
                 <div className="space-y-5">
@@ -486,17 +577,37 @@ export default function DoctorSettings() {
                     <label className="text-sm font-medium text-slate-700">Email Address</label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Mail className="h-5 w-5 text-slate-400" /></div>
-                      <Input type="email" defaultValue="sarah.jenkins@vetcloud.com" className="pl-11 h-11" />
+                      <Input 
+                        type="email" 
+                        value={loginInfo.email} 
+                        readOnly // Email should be read-only here unless you build an email verification change flow
+                        className="pl-11 h-11 bg-slate-50 text-slate-500 cursor-not-allowed" 
+                      />
                     </div>
                     <p className="text-xs text-slate-500 mt-1">This email is used for login and account notifications.</p>
                   </div>
-                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                  
+                  <div className={`p-4 border rounded-lg ${loginInfo.is2FAEnabled ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-200'}`}>
                     <div className="flex items-start justify-between">
                       <div>
-                        <h4 className="font-medium text-slate-800 text-sm mb-1">Two-Factor Authentication</h4>
-                        <p className="text-xs text-slate-600">Add an extra layer of security to your account.</p>
+                        <h4 className="font-medium text-slate-800 text-sm mb-1 flex items-center gap-2">
+                          Two-Factor Authentication 
+                          {loginInfo.is2FAEnabled && <span className="bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded-full font-bold tracking-wide uppercase">Enabled</span>}
+                        </h4>
+                        <p className="text-xs text-slate-600">
+                          {loginInfo.is2FAEnabled 
+                            ? "Your account is secured with two-factor authentication." 
+                            : "Add an extra layer of security to your account."}
+                        </p>
                       </div>
-                      <Button size="sm" variant="outline" className="h-8 text-xs">Enable 2FA</Button>
+                      <Button 
+                        size="sm" 
+                        variant={loginInfo.is2FAEnabled ? "destructive" : "outline"} 
+                        onClick={loginInfo.is2FAEnabled ? handleDisable2FA : handleInitiate2FA} /* Add this line! */
+                        className={`h-8 text-xs ${loginInfo.is2FAEnabled ? 'bg-red-50 text-red-600 hover:bg-red-100 border-red-200 hover:text-red-700 border' : ''}`}
+                      >
+                        {loginInfo.is2FAEnabled ? 'Disable 2FA' : 'Enable 2FA'}
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -509,7 +620,6 @@ export default function DoctorSettings() {
           ══════════════════════════════════════════════════════════════════ */}
           {activeTab === 'billing' && (
             <>
-
               {/* ── 1. Payment Methods ───────────────────────────────────────── */}
               <Card className="p-6 border-slate-200 shadow-sm animate-in fade-in">
                 <div className="flex items-center justify-between mb-5 border-b border-slate-100 pb-3">
@@ -815,6 +925,52 @@ export default function DoctorSettings() {
 
         </div>
       </div>
+
+
+      {/* ── 2FA Setup Modal ────────────────────────────────────────────── */}
+      {show2FAModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-6">
+              <h3 className="text-xl font-bold text-slate-800 mb-2">Setup Two-Factor Authentication</h3>
+              <p className="text-sm text-slate-500 mb-6">
+                Scan this QR code with an authenticator app (like Google Authenticator or Authy), then enter the 6-digit code below.
+              </p>
+              
+              <div className="flex justify-center mb-6 p-4 bg-slate-50 rounded-xl border border-slate-100">
+                {qrCodeUrl ? (
+                  <img src={qrCodeUrl} alt="2FA QR Code" className="w-48 h-48" />
+                ) : (
+                  <div className="w-48 h-48 flex items-center justify-center">Loading...</div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">Verification Code</label>
+                <Input 
+                  type="text" 
+                  maxLength="6"
+                  placeholder="000000"
+                  value={verificationCode}
+                  onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ''))}
+                  className="text-center text-2xl tracking-widest h-14 font-bold"
+                />
+              </div>
+            </div>
+            
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
+              <Button variant="outline" onClick={() => { setShow2FAModal(false); setVerificationCode(''); }} className="bg-white">
+                Cancel
+              </Button>
+              <Button onClick={handleVerify2FA} disabled={isVerifying2FA || verificationCode.length !== 6} className="bg-green-600 hover:bg-green-700 text-white">
+                {isVerifying2FA ? "Verifying..." : "Verify & Enable"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
     </div>
   );
 }

@@ -27,19 +27,18 @@ import {
     saveUserSession,
     getUserSessions,
     deleteSessionById,
-<<<<<<< HEAD
     deleteOtherSessions,
     getFullVeterinarianProfile,
     updateClinicDetails,
-    updateConsultationFees
-=======
-    deleteOtherSessions
->>>>>>> eae0f1e98ba068b06c93cd2bb10e6bc0bcf3c433
+    updateConsultationFees,
+    getUserPasswordById, 
+    updateUserPasswordById
 } from "../models/User.js";
 //... Navindu
 import fs from "fs";
 import path from "path";
 import db from "../config/db.js";
+import { updatePayoutSettings } from "../models/Payment.js";
 
 
 
@@ -622,9 +621,17 @@ export const getUserProfile = (req, res) => {
                 return res.status(200).json(profileData);
             });
 
-        } else if (userRole === "Veterinary Doctor" || userRole === "vet") {
-            // Placeholder for when you build the Doctor's fetch function
-            return res.status(501).json({ message: "Doctor profile fetching coming soon" });
+        } else if (userRole === "Veterinary Doctor" || userRole === "doctor") {
+            getFullVeterinarianProfile(userId, (err, profileData) => {
+                if (err) {
+                    console.error("Database Error:", err);
+                    return res.status(500).json({ message: "Error fetching profile" });
+                }
+                if (!profileData) {
+                    return res.status(404).json({ message: "Profile not found in database" });
+                }
+                return res.status(200).json(profileData);
+            });
         } else {
             return res.status(400).json({ message: "Invalid user role" });
         }
@@ -636,8 +643,6 @@ export const getUserProfile = (req, res) => {
 };
 
 //change password
-import { getUserPasswordById, updateUserPasswordById } from "../models/User.js";
-
 export const changePassword = (req, res) => {
     // 1. Verify the User Token
     const authHeader = req.headers.authorization;
@@ -735,8 +740,6 @@ export const verifyAndEnable2FA = (req, res) => {
         return res.status(401).json({ message: "Invalid session token" });
     }
 };
-
-// --- Verify 2FA Code During Login ---
 // export const verifyLogin2FA = (req, res) => {
 //     const { userId, role, code } = req.body;
 
@@ -948,7 +951,6 @@ export const getAllVets = (req, res) => {
     });
 };
 
-<<<<<<< HEAD
 
 export const savePayoutSettings = (req, res) => {
     // 1. Check for the security badge (Token)
@@ -999,6 +1001,25 @@ export const saveConsultationFees = (req, res) => {
         return res.status(401).json({ message: "Invalid or expired token" });
     }
 };
-=======
+
+export const saveClinicDetails = (req, res) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ message: "Unauthorized" });
+    }
+    const token = authHeader.split(" ")[1];
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        updateClinicDetails(decoded.id, req.body, (err, result) => {
+            if (err) {
+                console.error("DB error saving clinic details:", err.sqlMessage || err);
+                return res.status(500).json({ message: "Database error saving clinic details" });
+            }
+            return res.status(200).json({ message: "Clinic details updated successfully!" });
+        });
+    } catch (error) {
+        return res.status(401).json({ message: "Invalid or expired token" });
+    }
+};
 //... Navindu
->>>>>>> eae0f1e98ba068b06c93cd2bb10e6bc0bcf3c433
+
