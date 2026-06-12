@@ -74,6 +74,10 @@ export default function LoginPage() {
                 // Store the JWT token securely in localStorage or a state manager
                 localStorage.setItem("token", data.token);
                 localStorage.setItem("user", JSON.stringify(data.user));
+                // --- updated by navindu on 2026-06-10 START ---
+                // Also store userId for parts of the app that read it directly
+                if (data.user && data.user.id) localStorage.setItem("userId", data.user.id);
+                // --- updated by navindu on 2026-06-10 END ---
 
                 // Navigate based on role
                 if (role === "farmer") navigate("/dashboard/user");
@@ -107,6 +111,9 @@ export default function LoginPage() {
             // 2FA Success! Now we officially log them in.
             localStorage.setItem("token", data.token);
             localStorage.setItem("user", JSON.stringify(data.user));
+            // --- updated by navindu on 2026-06-10 START ---
+            if (data.user && data.user.id) localStorage.setItem("userId", data.user.id);
+            // --- updated by navindu on 2026-06-10 END ---
             const currentRole = tempLoginData.role;
             
             if (currentRole === "farmer") {
@@ -146,7 +153,12 @@ export default function LoginPage() {
             if (response.ok) {
                 toast.success("Google Login Successful!");
                 if (data.token) localStorage.setItem("token", data.token); // Save session
-                if (data.user) localStorage.setItem("user", JSON.stringify(data.user));
+                if (data.user) {
+                    localStorage.setItem("user", JSON.stringify(data.user));
+                    // --- updated by navindu on 2026-06-10 START ---
+                    if (data.user.id) localStorage.setItem("userId", data.user.id);
+                    // --- updated by navindu on 2026-06-10 END ---
+                }
                 
                 // Route to correct dashboard
                 if (role === "farmer") navigate("/dashboard/user");
@@ -171,14 +183,19 @@ export default function LoginPage() {
             const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/facebook-login`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ token: response.accessToken, role: role === 'farmer' ? "Farmer/PetOwner" : role === 'doctor' ? "Veterinary Doctor" : "Admin" })
+                body: JSON.stringify({ accessToken: response.accessToken, role: role === 'farmer' ? "Farmer/PetOwner" : role === 'doctor' ? "Veterinary Doctor" : "Admin" })
             });
             const data = await res.json();
             
             if (res.ok) {
                 toast.success("Facebook Login Successful!");
                 if (data.token) localStorage.setItem("token", data.token); // Save session
-                if (data.user) localStorage.setItem("user", JSON.stringify(data.user));
+                if (data.user) {
+                    localStorage.setItem("user", JSON.stringify(data.user));
+                    // --- updated by navindu on 2026-06-10 START ---
+                    if (data.user.id) localStorage.setItem("userId", data.user.id);
+                    // --- updated by navindu on 2026-06-10 END ---
+                }
                 // Route to correct dashboard
                 if (role === "farmer") navigate("/dashboard/user");
                 if (role === "doctor") navigate("/dashboard/doctor");

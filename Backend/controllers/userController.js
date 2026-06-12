@@ -8,12 +8,10 @@ import bcrypt from "bcryptjs";
 import { OAuth2Client } from "google-auth-library";
 import axios from "axios";
 import jwt from "jsonwebtoken";
-import https from "https";
 //Navindu 2026/05/27 ... Forgot Password FunctionalityupdateUserProfile
 import nodemailer from "nodemailer";
 import otpGenerator from "otp-generator";
 import { UAParser } from "ua-parser-js";
-import { updatePayoutSettings } from "../models/Payment.js";
 
 import {
     savePasswordResetOTP,
@@ -29,14 +27,19 @@ import {
     saveUserSession,
     getUserSessions,
     deleteSessionById,
+<<<<<<< HEAD
     deleteOtherSessions,
     getFullVeterinarianProfile,
     updateClinicDetails,
     updateConsultationFees
+=======
+    deleteOtherSessions
+>>>>>>> eae0f1e98ba068b06c93cd2bb10e6bc0bcf3c433
 } from "../models/User.js";
 //... Navindu
 import fs from "fs";
 import path from "path";
+import db from "../config/db.js";
 
 
 
@@ -50,12 +53,6 @@ export function registerUser(req, res) {
         return res.status(400).json({
             message: "Missing required fields."
         });
-    }
-
-    //Create the link string based on what multer saved
-    let databaseLink = "/default.jpg"; 
-    if (req.file) {
-        databaseLink = `/uploads/${req.file.filename}`; 
     }
 
     // 2. Check if email already exists in either table
@@ -89,7 +86,6 @@ export function registerUser(req, res) {
                         zip: data.zip,             
                         country: data.country,
                         numberOfAnimals: data.numberOfAnimals, // Matched to frontend payload exactly
-                        image: databaseLink,
                         provider: 'local'
                     },
                     (err, result) => {
@@ -111,7 +107,6 @@ export function registerUser(req, res) {
                         specialization: data.specialization,
                         years_of_experience: data.years_of_experience,
                         consultation_fee: data.consultation_fee,
-                        image: databaseLink,
                         provider: 'local'
                     },
                     (err, result) => {
@@ -228,104 +223,41 @@ export async function loginUser(req, res) {
 export async function googleLogin(req, res) {
     const { token, role } = req.body;
 
-    if (!token) {
-        console.error("GOOGLE ERROR: No token received.");
-        return res.status(400).json({ message: "No token received." });
-    }
-
     try {
-        let payload;
-
-        if (token.split('.').length === 3) {
-            // Processing ID Token
-            const ticket = await googleClient.verifyIdToken({
-                idToken: token,
-                audience: process.env.VITE_GOOGLE_CLIENT_ID, 
-            });
-            payload = ticket.getPayload();
-        } else {
-            // Processing Access Token with IPv4 Agent
-            const agent = new https.Agent({ family: 4 });
-            
-            const googleResponse = await axios.get("https://www.googleapis.com/oauth2/v3/userinfo", {
-                headers: { "Authorization": `Bearer ${token}` },
-                httpsAgent: agent // This tells axios exactly which agent to use
-            });
-            
-            payload = googleResponse.data;
-        }
+        const ticket = await googleClient.verifyIdToken({
+            idToken: token,
+            audience: process.env.VITE_GOOGLE_CLIENT_ID, 
+        });
+        const payload = ticket.getPayload();
         
-        // Safe name fallback to prevent database crashes
-        const safeName = payload.name || "Google User"; 
-        
-        handleSocialLogin(req, res, payload.email, safeName, payload.picture, role, 'google');
-        
+        // Notice we are now passing 'req' so we can read the device info
+        handleSocialLogin(req, res, payload.email, payload.name, payload.picture, role, 'google');
     } catch (error) {
-        console.error("CRITICAL GOOGLE ERROR:", error.message || error);
         return res.status(401).json({ message: "Invalid Google Token" });
     }
 }
 
 
 // 3. FACEBOOK LOGIN / REGISTRATION
-// export async function facebookLogin(req, res) {
-//     const { accessToken, role } = req.body;
-
-//     try {
-//         // Fetch user details from Facebook Graph API using the token
-//         const fbResponse = await axios.get(`https://graph.facebook.com/me?fields=id,name,email,picture.type(large)&access_token=${accessToken}`);
-//         const { email, name, picture } = fbResponse.data;
-//         const imageUrl = picture?.data?.url || "/default.jpg";
-
-//         // Notice we are now passing 'req' here too
-//         handleSocialLogin(req, res, email, name, imageUrl, role, 'facebook');
-//     } catch (error) {
-//         return res.status(401).json({ message: "Invalid Facebook Token" });
-//     }
-// }
-
 export async function facebookLogin(req, res) {
-    const { token, role } = req.body;
-
-    if (!token) {
-        console.error("FACEBOOK ERROR: No token received from frontend.");
-        return res.status(400).json({ message: "No token received." });
-    }
+    const { accessToken, role } = req.body;
 
     try {
-        console.log("🔍 Processing Facebook Token...");
-        
-        // 1. THE NETWORK FIX: Force IPv4 connection just like we did for Google
-        const agent = new https.Agent({ family: 4 });
-        
-        // 2. Ask Facebook for the user's data
-        const fbResponse = await axios.get(`https://graph.facebook.com/me?access_token=${token}&fields=id,name,email,picture.type(large)`, {
-            httpsAgent: agent
-        });
-        
-        const payload = fbResponse.data;
-        console.log("✅ Facebook verified the user:", payload.name);
+        // Fetch user details from Facebook Graph API using the token
+        const fbResponse = await axios.get(`https://graph.facebook.com/me?fields=id,name,email,picture.type(large)&access_token=${accessToken}`);
+        const { email, name, picture } = fbResponse.data;
+        const imageUrl = picture?.data?.url || "/default.jpg";
 
-        // 3. SAFE FALLBACKS: Facebook often hides emails or pictures. 
-        // If they hide the email, we create a dummy one so MySQL doesn't crash.
-        const safeEmail = payload.email || `${payload.id}@facebook-user.com`; 
-        const safeName = payload.name || "Facebook User";
-        const safeImage = payload.picture?.data?.url || "/default.jpg";
-
-        // 4. Send it to our unified Database Handler
-        handleSocialLogin(req, res, safeEmail, safeName, safeImage, role, 'facebook');
-
+        // Notice we are now passing 'req' here too
+        handleSocialLogin(req, res, email, name, imageUrl, role, 'facebook');
     } catch (error) {
-        // UNMASK THE ERROR: If it fails, print the exact reason to the terminal
-        console.error("❌ CRITICAL FACEBOOK ERROR:", error.message || error.response?.data || error);
         return res.status(401).json({ message: "Invalid Facebook Token" });
     }
 }
 
 // --- Helper Function to avoid repeating code for Social Logins ---
 function handleSocialLogin(req, res, email, name, image, role, provider) {
-    const safeName = name || "Google User";
-    const nameParts = safeName.split(" ");
+    const nameParts = name.split(" ");
     const splitFirstName = nameParts[0] || "";
     const splitLastName = nameParts.slice(1).join(" ") || "";
     
@@ -346,11 +278,7 @@ function handleSocialLogin(req, res, email, name, image, role, provider) {
             const userData = { email, password: null, firstName: splitFirstName, lastName: splitLastName, image, provider };
             
             const callback = (regErr, result) => {
-                if (regErr) {
-                // 🔍 ADD THIS LOG LINE TO SEE EXACT DATABASE ERRORS IN TERMINAL
-                console.error("DATABASE SOCIAL REGISTRATION ERROR:", regErr); 
-                return res.status(500).json(regErr);
-            }
+                if (regErr) return res.status(500).json(regErr);
                 
                 // Fetch the newly created user to issue a proper session
                 getUserByEmailAndRole(email, dbRole, (fetchErr, userResults) => {
@@ -693,21 +621,10 @@ export const getUserProfile = (req, res) => {
                 // Success! Send the data back to React
                 return res.status(200).json(profileData);
             });
-        } else if (userRole === "Veterinary Doctor" || userRole === "vet" || userRole === "doctor") {
-            
-            getFullVeterinarianProfile(userId, (err, profileData) => {
-                if (err) {
-                    console.error("Database Error:", err);
-                    return res.status(500).json({ message: "Error fetching doctor profile" });
-                }
-                if (!profileData) {
-                    return res.status(404).json({ message: "Doctor profile not found in database" });
-                }
-                
-                // Success! Send the data back to React
-                return res.status(200).json(profileData);
-            });
 
+        } else if (userRole === "Veterinary Doctor" || userRole === "vet") {
+            // Placeholder for when you build the Doctor's fetch function
+            return res.status(501).json({ message: "Doctor profile fetching coming soon" });
         } else {
             return res.status(400).json({ message: "Invalid user role" });
         }
@@ -899,7 +816,7 @@ export const verifyLogin2FA = (req, res) => {
             saveUserSession(user.id, role, cleanDeviceString, token, (err) => {
                 if (err) console.error("Failed to save 2FA session:", err);
             });
-            
+            // --------------------------------------------
 
             // Remove sensitive data before sending it to React
             const { password, two_factor_secret, ...safeUserData } = user;
@@ -1003,26 +920,35 @@ export const revokeOtherSessions = (req, res) => {
     }
 };
 
-export const saveClinicDetails = (req, res) => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        return res.status(401).json({ message: "Unauthorized" });
-    }
 
-    const token = authHeader.split(" ")[1];
 
-    try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        
-        updateClinicDetails(decoded.id, req.body, (err, result) => {
-            if (err) return res.status(500).json({ message: "Database error saving clinic details" });
-            return res.status(200).json({ message: "Clinic details saved successfully!" });
-        });
-    } catch (error) {
-        return res.status(401).json({ message: "Invalid token" });
-    }
+//Navindu 2026/06/10 ... get vet details for scheduling appointments
+export const getAllVets = (req, res) => {
+    const sql = `
+        SELECT id, fullName, specialization, years_of_experience, consultation_fee, image
+        FROM veterinarians
+    `;
+
+    db.query(sql, (err, results) => {
+        if (err) {
+            return res.status(500).json({ message: "Database error", err });
+        }
+
+        const vets = results.map(v => ({
+            id: v.id,
+            name: `Dr. ${v.fullName}`,
+            spec: v.specialization,
+            exp: `${v.years_of_experience} Years`,
+            rating: 4.8,
+            available: true,
+            image: v.image || "/default.jpg"
+        }));
+
+        res.json(vets);
+    });
 };
 
+<<<<<<< HEAD
 
 export const savePayoutSettings = (req, res) => {
     // 1. Check for the security badge (Token)
@@ -1073,3 +999,6 @@ export const saveConsultationFees = (req, res) => {
         return res.status(401).json({ message: "Invalid or expired token" });
     }
 };
+=======
+//... Navindu
+>>>>>>> eae0f1e98ba068b06c93cd2bb10e6bc0bcf3c433

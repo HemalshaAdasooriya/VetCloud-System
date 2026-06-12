@@ -11,6 +11,7 @@ import DoctorDashboard from './Pages/doctorDashboard'
 import FarmerDashboard from './Pages/farmerDashboard'
 import AdminDashboard from './Pages/adminDashboard'
 import ConsultationRequest from './Pages/ConsultationRequests' //Navindu 2026/05/28 ... consultation
+import Scheduling from './Pages/Scheduling' //Navindu 2026/06/04 ... scheduling
 import DoctorSchedule from './Pages/doctorSchedule'
 import DoctorSettings from './Pages/doctorSettings'
 import ForgotPassword from './Pages/ForgotPassword'
@@ -55,8 +56,9 @@ function App() {
 
             <Route path='/dashboard/user/*' element={<DashboardLayout />}>
               <Route path='animals' element={<MyAnimalsPage />} />
-              <Route path='scheduling' element={<UserAppoinment />} />
-              <Route path='appoinment' element={<UserAppoinment />} />
+              {/* <Route path='scheduling' element={<Scheduling />} /> */}
+              <Route path='appoinment' element={<Scheduling />} />
+              {/* <Route path='appoinment' element={<UserAppoinment />} /> */}
               <Route path='consultations' element={<UserConsultations />} />
               <Route path='clinics' element={<UserClinics />} />
               <Route path='diseases' element={<UserDiseases />} />

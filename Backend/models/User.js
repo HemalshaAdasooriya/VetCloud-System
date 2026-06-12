@@ -54,7 +54,7 @@ export const createPetOwner = (userData, callback) => {
         userData.email,
         userData.password,
         fullName,
-        userData.contact_No || "",
+        userData.contact_No,
         fullAddress,
         userData.numberOfAnimals || 0,
         userData.image || "/default.jpg",
@@ -95,6 +95,42 @@ export const createPetOwner = (userData, callback) => {
 };
 
 // 2. Insert into Veterinarians Table
+// export const createVeterinarian = (userData, callback) => {
+//     const sql = `
+//         INSERT INTO veterinarians
+//         (
+//             email, 
+//             password, 
+//             fullName, 
+//             contact_No, 
+//             license_number, 
+//             specialization, 
+//             years_of_experience, 
+//             consultation_fee,
+//             image,
+//             provider
+//         )
+//         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+//     `;
+
+//     db.query(
+//         sql,
+//         [
+//             userData.email,
+//             userData.password,
+//             userData.fullName,
+//             userData.contact_No,
+//             userData.license_number,
+//             userData.specialization,
+//             userData.years_of_experience || 0,
+//             userData.consultation_fee || 0.00,
+//             userData.image || "/default.jpg",
+//             userData.provider || "local"
+//         ],
+//         callback
+//     );
+// };
+
 export const createVeterinarian = (userData, callback) => {
     // Stitch the name together for the main table
     const fullName = `${userData.firstName || ''} ${userData.lastName || ''}`.trim();
@@ -110,9 +146,9 @@ export const createVeterinarian = (userData, callback) => {
         userData.email,
         userData.password,
         fullName,
-        userData.contact_No || "",
-        userData.license_number || `PENDING-${Math.floor(100000 + Math.random() * 900000)}`,
-        userData.specialization || "General Medicine",
+        userData.contact_No,
+        userData.license_number,
+        userData.specialization,
         userData.years_of_experience || 0,
         userData.consultation_fee || 0.00,
         userData.image || "/default.jpg",
@@ -323,21 +359,21 @@ export const updateVeterinarianProfile = (vetId, profileData, callback) => {
     // Query 1: Insert or Update the detailed profile table (No address fields here)
     const profileSql = `
         INSERT INTO veterinarian_profiles 
-        (vet_id, firstName, lastName, bio, professional_title)
+        (vet_id, firstName, lastName, clinicName, bio)
         VALUES (?, ?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE 
             firstName = VALUES(firstName),
             lastName = VALUES(lastName),
-            bio = VALUES(bio),
-            professional_title = VALUES(professional_title)
+            clinicName = VALUES(clinicName),
+            bio = VALUES(bio)
     `;
 
     const profileValues = [
         vetId,
-        profileData.firstName || "",
-        profileData.lastName || "",
-        profileData.bio || "",
-        profileData.professional_title || ""
+        profileData.firstName, 
+        profileData.lastName,
+        profileData.clinicName, 
+        profileData.bio
     ];
 
     // Query 2: Update the main table's fullName and phone number
@@ -345,31 +381,25 @@ export const updateVeterinarianProfile = (vetId, profileData, callback) => {
         UPDATE veterinarians 
         SET 
             fullName = CONCAT(?, ' ', ?),
-            specialization = ?
+            contact_No = ?
         WHERE id = ?
     `;
 
     const mainTableValues = [
-        profileData.firstName || "", 
-        profileData.lastName || "",  
-        profileData.specialization || "",
+        profileData.firstName, 
+        profileData.lastName,  
+        profileData.phone, 
         vetId
     ];
 
     // Execute Query 1
     db.query(profileSql, profileValues, (err1, result1) => {
-        if (err1) {
-            onsole.error("Profile Database Error:", err1);
-            return callback(err1, null)
-        };
+        if (err1) return callback(err1, null);
 
         // If Query 1 succeeds, execute Query 2
         db.query(mainTableSql, mainTableValues, (err2, result2) => {
-            if (err2) {
-                console.error("Main Table Database Error:", err2);
-                return callback(err2, null);
-            }
-
+            if (err2) return callback(err2, null);
+            
             callback(null, { message: "Veterinarian Profile and Full Name updated successfully" });
         });
     });
@@ -475,6 +505,7 @@ export const deleteSessionById = (sessionId, callback) => {
 export const deleteOtherSessions = (userId, role, currentToken, callback) => {
     const sql = `DELETE FROM user_sessions WHERE user_id = ? AND user_role = ? AND token != ?`;
     db.query(sql, [userId, role, currentToken], callback);
+<<<<<<< HEAD
 };
 
 // --- Fetch complete Veterinarian profile by joining the two tables ---
@@ -559,3 +590,6 @@ export const updateConsultationFees = (vetId, feesData, callback) => {
         return callback(null, { message: "Consultation fees updated successfully" });
     });
 };
+=======
+};
+>>>>>>> eae0f1e98ba068b06c93cd2bb10e6bc0bcf3c433

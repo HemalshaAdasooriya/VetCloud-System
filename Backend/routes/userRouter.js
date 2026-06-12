@@ -22,9 +22,13 @@ import {
     getActiveSessions,
     revokeSession,
     revokeOtherSessions,
+<<<<<<< HEAD
     saveClinicDetails,
     savePayoutSettings,
     saveConsultationFees
+=======
+    getAllVets
+>>>>>>> eae0f1e98ba068b06c93cd2bb10e6bc0bcf3c433
 } from "../controllers/userController.js";
 
 //... Navindu
@@ -38,6 +42,7 @@ import fs from "fs";
 
 const userRouter = express.Router();
 
+userRouter.post("/", registerUser);
 userRouter.post("/google-login", googleLogin);
 userRouter.post("/facebook-login", facebookLogin);
 userRouter.post("/login", loginUser);
@@ -66,8 +71,6 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
-userRouter.post("/", upload.single('profileImage'), registerUser);
-
 userRouter.post("/upload-photo", upload.single('profileImage'), updateProfilePhoto);
 userRouter.delete("/remove-photo", removeProfilePhoto);
 userRouter.put("/profile", updateUserProfile);
@@ -81,11 +84,17 @@ userRouter.put("/disable-2fa", disable2FA);
 userRouter.get("/sessions", getActiveSessions);
 userRouter.delete("/sessions/:id", revokeSession);
 userRouter.delete("/sessions/others", revokeOtherSessions);
+<<<<<<< HEAD
 userRouter.put("/clinic", saveClinicDetails);
 userRouter.put("/payout-settings", savePayoutSettings);
 userRouter.put("/consultation-fees", saveConsultationFees);
 
+=======
+>>>>>>> eae0f1e98ba068b06c93cd2bb10e6bc0bcf3c433
 
+//Navindu 2026/06/10 ... Get All Vets Functionality
+userRouter.get("/vets", getAllVets);
+//... Navindu
 
 //... Hemalsha
 
