@@ -189,42 +189,34 @@ export default function RegisterPage() {
         setSubmitMessage({ text: "", isError: false }); 
 
         const backendRole = role === 'user' ? "Farmer/PetOwner" : "Veterinary Doctor";
+        const payload = {
+            firstName,
+            lastName,
+            email,
+            password,
+            contact_No: phone,
+            role: backendRole,
+            };
 
-        const formData = new FormData();
-    
-            // 2. Put the text data in the box
-            formData.append("firstName", firstName);
-            formData.append("lastName", lastName);
-            formData.append("email", email);
-            formData.append("password", password);
-            formData.append("contact_No", phone);
-            formData.append("role", backendRole);
+        if (role === 'user') {
+            payload.numberOfAnimals = numberOfAnimals || 0;
+            payload.street = street;
+            payload.city = city;
+            payload.state = state;
+            payload.zip = zip;
+            payload.country = country;
+        } else {
+            payload.license_number = license;
+            payload.specialization = specialization;
+            payload.years_of_experience = experience || 0;
+            payload.consultation_fee = fee || 0;
+        }
 
-            // 3. Put the physical image in the box (if the user selected one)
-            if (profileImage) {
-                formData.append("profileImage", profileImage);
-            }
-
-            // 4. Add the rest of the text data
-            if (role === 'user') {
-                formData.append("numberOfAnimals", numberOfAnimals || 0);
-                formData.append("street", street);
-                formData.append("city", city);
-                formData.append("state", state);
-                formData.append("zip", zip);
-                formData.append("country", country);
-            } else {
-                formData.append("license_number", license);
-                formData.append("specialization", specialization);
-                formData.append("years_of_experience", experience || 0);
-                formData.append("consultation_fee", fee || 0);
-            }
-
-            try {
-                // 5. Send the box (CRITICAL: Do not write "Content-Type: application/json")
+        try {
                 const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/`, {
                     method: "POST",
-                    body: formData 
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
                 });
 
             const result = await response.json()
