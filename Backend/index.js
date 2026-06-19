@@ -8,6 +8,7 @@ import mapRouter from "./routes/mapRouter.js";
 import animalRouter from "./routes/animalRouter.js";
 import appointmentRouter from "./routes/appointmentRouter.js";
 import paymentRouter from "./routes/paymentRouter.js";
+import vetAppointmentRouter from "./routes/vetAppointmentRouter.js";
 
 dotenv.config();
 
@@ -39,6 +40,7 @@ app.use("/api/users", userRouter);
 app.use("/api/map", mapRouter);
 app.use("/api/animals", animalRouter);
 app.use("/api/appointments", appointmentRouter);
+app.use('/api/vet-appointments', vetAppointmentRouter); //Navindu 2026/06/16 
 app.use("/api/payments", paymentRouter);
 app.use("/uploads", express.static("uploads"));
 

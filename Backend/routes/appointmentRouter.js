@@ -6,6 +6,7 @@ import {
     getVetAppointments,
     approveAppointment,
     rejectAppointment,
+    resubmitAppointment,
     completeAppointment,
     cancelAppointment,
     removeAppointment
@@ -25,6 +26,11 @@ appointmentRouter.get(
     getVetAppointments
 );
 
+// appointmentRouter.get(
+//     "/:id",
+//     getAppointment
+// );
+
 appointmentRouter.patch(
     "/:id/approve",
     approveAppointment
@@ -33,6 +39,11 @@ appointmentRouter.patch(
 appointmentRouter.patch(
     "/:id/reject",
     rejectAppointment
+);
+
+appointmentRouter.patch(
+    "/:id/resubmit",
+    resubmitAppointment
 );
 
 appointmentRouter.patch(

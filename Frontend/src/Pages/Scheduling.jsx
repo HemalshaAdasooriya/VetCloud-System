@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import axios from 'axios';
 import {
   Video,
@@ -21,6 +22,15 @@ export default function Scheduling() {
   const [consultType, setConsultType] = useState('video');
   const [selectedAnimal, setSelectedAnimal] = useState(null);
   const [selectedVet, setSelectedVet] = useState(null);
+  const [selectedDates, setSelectedDates] = useState([]);
+  const [calendarViewDate, setCalendarViewDate] = useState(new Date());
+  const [selectedTimes, setSelectedTimes] = useState([]);
+  const [symptoms, setSymptoms] = useState("");
+  const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
+  const [requestSubmitted, setRequestSubmitted] = useState(false);
+  const [requestError, setRequestError] = useState("");
+  const [submissionMessage, setSubmissionMessage] = useState("");
+  const [resubmitAppointmentId, setResubmitAppointmentId] = useState(null);
 
   const [animals, setAnimals] = useState([]);
   const [loadingAnimals, setLoadingAnimals] = useState(true);
@@ -102,6 +112,67 @@ export default function Scheduling() {
   );
   // 🔥 UPDATED BY NAVINDU ON 2026-06-10 - END (Search & Filter)
 
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location?.state?.resubmitAppointmentId) {
+      setResubmitAppointmentId(location.state.resubmitAppointmentId);
+    }
+  }, [location?.state]);
+
+  // 🔥 UPDATED BY NAVINDU ON 2026-06-19 - START (Added consultation_type retrieval for resubmit)
+  useEffect(() => {
+    if (!resubmitAppointmentId) return;
+
+    const fetchAppointmentForResubmit = async () => {
+      try {
+        const res = await axios.get(`http://localhost:5000/api/appointments/${resubmitAppointmentId}`);
+        const appointment = res.data;
+        setSelectedAnimal(appointment.animal_id);
+        setSelectedVet(appointment.veterinarian_id);
+        
+        // Set consultation type if it exists
+        if (appointment.consultation_type) {
+          setConsultType(appointment.consultation_type);
+        }
+        
+        setSymptoms(() => {
+          try {
+            const parsed = JSON.parse(appointment.reason);
+            return parsed?.notes || '';
+          } catch {
+            return appointment.reason || '';
+          }
+        });
+
+        const availability = (() => {
+          try {
+            const parsed = JSON.parse(appointment.reason);
+            return Array.isArray(parsed?.availability) ? parsed.availability : [];
+          } catch {
+            return [];
+          }
+        })();
+
+        setSelectedDates(
+          Array.from(new Set(availability.map((slot) => slot.date)))
+            .map((dateString) => new Date(dateString))
+        );
+
+        setSelectedTimes(
+          Array.from(new Set(availability.map((slot) => normalizeTimeToLabel(slot.time)))).filter(Boolean)
+        );
+
+        setStep(3);
+      } catch (err) {
+        console.error('Failed to load appointment for resubmission:', err);
+      }
+    };
+
+    fetchAppointmentForResubmit();
+  }, [resubmitAppointmentId]);
+  // 🔥 UPDATED BY NAVINDU ON 2026-06-19 - END
+
   // 🔥 UPDATED BY NAVINDU ON 2026-06-10 - START
   const handleAddAnimalChange = (e) => {
     const { name, value } = e.target;
@@ -149,14 +220,126 @@ export default function Scheduling() {
       setAddingAnimal(false);
     }
   };
-  // 🔥 UPDATED BY NAVINDU ON 2026-06-10 - END
+
+  const areSameDate = (dateA, dateB) =>
+    dateA?.getFullYear() === dateB?.getFullYear() &&
+    dateA?.getMonth() === dateB?.getMonth() &&
+    dateA?.getDate() === dateB?.getDate();
+
+  const toggleDateSelection = (date) => {
+    setSelectedDates((prev) => {
+      const alreadySelected = prev.some((selectedDate) => areSameDate(selectedDate, date));
+      if (alreadySelected) {
+        return prev.filter((selectedDate) => !areSameDate(selectedDate, date));
+      }
+      return [...prev, date];
+    });
+  };
+
+  const toggleTimeSelection = (time) => {
+    setSelectedTimes((prev) =>
+      prev.includes(time) ? prev.filter((item) => item !== time) : [...prev, time]
+    );
+  };
+
+  const formatDateKey = (date) => {
+    if (!date || !(date instanceof Date)) return "";
+    return date.toISOString().split('T')[0];
+  };
+
+  const formatDateLabel = (date) => {
+    if (!date || !(date instanceof Date)) return "";
+    return date.toLocaleDateString(undefined, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  const normalizeTimeTo24 = (timeString) => {
+    if (!timeString) return '';
+    const [timePart, meridiem] = timeString.split(' ');
+    const [hours, minutes] = timePart.split(':').map(Number);
+    let normalized = hours;
+    if (meridiem === 'PM' && hours < 12) normalized += 12;
+    if (meridiem === 'AM' && hours === 12) normalized = 0;
+    return `${String(normalized).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  };
+
+  const normalizeTimeToLabel = (time24) => {
+    if (!time24) return '';
+    const [hours, minutes] = time24.split(':').map(Number);
+    if (Number.isNaN(hours) || Number.isNaN(minutes)) return time24;
+    const meridiem = hours >= 12 ? 'PM' : 'AM';
+    const hour12 = hours % 12 === 0 ? 12 : hours % 12;
+    return `${String(hour12).padStart(2, '0')}:${String(minutes).padStart(2, '0')} ${meridiem}`;
+  };
+
+  const buildAvailabilityPayload = () => {
+    return selectedDates.flatMap((date) =>
+      selectedTimes.map((time) => ({
+        date: formatDateKey(date),
+        time: normalizeTimeTo24(time)
+      }))
+    );
+  };
+
+  // 🔥 UPDATED BY NAVINDU ON 2026-06-19 - START (Added consultation_type to payload)
+  const handleSubmitAppointmentRequest = async () => {
+    if (!selectedAnimal || !selectedVet || selectedDates.length === 0 || selectedTimes.length === 0) {
+      return;
+    }
+
+    setRequestError('');
+    setSubmissionMessage('');
+    setIsSubmittingRequest(true);
+
+    try {
+      const ownerId = localStorage.getItem('userId');
+      const availability = buildAvailabilityPayload();
+
+      if (resubmitAppointmentId) {
+        await axios.patch(`http://localhost:5000/api/appointments/${resubmitAppointmentId}/resubmit`, {
+          availability,
+          reason: symptoms,
+          consultation_type: consultType // Added consultation type
+        });
+        setSubmissionMessage('Request resubmitted. Your doctor will review the updated availability.');
+        setResubmitAppointmentId(null);
+      } else {
+        await axios.post('http://localhost:5000/api/appointments', {
+          pet_owner_id: ownerId,
+          veterinarian_id: selectedVet,
+          animal_id: selectedAnimal,
+          reason: symptoms,
+          availability,
+          status: 'Pending',
+          consultation_type: consultType // Added consultation type
+        });
+        setSubmissionMessage('Request submitted. Your doctor will review and approve one of your requested slots.');
+      }
+
+      setRequestSubmitted(true);
+      setSelectedDates([]);
+      setSelectedTimes([]);
+      setSymptoms('');
+      setSelectedAnimal(null);
+      setSelectedVet(null);
+    } catch (err) {
+      console.error('Failed to submit appointment request:', err);
+      setRequestError('Failed to send request. Please try again.');
+    } finally {
+      setIsSubmittingRequest(false);
+    }
+  };
+  // 🔥 UPDATED BY NAVINDU ON 2026-06-19 - END
 
   return (
     <div className="bg-slate-50 min-h-[calc(100vh-4rem)] py-4">
-      <div className="container mx-auto px-2 max-w-5xl">
+      <div className="container mx-auto px-2 max-w-10xl">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">Book an Appointment</h1>
-          <p className="text-slate-600">Connect with an expert veterinary doctor for your animal&apos;s health needs.</p>
+          <h1 className="text-3xl font-bold text-slate-900 mb-2">Request Appointment Slots</h1>
+          <p className="text-slate-600">Request available time slots and let the doctor approve the final appointment before payment.</p>
         </div>
 
         <div className="flex items-center justify-between mb-6 max-w-3xl mx-auto">
@@ -301,7 +484,7 @@ export default function Scheduling() {
             <div className="p-6">
               <h2 className="text-xl font-bold text-slate-800 mb-5">Consultation Details</h2>
 
-              <div className="space-y-6 max-w-3xl">
+              <div className="space-y-6 max-w-7xl">
                 {getSelectedAnimal() && (
                   <Card className="p-6 bg-gradient-to-br from-green-50 to-blue-50 border-green-200">
                     <h3 className="text-sm font-semibold text-slate-700 mb-4 flex items-center gap-2">
@@ -367,9 +550,11 @@ export default function Scheduling() {
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-3">Describe Symptoms</label>
                   <textarea
+                    value={symptoms}
+                    onChange={(e) => setSymptoms(e.target.value)}
                     className="w-full rounded-md border border-slate-300 bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 min-h-[120px]"
                     placeholder="Describe what's wrong with your animal... (e.g., loss of appetite, lethargy, coughing)"
-                  ></textarea>
+                  />
                 </div>
 
                 <div>
@@ -410,17 +595,27 @@ export default function Scheduling() {
                 )}
 
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-3">Choose Date & Time</label>
+                  <label className="block text-sm font-semibold text-slate-700 mb-3">Choose Requested Dates & Time Slots</label>
+                  <p className="text-xs text-slate-500 mb-4">Request one or more available slots and let the doctor choose the final appointment.</p>
                   <div className="grid md:grid-cols-2 gap-6">
                     <div>
-                      <p className="text-xs text-slate-500 mb-2 uppercase tracking-wide">Select Date</p>
                       <div className="border border-slate-200 rounded-lg p-4 bg-white">
                         <div className="flex items-center justify-between mb-4">
-                          <button className="p-1 hover:bg-slate-100 rounded">
+                          <button
+                            type="button"
+                            onClick={() => setCalendarViewDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
+                            className="p-1 hover:bg-slate-100 rounded"
+                          >
                             <ChevronRight size={16} className="rotate-180 text-slate-600" />
                           </button>
-                          <h4 className="font-semibold text-sm text-slate-700">October 2024</h4>
-                          <button className="p-1 hover:bg-slate-100 rounded">
+                          <h4 className="font-semibold text-sm text-slate-700">
+                            {calendarViewDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
+                          </h4>
+                          <button
+                            type="button"
+                            onClick={() => setCalendarViewDate(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
+                            className="p-1 hover:bg-slate-100 rounded"
+                          >
                             <ChevronRight size={16} className="text-slate-600" />
                           </button>
                         </div>
@@ -432,45 +627,97 @@ export default function Scheduling() {
                         </div>
 
                         <div className="grid grid-cols-7 gap-1">
-                          {[...Array(2)].map((_, i) => (
-                            <div key={`empty-${i}`} className="aspect-square"></div>
-                          ))}
-                          {[...Array(31)].map((_, i) => {
-                            const day = i + 1;
-                            const isToday = day === 24;
-                            const isSelected = day === 25;
-                            const isPast = day < 24;
+                          {(() => {
+                            const startOfMonth = new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth(), 1);
+                            const daysInMonth = new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() + 1, 0).getDate();
+                            const emptyCells = Array(startOfMonth.getDay()).fill(null);
+                            const today = new Date();
                             return (
-                              <button
-                                key={day}
-                                disabled={isPast}
-                                className={`aspect-square rounded-lg text-xs font-medium transition-all ${isSelected ? 'bg-green-600 text-white shadow-sm' : isToday ? 'border-2 border-green-600 text-green-600 hover:bg-green-50' : isPast ? 'text-slate-300 cursor-not-allowed' : 'text-slate-700 hover:bg-green-50 hover:border-green-300 border border-transparent'}`}>
-                                {day}
-                              </button>
+                              <>
+                                {emptyCells.map((_, i) => (
+                                  <div key={`empty-${i}`} className="aspect-square"></div>
+                                ))}
+                                {Array.from({ length: daysInMonth }, (_, i) => {
+                                  const day = i + 1;
+                                  const date = new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth(), day);
+                                  const isToday =
+                                    today.getFullYear() === date.getFullYear() &&
+                                    today.getMonth() === date.getMonth() &&
+                                    today.getDate() === date.getDate();
+                                  const isPast = date < new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                                  const isSelected = selectedDates.some((selectedDate) => areSameDate(selectedDate, date));
+                                  return (
+                                    <button
+                                      key={day}
+                                      type="button"
+                                      disabled={isPast}
+                                      onClick={() => !isPast && toggleDateSelection(date)}
+                                      className={`aspect-square rounded-lg text-xs font-medium transition-all ${
+                                        isPast
+                                          ? 'text-slate-300 cursor-not-allowed'
+                                          : isSelected
+                                          ? 'bg-green-600 text-white shadow-inner'
+                                          : isToday
+                                          ? 'border border-green-500 text-slate-700 hover:bg-green-50'
+                                          : 'text-slate-700 hover:bg-green-50'
+                                      }`}
+                                    >
+                                      {day}
+                                    </button>
+                                  );
+                                })}
+                              </>
                             );
-                          })}
+                          })()}
                         </div>
 
-                        <div className="flex items-center gap-4 mt-4 pt-3 border-t border-slate-100">
-                          <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
-                            <div className="w-3 h-3 rounded border-2 border-green-600"></div>
-                            <span>Today</span>
-                          </div>
-                          <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
-                            <div className="w-3 h-3 rounded bg-green-600"></div>
-                            <span>Selected</span>
-                          </div>
+                        <div className="mt-4 flex flex-wrap gap-2 text-sm text-slate-600">
+                          {selectedDates.length === 0 ? (
+                            <span className="text-slate-400">Select one or more dates from the calendar.</span>
+                          ) : (
+                            selectedDates.map((date) => (
+                              <span key={formatDateKey(date)} className="inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-50 px-3 py-1 text-[11px] text-slate-700">
+                                <CalendarIcon size={12} /> {formatDateLabel(date)}
+                              </span>
+                            ))
+                          )}
                         </div>
                       </div>
                     </div>
+
                     <div>
-                      <p className="text-xs text-slate-500 mb-2 uppercase tracking-wide">Available Times</p>
+                      <p className="text-xs text-slate-500 mb-2 uppercase tracking-wide">
+                        Available Time Slots
+                      </p>
+
                       <div className="grid grid-cols-2 gap-2">
-                        {['09:00 AM', '10:30 AM', '01:00 PM', '02:30 PM', '04:00 PM', '05:30 PM'].map((time, i) => (
-                          <button key={i} className={`p-2 text-center flex justify-center items-center gap-1.5 rounded-lg border text-xs font-medium transition-colors ${i === 2 ? 'bg-green-600 border-green-600 text-white' : 'border-slate-200 text-slate-700 hover:border-green-300'}`}>
-                            <Clock size={14} /> {time}
+                        {[
+                          '09:00 AM',
+                          '10:30 AM',
+                          '01:00 PM',
+                          '02:30 PM',
+                          '04:00 PM',
+                          '05:30 PM'
+                        ].map((time) => (
+                          <button
+                            key={time}
+                            type="button"
+                            onClick={() => toggleTimeSelection(time)}
+                            className={`p-3 rounded-xl border text-xs font-semibold transition-colors ${
+                              selectedTimes.includes(time)
+                                ? 'bg-green-600 border-green-600 text-white'
+                                : 'border-slate-200 text-slate-700 hover:border-green-300 hover:bg-slate-50'
+                            }`}
+                          >
+                            <span className="flex items-center gap-2 justify-center">
+                              <Clock size={14} /> {time}
+                            </span>
                           </button>
                         ))}
+                      </div>
+
+                      <div className="mt-4 text-sm text-slate-500">
+                        {selectedTimes.length === 0 ? 'Choose at least one time slot.' : `${selectedTimes.length} time slot${selectedTimes.length > 1 ? 's' : ''} selected.`}
                       </div>
                     </div>
                   </div>
@@ -478,7 +725,10 @@ export default function Scheduling() {
 
                 <div className="flex justify-between pt-6 border-t border-slate-100">
                   <Button variant="outline" onClick={() => setStep(2)}>Back</Button>
-                  <Button onClick={() => setStep(4)}>Review & Confirm <ChevronRight size={16} className="ml-2" /></Button>
+                  <Button
+                    onClick={() => setStep(4)}
+                    disabled={selectedDates.length === 0 || selectedTimes.length === 0}
+                  >Review & Request <ChevronRight size={16} className="ml-2" /></Button>
                 </div>
               </div>
             </div>
@@ -486,40 +736,88 @@ export default function Scheduling() {
 
           {step === 4 && (
             <div className="p-6">
-              <h2 className="text-xl font-bold text-slate-800 mb-5">Confirm Appointment</h2>
+              <h2 className="text-xl font-bold text-slate-800 mb-5">Review Your Request</h2>
+              <p className="text-sm text-slate-600 mb-6">Request available time slots for doctor approval. The doctor will choose one final slot and then you can confirm and pay.</p>
 
               <div className="grid md:grid-cols-2 gap-6 mb-6">
                 <Card className="p-6 bg-slate-50 border-slate-100">
                   <h3 className="font-semibold text-slate-700 mb-4 border-b pb-2">Consultation Summary</h3>
                   <div className="space-y-4 text-sm">
-                    <div className="flex justify-between"><span className="text-slate-500">Doctor</span><span className="font-medium text-slate-900">{getSelectedVet()?.name || 'Dr. Sarah Smith'}</span></div>
-                    <div className="flex justify-between"><span className="text-slate-500">Specialty</span><span className="font-medium text-slate-900">{getSelectedVet()?.spec || 'Livestock & Large Animals'}</span></div>
-                    <div className="flex justify-between"><span className="text-slate-500">Patient</span><span className="font-medium text-slate-900">{getSelectedAnimal()?.name || 'Bessie'} ({getSelectedAnimal()?.type || 'Cattle'})</span></div>
-                    <div className="flex justify-between"><span className="text-slate-500">Type</span><span className="font-medium text-slate-900 flex items-center gap-1"><Video size={14} className="text-green-600" /> Video Call</span></div>
-                    <div className="flex justify-between"><span className="text-slate-500">Date & Time</span><span className="font-medium text-slate-900 flex items-center gap-1"><CalendarIcon size={14} className="text-green-600" /> Tomorrow, 01:00 PM</span></div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Doctor</span>
+                      <span className="font-medium text-slate-900">{getSelectedVet()?.name || 'Dr. Sarah Smith'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Specialty</span>
+                      <span className="font-medium text-slate-900">{getSelectedVet()?.spec || 'Livestock & Large Animals'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Patient</span>
+                      <span className="font-medium text-slate-900">{getSelectedAnimal()?.name || 'Bessie'} ({getSelectedAnimal()?.species || 'Animal'})</span>
+                    </div>
+                    {/* 🔥 UPDATED BY NAVINDU ON 2026-06-19 - START (Enhanced consultation type display) */}
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Consultation Type</span>
+                      <span className="font-medium text-slate-900 flex items-center gap-1">
+                        {consultType === 'video' ? (
+                          <>
+                            <Video size={14} className="text-green-600" /> 
+                            Video Call
+                          </>
+                        ) : (
+                          <>
+                            <MessageCircle size={14} className="text-green-600" /> 
+                            Chat / Messages
+                          </>
+                        )}
+                      </span>
+                    </div>
+                    {/* 🔥 UPDATED BY NAVINDU ON 2026-06-19 - END */}
+                    <div className="space-y-2">
+                      <span className="text-slate-500">Requested Availability</span>
+                      <div className="grid gap-2">
+                        {selectedDates.map((date) => (
+                          <div key={formatDateKey(date)} className="flex flex-wrap gap-2 items-center rounded-lg border border-slate-200 bg-white p-3">
+                            <span className="text-slate-700 font-semibold">{formatDateLabel(date)}</span>
+                            <span className="text-slate-500">•</span>
+                            <span className="text-slate-700">{selectedTimes.join(', ')}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    {symptoms && (
+                      <div>
+                        <span className="text-slate-500">Symptoms / Notes</span>
+                        <p className="mt-1 text-slate-800">{symptoms}</p>
+                      </div>
+                    )}
                   </div>
                 </Card>
 
                 <Card className="p-6 bg-slate-50 border-slate-100">
-                  <h3 className="font-semibold text-slate-700 mb-4 border-b pb-2">Payment Details</h3>
-                  <div className="space-y-4 text-sm mb-6">
-                    <div className="flex justify-between"><span className="text-slate-500">Consultation Fee</span><span className="font-medium text-slate-900">$45.00</span></div>
-                    <div className="flex justify-between"><span className="text-slate-500">Platform Fee</span><span className="font-medium text-slate-900">$2.50</span></div>
-                    <div className="flex justify-between pt-2 border-t font-bold text-lg"><span className="text-slate-800">Total Amount</span><span className="text-green-600">$47.50</span></div>
-                  </div>
-
-                  <div className="bg-white p-3 rounded-lg border border-slate-200 flex items-center gap-3 mb-4">
-                    <div className="w-10 h-6 bg-blue-600 text-white text-[10px] font-bold rounded flex items-center justify-center">VISA</div>
-                    <div>
-                      <p className="text-sm font-medium text-slate-700">Visa ending in 4242</p>
+                  <h3 className="font-semibold text-slate-700 mb-4 border-b pb-2">Request Status</h3>
+                  <div className="space-y-4 text-sm">
+                    <div className="rounded-xl bg-yellow-50 border border-yellow-200 p-4">
+                      <p className="font-semibold text-slate-800">Pending Approval</p>
+                      <p className="text-slate-600 text-sm mt-1">Doctor will review your suggested availability and select the final slot. Payment is requested only after confirmation.</p>
                     </div>
                   </div>
                 </Card>
               </div>
 
+              {requestError && <p className="text-sm text-red-600 mb-4">{requestError}</p>}
+              {requestSubmitted && submissionMessage && <p className="text-sm text-green-700 mb-4">{submissionMessage}</p>}
+
               <div className="flex justify-between pt-6 border-t border-slate-100">
                 <Button variant="outline" onClick={() => setStep(3)}>Back</Button>
-                <Button size="lg" className="w-48">Confirm & Pay</Button>
+                <Button
+                  size="lg"
+                  className="w-48"
+                  disabled={selectedDates.length === 0 || selectedTimes.length === 0 || isSubmittingRequest}
+                  onClick={handleSubmitAppointmentRequest}
+                >
+                  {isSubmittingRequest ? 'Submitting...' : resubmitAppointmentId ? 'Resubmit Request' : 'Submit Request'}
+                </Button>
               </div>
             </div>
           )}
