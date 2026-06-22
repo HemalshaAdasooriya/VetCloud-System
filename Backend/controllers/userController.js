@@ -89,7 +89,13 @@ export function registerUser(req, res) {
                     },
                     (err, result) => {
                         if (err) return res.status(500).json(err);
-                        return res.status(201).json({ message: "Pet Owner registered successfully" });
+                         // Automatically log in the user after creation
+                        getUserByEmailAndRole(data.email, "farmer", (fetchErr, userResults) => {
+                            if (fetchErr || userResults.length === 0) {
+                                return res.status(201).json({ message: "Pet Owner registered successfully. Please log in manually." });
+                            }
+                            issueTokenAndSession(req, res, userResults[0], "farmer");
+                        });
                     }
                 );
             } 
@@ -116,7 +122,13 @@ export function registerUser(req, res) {
                             }
                             return res.status(500).json(err);
                         }
-                        return res.status(201).json({ message: "Veterinarian registered successfully" });
+                        // Automatically log in the user after creation
+                        getUserByEmailAndRole(data.email, "doctor", (fetchErr, userResults) => {
+                            if (fetchErr || userResults.length === 0) {
+                                return res.status(201).json({ message: "Veterinarian registered successfully. Please log in manually." });
+                            }
+                            issueTokenAndSession(req, res, userResults[0], "doctor");
+                        });
                     }
                 );
             } 

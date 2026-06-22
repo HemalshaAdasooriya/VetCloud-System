@@ -93,10 +93,10 @@ export const createVeterinarian = (userData, callback) => {
         const newVetId = result.insertId;
 
         // Step 2: Insert the separated names into the profile table
-        // FIX: Match exact columns in the veterinarian_profiles table
+        // FIX: Match exact columns in the veterinarian_profiles table (vet_id is the database column)
         const insertProfileSql = `
             INSERT INTO veterinarian_profiles 
-            (veterinarian_id, firstName, lastName, bio, professional_title)
+            (vet_id, firstName, lastName, bio, professional_title)
             VALUES (?, ?, ?, ?, ?)
         `;
 
@@ -295,10 +295,10 @@ export const updatePetOwnerProfile = (ownerId, profileData, callback) => {
 };
 
 export const updateVeterinarianProfile = (vetId, profileData, callback) => {
-    // FIXED: Using veterinarian_id instead of vet_id
+    // USING CORRECT COLUMN NAME vet_id FOR veterinarian_profiles
     const profileSql = `
         INSERT INTO veterinarian_profiles 
-        (veterinarian_id, firstName, lastName, bio, professional_title)
+        (vet_id, firstName, lastName, bio, professional_title)
         VALUES (?, ?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE 
             firstName = VALUES(firstName),
@@ -330,12 +330,13 @@ export const updateVeterinarianProfile = (vetId, profileData, callback) => {
         vetId
     ];
 
-    db.query(profileSql, profileValues, (err1, result1) => {
-        if (err1) return callback(err1, null);
+    db.query(profileSql, profileValues, (err, result) => {
+        if (err) return callback(err, null);
 
         db.query(mainTableSql, mainTableValues, (err2, result2) => {
             if (err2) return callback(err2, null);
-            callback(null, { message: "Veterinarian Profile and Full Name updated successfully" });
+            
+            callback(null, { message: "Profile, Full Name, and Address updated successfully" });
         });
     });
 };
@@ -455,8 +456,8 @@ export const getFullVeterinarianProfile = (vetId, callback) => {
             clinic.zip_code AS clinic_zip, clinic.phone AS clinic_phone,
             bank.bank_name, bank.account_name, bank.account_number, bank.branch_code, bank.payout_schedule
         FROM veterinarians main
-        /* FIXED: Changed profile.vet_id to profile.veterinarian_id */
-        LEFT JOIN veterinarian_profiles profile ON main.id = profile.veterinarian_id
+        /* USING CORRECT JOIN COLUMN: profile.vet_id */
+        LEFT JOIN veterinarian_profiles profile ON main.id = profile.vet_id
         LEFT JOIN clinics clinic ON main.id = clinic.veterinarian_id
         LEFT JOIN veterinarian_bank_details bank ON main.id = bank.vet_id
         WHERE main.id = ?

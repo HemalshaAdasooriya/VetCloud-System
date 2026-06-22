@@ -148,10 +148,23 @@ export default function Scheduling() {
         const availability = (() => {
           try {
             const parsed = JSON.parse(appointment.reason);
-            return Array.isArray(parsed?.availability) ? parsed.availability : [];
+            if (Array.isArray(parsed?.availability) && parsed.availability.length > 0) {
+              return parsed.availability;
+            }
           } catch {
-            return [];
+            // Ignore parse error, proceed to fallback
           }
+
+          // Fallback to slot array returned from backend (e.g. appointment.slots)
+          if (Array.isArray(appointment.slots) && appointment.slots.length > 0) {
+            return appointment.slots.map((s) => ({
+              date: s.date || s.slot_date,
+              time: s.time || s.slot_time
+            }));
+          }
+
+          return [];
+          
         })();
 
         setSelectedDates(
