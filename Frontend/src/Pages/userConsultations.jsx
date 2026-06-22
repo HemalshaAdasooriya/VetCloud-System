@@ -187,7 +187,7 @@ export default function ConsultationPage() {
           <p className="text-slate-500">Manage your upcoming and past veterinary appointments.</p>
         </div>
         <Button
-          onClick={() => navigate('/dashboard/user/scheduling')}
+          onClick={() => navigate('/dashboard/user/appoinment')}
           className="bg-green-600 hover:bg-green-700 text-white"
         >
           <CalendarIcon className="w-5 h-5 mr-2" />
@@ -275,7 +275,7 @@ export default function ConsultationPage() {
                         </p>
                       </div>
                       <Button
-                        onClick={() => navigate('/dashboard/user/scheduling', {
+                        onClick={() => navigate('/dashboard/user/appoinment', {
                           state: { resubmitAppointmentId: consult.id }
                         })}
                         variant="outline"

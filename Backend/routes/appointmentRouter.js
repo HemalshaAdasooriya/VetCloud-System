@@ -4,6 +4,7 @@ import {
     bookAppointment,
     getOwnerAppointments,
     getVetAppointments,
+    getAppointment,
     approveAppointment,
     rejectAppointment,
     resubmitAppointment,
@@ -26,10 +27,10 @@ appointmentRouter.get(
     getVetAppointments
 );
 
-// appointmentRouter.get(
-//     "/:id",
-//     getAppointment
-// );
+appointmentRouter.get(
+    "/:id",
+    getAppointment
+);
 
 appointmentRouter.patch(
     "/:id/approve",
