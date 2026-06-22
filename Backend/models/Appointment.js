@@ -43,7 +43,7 @@ export const createAppointment = (data, callback) => {
             data.veterinarian_id,
             data.animal_id,
             data.consultation_type || 'video',
-            data.reason || null,
+            formatReasonPayload(data.reason, data.availability),
             'Pending'
         ],
         (err, result) => {
@@ -201,20 +201,65 @@ export const getAppointmentsByOwner = (ownerId, callback) => {
 
     db.query(sql, [ownerId], (err, results) => {
         if (err) return callback(err);
-        
-        // Format the response for frontend
-        const formattedResults = results.map(row => {
-            const parsedReason = parseReasonField(row.reason);
-            return {
-                ...row,
-                appointment_date: row.appointment_date || null,
-                appointment_time: row.appointment_time || null,
-                reason_notes: parsedReason.notes,
-                availability_slots: parsedReason.availability
-            };
+        if (results.length === 0) {
+            return callback(null, []);
+        }
+
+        const appointmentIds = results.map(row => row.id);
+
+        const slotsSql = `
+            SELECT id, appointment_id, slot_date, slot_time, is_selected
+            FROM appointment_slots
+            WHERE appointment_id IN (?)
+            ORDER BY slot_date ASC, slot_time ASC
+        `;
+
+        db.query(slotsSql, [appointmentIds], (err, slotsResults) => {
+            if (err) return callback(err);
+
+            const slotsByAppointment = {};
+            slotsResults.forEach(slot => {
+                if (!slotsByAppointment[slot.appointment_id]) {
+                    slotsByAppointment[slot.appointment_id] = [];
+                }
+                
+                let dateStr = '';
+                if (slot.slot_date) {
+                    const d = new Date(slot.slot_date);
+                    const offset = d.getTimezoneOffset();
+                    const localDate = new Date(d.getTime() - (offset * 60 * 1000));
+                    dateStr = localDate.toISOString().split('T')[0];
+                }
+
+                let timeStr = slot.slot_time || '';
+                if (timeStr && timeStr.includes(':')) {
+                    const parts = timeStr.split(':');
+                    timeStr = `${parts[0]}:${parts[1]}`;
+                }
+
+                slotsByAppointment[slot.appointment_id].push({
+                    id: slot.id,
+                    date: dateStr,
+                    time: timeStr,
+                    is_selected: slot.is_selected
+                });
+            });
+
+            const formattedResults = results.map(row => {
+                const parsedReason = parseReasonField(row.reason);
+                const dbSlots = slotsByAppointment[row.id] || [];
+
+                return {
+                    ...row,
+                    appointment_date: row.appointment_date || null,
+                    appointment_time: row.appointment_time || null,
+                    reason_notes: parsedReason.notes,
+                    availability_slots: dbSlots.length > 0 ? dbSlots : parsedReason.availability
+                };
+            });
+
+            callback(null, formattedResults);
         });
-        
-        callback(null, formattedResults);
     });
 };
 
@@ -260,18 +305,65 @@ export const getAppointmentsByVet = (vetId, callback) => {
     db.query(sql, [vetId], (err, results) => {
         if (err) return callback(err);
         
-        const formattedResults = results.map(row => {
-            const parsedReason = parseReasonField(row.reason);
-            return {
-                ...row,
-                appointment_date: row.appointment_date || null,
-                appointment_time: row.appointment_time || null,
-                reason_notes: parsedReason.notes,
-                availability_slots: parsedReason.availability
-            };
+        if (results.length === 0) {
+            return callback(null, []);
+        }
+
+        const appointmentIds = results.map(row => row.id);
+
+        const slotsSql = `
+            SELECT id, appointment_id, slot_date, slot_time, is_selected
+            FROM appointment_slots
+            WHERE appointment_id IN (?)
+            ORDER BY slot_date ASC, slot_time ASC
+        `;
+
+        db.query(slotsSql, [appointmentIds], (err, slotsResults) => {
+            if (err) return callback(err);
+
+            const slotsByAppointment = {};
+            slotsResults.forEach(slot => {
+                if (!slotsByAppointment[slot.appointment_id]) {
+                    slotsByAppointment[slot.appointment_id] = [];
+                }
+                
+                let dateStr = '';
+                if (slot.slot_date) {
+                    const d = new Date(slot.slot_date);
+                    const offset = d.getTimezoneOffset();
+                    const localDate = new Date(d.getTime() - (offset * 60 * 1000));
+                    dateStr = localDate.toISOString().split('T')[0];
+                }
+
+                let timeStr = slot.slot_time || '';
+                if (timeStr && timeStr.includes(':')) {
+                    const parts = timeStr.split(':');
+                    timeStr = `${parts[0]}:${parts[1]}`;
+                }
+
+                slotsByAppointment[slot.appointment_id].push({
+                    id: slot.id,
+                    date: dateStr,
+                    time: timeStr,
+                    is_selected: slot.is_selected
+                });
+            });
+
+            const formattedResults = results.map(row => {
+                const parsedReason = parseReasonField(row.reason);
+                const dbSlots = slotsByAppointment[row.id] || [];
+
+                return {
+                    ...row,
+                    appointment_date: row.appointment_date || null,
+                    appointment_time: row.appointment_time || null,
+                    reason_notes: parsedReason.notes,
+                    availability_slots: dbSlots.length > 0 ? dbSlots : parsedReason.availability
+                };
+            });
+
+            callback(null, formattedResults);
         });
-        
-        callback(null, formattedResults);
     });
 };
 

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Users, Calendar, Settings, LogOut, Bell, Stethoscope, Bird, ShieldCheck, Activity, Book, ClipboardList, Video, DollarSign, Database, MessageSquare, Star, BarChart3, UserCog, Search, MapPin } from 'lucide-react';
+import { LayoutDashboard, Users, Calendar, Settings, LogOut, Bell, Stethoscope, Bird, ShieldCheck, Activity, Book, ClipboardList, Video, DollarSign, Database, MessageSquare, Star, BarChart3, UserCog, Search, MapPin, X } from 'lucide-react';
 import { BsDatabaseCheck } from 'react-icons/bs';
 import { PiDogFill } from "react-icons/pi";
 import { useEffect } from 'react';
@@ -9,18 +9,84 @@ export function DashboardLayout() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Local Storage Integration 
-  // const [user] = useState(() => {
-  //   const savedUser = localStorage.getItem("user");
-  //   if (savedUser) {
-  //       return JSON.parse(savedUser); // Sets the object right at the start
-  //   }
-  //   return null; // Fallback if no user is found
-  // });
   const [user, setUser] = useState(() => {
     const savedUser = localStorage.getItem("user");
     return savedUser ? JSON.parse(savedUser) : null;
   });
+
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showNotificationsDropdown, setShowNotificationsDropdown] = useState(false);
+
+  const loadNotifications = () => {
+    const userId = user?.id || localStorage.getItem('userId') || 'guest';
+    const storageKey = `vetcloud_notifications_${userId}`;
+    const stored = JSON.parse(localStorage.getItem(storageKey) || '[]');
+    setNotifications(stored);
+    setUnreadCount(stored.filter((n) => !n.isRead).length);
+  };
+
+  const markAllAsRead = () => {
+    const userId = user?.id || localStorage.getItem('userId') || 'guest';
+    const storageKey = `vetcloud_notifications_${userId}`;
+    const updated = notifications.map((n) => ({ ...n, isRead: true }));
+    localStorage.setItem(storageKey, JSON.stringify(updated));
+    setNotifications(updated);
+    setUnreadCount(0);
+  };
+
+  const markAsRead = (id) => {
+    const userId = user?.id || localStorage.getItem('userId') || 'guest';
+    const storageKey = `vetcloud_notifications_${userId}`;
+    const updated = notifications.map((n) => n.id === id ? { ...n, isRead: true } : n);
+    localStorage.setItem(storageKey, JSON.stringify(updated));
+    setNotifications(updated);
+    setUnreadCount(updated.filter((n) => !n.isRead).length);
+  };
+
+  const deleteNotification = (id, e) => {
+    e.stopPropagation();
+    const userId = user?.id || localStorage.getItem('userId') || 'guest';
+    const storageKey = `vetcloud_notifications_${userId}`;
+    const updated = notifications.filter((n) => n.id !== id);
+    localStorage.setItem(storageKey, JSON.stringify(updated));
+    setNotifications(updated);
+    setUnreadCount(updated.filter((n) => !n.isRead).length);
+  };
+
+  const clearAllNotifications = () => {
+    const userId = user?.id || localStorage.getItem('userId') || 'guest';
+    const storageKey = `vetcloud_notifications_${userId}`;
+    localStorage.removeItem(storageKey);
+    setNotifications([]);
+    setUnreadCount(0);
+  };
+
+  const formatTimeAgo = (isoString) => {
+    try {
+      const diffMs = Date.now() - new Date(isoString).getTime();
+      const diffMins = Math.floor(diffMs / 60000);
+      if (diffMins < 1) return 'Just now';
+      if (diffMins < 60) return `${diffMins}m ago`;
+      const diffHours = Math.floor(diffMins / 60);
+      if (diffHours < 24) return `${diffHours}h ago`;
+      const diffDays = Math.floor(diffHours / 24);
+      return `${diffDays}d ago`;
+    } catch {
+      return 'Recently';
+    }
+  };
+
+  useEffect(() => {
+    loadNotifications();
+
+    const handleNotificationsChange = () => {
+      loadNotifications();
+    };
+
+    window.addEventListener("notificationsUpdated", handleNotificationsChange);
+    return () => window.removeEventListener("notificationsUpdated", handleNotificationsChange);
+  }, [user?.id]);
 
   useEffect(() => {
     const handleStorageChange = () => {
@@ -153,10 +219,102 @@ export function DashboardLayout() {
                 />
               </div>
             )}
-            <button className="relative p-2 text-slate-400 hover:text-slate-600 transition-colors">
-              <Bell size={20} />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
-            </button>
+            <div className="relative">
+              <button 
+                onClick={() => setShowNotificationsDropdown(!showNotificationsDropdown)}
+                className="relative p-2 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+              >
+                <Bell size={20} />
+                {unreadCount > 0 && (
+                  <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border border-white flex items-center justify-center text-[7px] text-white font-bold">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {showNotificationsDropdown && (
+                <>
+                  <div 
+                    className="fixed inset-0 z-40" 
+                    onClick={() => setShowNotificationsDropdown(false)}
+                  />
+                  <div className="absolute right-0 mt-2 w-80 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+                    {/* Header */}
+                    <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                      <span className="font-bold text-slate-800 text-sm flex items-center gap-1.5">
+                        Notifications
+                        {unreadCount > 0 && (
+                          <span className="bg-red-100 text-red-600 text-[10px] px-1.5 py-0.5 rounded-full font-bold">
+                            {unreadCount} new
+                          </span>
+                        )}
+                      </span>
+                      {notifications.length > 0 && (
+                        <button 
+                          onClick={markAllAsRead}
+                          className="text-xs text-green-600 hover:text-green-700 font-semibold cursor-pointer"
+                        >
+                          Mark all read
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Notification List */}
+                    <div className="max-h-80 overflow-y-auto divide-y divide-slate-50">
+                      {notifications.length === 0 ? (
+                        <div className="p-8 text-center text-slate-400 flex flex-col items-center gap-2">
+                          <Bell size={28} className="text-slate-300" />
+                          <p className="text-sm font-medium">All caught up!</p>
+                          <p className="text-xs text-slate-400">No new notifications.</p>
+                        </div>
+                      ) : (
+                        notifications.map((notification) => (
+                          <div 
+                            key={notification.id}
+                            onClick={() => markAsRead(notification.id)}
+                            className={`p-4 flex gap-3 items-start transition-colors cursor-pointer hover:bg-slate-50/50 ${
+                              !notification.isRead ? 'bg-green-50/15' : ''
+                            }`}
+                          >
+                            <span className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${
+                              !notification.isRead ? 'bg-green-500' : 'bg-slate-200'
+                            }`} />
+                            <div className="flex-1 min-w-0 space-y-0.5">
+                              <p className={`text-xs md:text-sm leading-relaxed ${
+                                !notification.isRead ? 'font-semibold text-slate-800' : 'text-slate-600'
+                              }`}>
+                                {notification.message}
+                              </p>
+                              <span className="text-[10px] text-slate-400 font-semibold block">
+                                {formatTimeAgo(notification.timestamp)}
+                              </span>
+                            </div>
+                            <button
+                              onClick={(e) => deleteNotification(notification.id, e)}
+                              className="text-slate-400 hover:text-slate-600 p-0.5 rounded transition-colors shrink-0 cursor-pointer"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+
+                    {/* Footer */}
+                    {notifications.length > 0 && (
+                      <div className="px-4 py-2.5 border-t border-slate-100 text-center bg-slate-50/30">
+                        <button 
+                          onClick={clearAllNotifications}
+                          className="text-xs text-slate-500 hover:text-slate-600 font-medium cursor-pointer"
+                        >
+                          Clear all history
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
             <div className="flex items-center gap-3 border-l border-slate-200 pl-4">
               
               {/* UPDATED: Dynamic Profile Display using our new logic */}

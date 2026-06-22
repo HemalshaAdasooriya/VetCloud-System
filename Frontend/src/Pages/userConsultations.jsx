@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import toast from 'react-hot-toast';
 import {
   Video, Calendar as CalendarIcon, Clock, CheckCircle2,
   MoreVertical, FileText, AlertCircle, XCircle, HourglassIcon
@@ -18,30 +19,70 @@ export default function ConsultationPage() {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [activeMenuId, setActiveMenuId] = useState(null);
+  const [cancelModalId, setCancelModalId] = useState(null);
   const navigate = useNavigate();
 
+  const fetchAppointments = async () => {
+    const ownerId = localStorage.getItem('userId');
+    if (!ownerId) {
+      setError('Please sign in to view your consultations.');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const res = await axios.get(`http://localhost:5000/api/appointments/owner/${ownerId}`);
+      setAppointments(res.data);
+    } catch (err) {
+      console.error('Failed to fetch appointments:', err);
+      setError('Failed to load appointments.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchAppointments = async () => {
-      const ownerId = localStorage.getItem('userId');
-      if (!ownerId) {
-        setError('Please sign in to view your consultations.');
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const res = await axios.get(`http://localhost:5000/api/appointments/owner/${ownerId}`);
-        setAppointments(res.data);
-      } catch (err) {
-        console.error('Failed to fetch appointments:', err);
-        setError('Failed to load appointments.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchAppointments();
   }, []);
+
+  const confirmCancelAppointment = async (appointmentId) => {
+    try {
+      const appointment = appointments.find(a => a.id === appointmentId);
+      const animalName = appointment?.animal_name || 'your animal';
+      const vetName = appointment?.veterinarian_name || 'the veterinarian';
+
+      await axios.patch(`http://localhost:5000/api/appointments/${appointmentId}/cancel`);
+      toast.success("Consultation request cancelled successfully.");
+      setCancelModalId(null);
+
+      // Save notification to local storage
+      const userId = localStorage.getItem('userId') || 'guest';
+      const storageKey = `vetcloud_notifications_${userId}`;
+      const existingNotifications = JSON.parse(localStorage.getItem(storageKey) || '[]');
+      const newNotification = {
+        id: Date.now().toString(),
+        title: "Consultation Request Cancelled",
+        message: `You cancelled the consultation request for ${animalName} with ${vetName}.`,
+        timestamp: new Date().toISOString(),
+        isRead: false
+      };
+      existingNotifications.unshift(newNotification);
+      localStorage.setItem(storageKey, JSON.stringify(existingNotifications));
+
+      // Trigger reactive bell update
+      window.dispatchEvent(new Event("notificationsUpdated"));
+
+      fetchAppointments();
+    } catch (err) {
+      console.error("Failed to cancel appointment:", err);
+      toast.error("Failed to cancel the appointment. Please try again.");
+    }
+  };
+
+  const handleCancelAppointment = (appointmentId) => {
+    setCancelModalId(appointmentId);
+  };
 
   // Filter appointments by status
   const pendingConsultations = appointments.filter(a => a.status === 'Pending');
@@ -274,16 +315,26 @@ export default function ConsultationPage() {
                           The veterinarian will review and confirm your appointment soon.
                         </p>
                       </div>
-                      <Button
-                        onClick={() => navigate('/dashboard/user/appoinment', {
-                          state: { resubmitAppointmentId: consult.id }
-                        })}
-                        variant="outline"
-                        className="border-slate-300 text-slate-700 hover:bg-slate-50"
-                      >
-                        <FileText size={18} className="mr-2" />
-                        Edit Request
-                      </Button>
+                      <div className="flex flex-col gap-2">
+                        <Button
+                          onClick={() => navigate('/dashboard/user/appoinment', {
+                            state: { resubmitAppointmentId: consult.id }
+                          })}
+                          variant="outline"
+                          className="border-slate-300 text-slate-700 hover:bg-slate-50 w-full"
+                        >
+                          <FileText size={18} className="mr-2" />
+                          Edit Request
+                        </Button>
+                        <Button
+                          onClick={() => handleCancelAppointment(consult.id)}
+                          variant="outline"
+                          className="border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 w-full"
+                        >
+                          <XCircle size={18} className="mr-2" />
+                          Cancel Request
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </Card>
@@ -342,7 +393,7 @@ export default function ConsultationPage() {
                     </div>
 
                     <div className="flex flex-col justify-end md:border-l md:border-slate-100 md:pl-6">
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 relative">
                         <Button 
                           className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
                           disabled={!hasSlot}
@@ -350,9 +401,37 @@ export default function ConsultationPage() {
                           <Video size={18} className="mr-2" />
                           Join Call
                         </Button>
-                        <Button variant="ghost" size="sm" className="px-2 text-slate-400">
-                          <MoreVertical size={20} />
-                        </Button>
+                        <div className="relative">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="px-2 text-slate-400 cursor-pointer"
+                            onClick={() => setActiveMenuId(activeMenuId === consult.id ? null : consult.id)}
+                          >
+                            <MoreVertical size={20} />
+                          </Button>
+                          
+                          {activeMenuId === consult.id && (
+                            <>
+                              <div 
+                                className="fixed inset-0 z-10" 
+                                onClick={() => setActiveMenuId(null)}
+                              />
+                              <div className="absolute right-0 mt-2 w-44 bg-white border border-slate-200 rounded-xl shadow-lg py-1.5 z-20 animate-in fade-in slide-in-from-top-2 duration-150">
+                                <button 
+                                  onClick={() => {
+                                    setActiveMenuId(null);
+                                    handleCancelAppointment(consult.id);
+                                  }}
+                                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 cursor-pointer font-medium"
+                                >
+                                  <XCircle size={15} className="text-red-500" />
+                                  Cancel Consultation
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -432,6 +511,39 @@ export default function ConsultationPage() {
               </p>
             </Card>
           )}
+        </div>
+      )}
+
+      {cancelModalId && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <Card className="w-full max-w-md bg-white p-6 rounded-2xl shadow-xl border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex flex-col items-center text-center space-y-4">
+              <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center text-red-600">
+                <AlertCircle size={24} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">Cancel Consultation</h3>
+                <p className="text-sm text-slate-500 mt-2">
+                  Are you sure you want to cancel this consultation request? This action cannot be undone.
+                </p>
+              </div>
+              <div className="flex w-full gap-3 mt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setCancelModalId(null)}
+                  className="flex-1 border-slate-300 text-slate-700 hover:bg-slate-50 cursor-pointer"
+                >
+                  No, Keep it
+                </Button>
+                <Button
+                  onClick={() => confirmCancelAppointment(cancelModalId)}
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white cursor-pointer"
+                >
+                  Yes, Cancel
+                </Button>
+              </div>
+            </div>
+          </Card>
         </div>
       )}
     </div>
