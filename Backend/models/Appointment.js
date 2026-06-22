@@ -184,6 +184,8 @@ export const getAppointmentsByOwner = (ownerId, callback) => {
         SELECT
             a.*,
             an.name AS animal_name,
+            an.species AS animal_species,
+            an.breed AS animal_breed,
             v.fullName AS veterinarian_name,
             s.slot_date AS appointment_date,
             s.slot_time AS appointment_time,
@@ -241,6 +243,8 @@ export const getAppointmentsByVet = (vetId, callback) => {
             a.*,
             p.fullName AS owner_name,
             an.name AS animal_name,
+            an.species AS animal_species,
+            an.breed AS animal_breed,
             s.slot_date AS appointment_date,
             s.slot_time AS appointment_time,
             s.id AS selected_slot_id,
