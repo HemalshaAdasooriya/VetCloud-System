@@ -1,17 +1,32 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
+import { 
+  Calendar as CalendarIcon, Clock, ChevronRight, 
+  ChevronLeft, Plus, Trash2, Check, AlertCircle
+} from 'lucide-react';
+import { Button, Card, Badge } from "../components/Ui/ui"; 
 
 export default function DoctorSchedule() {
+  // ── LIVE CALENDAR STATE ────────────────────────────────────────────────
+  const [currentViewDate, setCurrentViewDate] = useState(new Date()); // Tracks the month being viewed
+  const [selectedDate, setSelectedDate] = useState(new Date()); // Tracks the specifically clicked day
+  
+  // ── DATA STATE ─────────────────────────────────────────────────────────
   const [appointments, setAppointments] = useState([]);
   const [selectedSlots, setSelectedSlots] = useState({});
   const user = JSON.parse(localStorage.getItem("user"));
 
+  const [newSlotTime, setNewSlotTime] = useState('04:00 PM');
+  const [newSlotType, setNewSlotType] = useState('video');
+  const [isAdding, setIsAdding] = useState(false);
+
+  // ── FETCH APPOINTMENTS FROM BACKEND ────────────────────────────────────
   const fetchAppointments = async () => {
     try {
       const res = await axios.get(`http://localhost:5000/api/appointments/vet/${user.id}`);
       setAppointments(res.data);
     } catch (err) {
-      console.log(err);
+      console.error("Error fetching appointments:", err);
     }
   };
 
@@ -53,6 +68,10 @@ export default function DoctorSchedule() {
     } catch (err) {
       console.log(err);
     }
+  };
+
+  const handleRemoveSlot = (id) => {
+    setAvailableSlots(availableSlots.filter(slot => slot.id !== id));
   };
 
   return (

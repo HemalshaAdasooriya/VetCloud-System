@@ -1,34 +1,22 @@
-
-import db from "../config/db.js";
 import {
     createAppointment,
-    getAppointmentById,
     getAppointmentsByOwner,
     getAppointmentsByVet,
-    selectAppointmentSlot,  // CHANGED: use this instead of updateAppointmentWithFinalSlot
-    resubmitAppointmentRequest,
     updateAppointmentStatus,
     deleteAppointment
 } from "../models/Appointment.js";
 
 export const bookAppointment = (req, res) => {
-    const { pet_owner_id, veterinarian_id, animal_id, reason, availability } = req.body;
-
-    if (!pet_owner_id || !veterinarian_id || !animal_id || !Array.isArray(availability) || availability.length === 0) {
-        return res.status(400).json({ message: "Missing required appointment request fields." });
-    }
-
     createAppointment(req.body, (err, result) => {
         if (err) {
             console.log(err);
             return res.status(500).json({
-                message: "Failed to create appointment request"
+                message: "Failed to create appointment"
             });
         }
 
         res.status(201).json({
-            message: "Appointment request submitted successfully",
-            data: result
+            message: "Appointment booked successfully"
         });
     });
 };
@@ -38,29 +26,12 @@ export const getOwnerAppointments = (req, res) => {
 
     getAppointmentsByOwner(ownerId, (err, results) => {
         if (err) {
-            console.error(err);
             return res.status(500).json({
                 message: "Failed to fetch appointments"
             });
         }
 
         res.json(results);
-    });
-};
-
-export const getAppointment = (req, res) => {
-    getAppointmentById(req.params.id, (err, results) => {
-        if (err) {
-            return res.status(500).json({
-                message: "Failed to fetch appointment"
-            });
-        }
-
-        if (!results || results.length === 0) {
-            return res.status(404).json({ message: "Appointment not found" });
-        }
-
-        res.json(results[0]);
     });
 };
 
@@ -78,31 +49,19 @@ export const getVetAppointments = (req, res) => {
     });
 };
 
-// FIXED: Approve appointment with slot selection
 export const approveAppointment = (req, res) => {
-    const { slotId } = req.body;
-
-    if (!slotId) {
-        return res.status(400).json({ 
-            message: "Slot ID is required for approval." 
-        });
-    }
-
-    selectAppointmentSlot(
+    updateAppointmentStatus(
         req.params.id,
-        slotId,
         "Approved",
-        (err, result) => {
+        (err) => {
             if (err) {
-                console.error(err);
                 return res.status(500).json({
-                    message: "Failed to approve appointment: " + err.message
+                    message: "Failed to approve appointment"
                 });
             }
 
             res.json({
-                message: "Appointment approved successfully",
-                data: result
+                message: "Appointment approved"
             });
         }
     );
@@ -124,28 +83,6 @@ export const rejectAppointment = (req, res) => {
             });
         }
     );
-};
-
-export const resubmitAppointment = (req, res) => {
-    const { availability, reason } = req.body;
-
-    if (!Array.isArray(availability) || availability.length === 0) {
-        return res.status(400).json({ message: "Availability list is required for resubmission." });
-    }
-
-    resubmitAppointmentRequest(req.params.id, { availability, reason }, (err, result) => {
-        if (err) {
-            console.error(err);
-            return res.status(500).json({
-                message: "Failed to resubmit appointment request"
-            });
-        }
-
-        res.json({
-            message: "Appointment request resubmitted successfully",
-            data: result
-        });
-    });
 };
 
 export const completeAppointment = (req, res) => {

@@ -29,11 +29,11 @@ function Toast({ message, type = 'success', onClose }) {
 
 export default function DoctorSettings() {
 
-  // ── Login Info State ──────────────────────────────────────────────────────
+  // Login Info State 
   const [loginInfo, setLoginInfo] = useState({
     email: '',
     is2FAEnabled: false
-  });
+  }); 
 
   // ── 2FA Modal State 
   const [show2FAModal, setShow2FAModal] = useState(false);
