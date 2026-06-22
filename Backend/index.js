@@ -9,8 +9,14 @@ import animalRouter from "./routes/animalRouter.js";
 import appointmentRouter from "./routes/appointmentRouter.js";
 import paymentRouter from "./routes/paymentRouter.js";
 import vetAppointmentRouter from "./routes/vetAppointmentRouter.js";
+import { initializeNotificationTables } from "./models/Notification.js";
+import notificationRouter from "./routes/notificationRouter.js";
+import { startReminderScheduler } from "./config/scheduler.js";
 
 dotenv.config();
+
+// Create notifications table on startup
+initializeNotificationTables();
 
 const app = express();
 const server = http.createServer(app);
@@ -23,8 +29,20 @@ const io = new Server(server, {
     }
 });
 
+// Store io in express app context
+app.set("io", io);
+
 // Socket.io Logic
 io.on("connection", (socket) => {
+      // Socket room registration for real-time alerts
+    socket.on("register", (data) => {
+        if (data && data.userId && data.role) {
+            const roomName = `${data.role}_${data.userId}`;
+            socket.join(roomName);
+            console.log(`Socket client registered and joined room: ${roomName}`);
+        }
+    });//isuri-notification
+
     socket.on("send-location", (data) => {
         io.emit("receive-location", { id: socket.id, ...data });
     });
@@ -32,6 +50,9 @@ io.on("connection", (socket) => {
         io.emit("user-disconnected", socket.id);
     });
 });
+
+// Start Background Reminder Checks
+startReminderScheduler(io);
 
 app.use(cors());
 app.use(express.json());
@@ -42,6 +63,7 @@ app.use("/api/animals", animalRouter);
 app.use("/api/appointments", appointmentRouter);
 app.use('/api/vet-appointments', vetAppointmentRouter); //Navindu 2026/06/16 
 app.use("/api/payments", paymentRouter);
+app.use("/api/notifications", notificationRouter);
 app.use("/uploads", express.static("uploads"));
 
 server.listen(5000, () => {
