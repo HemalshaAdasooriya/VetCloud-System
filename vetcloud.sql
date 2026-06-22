@@ -233,4 +233,51 @@ CREATE TABLE `veterinarians`  (
   UNIQUE INDEX `license_number`(`license_number` ASC) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 5 CHARACTER SET = latin1 COLLATE = latin1_swedish_ci ROW_FORMAT = DYNAMIC;
 
+
+-- ----------------------------
+-- Table structure for appointments
+-- ----------------------------
+DROP TABLE IF EXISTS `appointments`;
+CREATE TABLE `appointments` (
+	`id` INT (11) NOT NULL AUTO_INCREMENT,
+	`pet_owner_id` INT (11) NOT NULL,
+	`veterinarian_id` INT (11) NOT NULL,
+	`animal_id` INT (11) NOT NULL,
+	`consultation_type` enum ('video', 'chat') DEFAULT 'video',
+	`reason` text,
+	`status` enum (
+		'Pending',
+		'Approved',
+		'Rejected',
+		'Completed',
+		'Cancelled'
+	) DEFAULT 'Pending',
+	`selected_slot_id` INT (11) DEFAULT NULL,
+	`created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	PRIMARY KEY (`id`),
+	KEY `pet_owner_id` (`pet_owner_id`),
+	KEY `veterinarian_id` (`veterinarian_id`),
+	KEY `animal_id` (`animal_id`),
+	CONSTRAINT `appointments_ibfk_1` FOREIGN KEY (`pet_owner_id`) REFERENCES `pet_owners` (`id`),
+	CONSTRAINT `appointments_ibfk_2` FOREIGN KEY (`veterinarian_id`) REFERENCES `veterinarians` (`id`),
+	CONSTRAINT `appointments_ibfk_3` FOREIGN KEY (`animal_id`) REFERENCES `animals` (`id`)
+) ENGINE = INNODB AUTO_INCREMENT = 5 DEFAULT CHARSET = latin1
+
+
+-- ----------------------------
+-- Table structure for appointment_slots
+-- ----------------------------
+DROP TABLE IF EXISTS `appointment_slots`;
+CREATE TABLE `appointment_slots` (
+	`id` INT (11) NOT NULL AUTO_INCREMENT,
+	`appointment_id` INT (11) NOT NULL,
+	`slot_date` date NOT NULL,
+	`slot_time` time NOT NULL,
+	`is_selected` TINYINT (1) DEFAULT '0',
+	`created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	PRIMARY KEY (`id`),
+	KEY `appointment_id` (`appointment_id`),
+	CONSTRAINT `appointment_slots_ibfk_1` FOREIGN KEY (`appointment_id`) REFERENCES `appointments` (`id`) ON DELETE CASCADE
+) ENGINE = INNODB AUTO_INCREMENT = 19 DEFAULT CHARSET = latin1
+
 SET FOREIGN_KEY_CHECKS = 1;
