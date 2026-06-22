@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Users, Calendar, Settings, LogOut, Bell, Stethoscope, Bird, ShieldCheck, Activity, Book, ClipboardList, Video, DollarSign, Database, MessageSquare, Star, BarChart3, UserCog, Search, MapPin } from 'lucide-react';
+import { LayoutDashboard, Users, Calendar, Settings, LogOut, Bell, Stethoscope, Bird, ShieldCheck, Activity, Book, ClipboardList, Video, DollarSign, Database, MessageSquare, Star, BarChart3, UserCog, Search, MapPin, Check, Clock, X } from 'lucide-react';
 import { BsDatabaseCheck } from 'react-icons/bs';
 import { PiDogFill } from "react-icons/pi";
-import { useEffect } from 'react';
+import io from 'socket.io-client';
+import toast from 'react-hot-toast';
 
 export function DashboardLayout() {
   const location = useLocation();
@@ -55,7 +56,122 @@ export function DashboardLayout() {
 
   const profileImageUrl = getProfileImage();
 
+ const [notifications, setNotifications] = useState([]);//isuri-notification
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);//isuri-notification
 
+  //isuri-user notification
+   const fetchNotifications = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    try {
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/notifications`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setNotifications(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch notifications:", err);
+    }
+  };
+  useEffect(() => {
+    fetchNotifications();
+    if (!user) return;
+    const socket = io(import.meta.env.VITE_BACKEND_URL || "http://localhost:5000");
+    socket.emit("register", { userId: user.id, role: user.role });
+    socket.on("new-notification", (notification) => {
+      setNotifications((prev) => [notification, ...prev]);
+      toast.success(notification.title || "New notification");
+      // Fire a custom event to notify other pages (like farmerDashboard) to reload
+      window.dispatchEvent(new Event("notificationsUpdated"));
+    });
+    // Listen to reload events from child pages
+    const handleReload = () => {
+      fetchNotifications();
+    };
+    window.addEventListener("notificationsReloadRequest", handleReload);
+    return () => {
+      socket.disconnect();
+      window.removeEventListener("notificationsReloadRequest", handleReload);
+    };
+  }, [user]);
+  const handleMarkAsRead = async (id) => {
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/notifications/${id}/read`, {
+        method: "PUT",
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setNotifications((prev) =>
+          prev.map((n) => (n.id === id ? { ...n, is_read: 1 } : n))
+        );
+        window.dispatchEvent(new Event("notificationsUpdated"));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+  const handleMarkAllAsRead = async () => {
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/notifications/read-all`, {
+        method: "PUT",
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setNotifications((prev) => prev.map((n) => ({ ...n, is_read: 1 })));
+        window.dispatchEvent(new Event("notificationsUpdated"));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+  const getNotificationIcon = (type) => {
+    const iconClass = "p-1.5 rounded-lg shrink-0";
+    switch (type) {
+      case "payment_success":
+      case "payment_received":
+        return <div className={`${iconClass} bg-green-100 text-green-600`}><DollarSign size={16} /></div>;
+      case "appointment_confirmed":
+        return <div className={`${iconClass} bg-blue-100 text-blue-600`}><Check size={16} /></div>;
+      case "appointment_reminder":
+      case "appointment_starting":
+        return <div className={`${iconClass} bg-amber-100 text-amber-600`}><Clock size={16} /></div>;
+      case "appointment_rescheduled":
+        return <div className={`${iconClass} bg-violet-100 text-violet-600`}><Calendar size={16} /></div>;
+      case "appointment_cancelled":
+        return <div className={`${iconClass} bg-red-100 text-red-600`}><X size={16} /></div>;
+      case "prescription_available":
+        return <div className={`${iconClass} bg-emerald-100 text-emerald-600`}><ClipboardList size={16} /></div>;
+      case "vaccination_due":
+      case "vaccination_due_soon":
+      case "vaccination_scheduled":
+        return <div className={`${iconClass} bg-pink-100 text-pink-600`}><Activity size={16} /></div>;
+      case "test_results":
+        return <div className={`${iconClass} bg-teal-100 text-teal-600`}><ShieldCheck size={16} /></div>;
+      case "feedback_request":
+        return <div className={`${iconClass} bg-indigo-100 text-indigo-600`}><Star size={16} /></div>;
+      default:
+        return <div className={`${iconClass} bg-slate-100 text-slate-500`}><Bell size={16} /></div>;
+    }
+  };
+  const formatRelativeTime = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHour = Math.floor(diffMin / 60);
+    const diffDay = Math.floor(diffHour / 24);
+    if (diffSec < 60) return "Just now";
+    if (diffMin < 60) return `${diffMin}m ago`;
+    if (diffHour < 24) return `${diffHour}h ago`;
+    if (diffDay === 1) return "Yesterday";
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  };
+//------------
   const isUser = location.pathname.includes('/user') || location.pathname === '/dashboard/user';
   const isVet = location.pathname.includes('/doctor') || location.pathname === '/dashboard/doctor';
   const isAdmin = location.pathname.includes('/admin') || location.pathname === '/dashboard/admin';
@@ -153,10 +269,85 @@ export function DashboardLayout() {
                 />
               </div>
             )}
-            <button className="relative p-2 text-slate-400 hover:text-slate-600 transition-colors">
-              <Bell size={20} />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
-            </button>
+           {/*isuri-notification*/}
+           <div className="relative">
+              <button 
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                className="relative p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-all cursor-pointer focus:outline-none"
+              >
+                <Bell size={20} />
+                {notifications.some((n) => !n.is_read) && (
+                  <span className="absolute top-1 right-1 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-red-500 text-[9px] font-extrabold text-white ring-2 ring-white">
+                    {notifications.filter((n) => !n.is_read).length}
+                  </span>
+                )}
+              </button>
+              {isDropdownOpen && (
+                <>
+                  {/* Backdrop to close dropdown on click outside */}
+                  <div className="fixed inset-0 z-30" onClick={() => setIsDropdownOpen(false)} />
+                  <div className="absolute right-0 mt-3 w-80 sm:w-96 bg-white border border-slate-200/80 rounded-2xl shadow-xl py-3 z-40 animate-in fade-in slide-in-from-top-2 duration-200">
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-4 pb-2 border-b border-slate-100 mb-1">
+                      <h3 className="font-extrabold text-slate-800 text-sm">Notifications</h3>
+                      {notifications.some((n) => !n.is_read) && (
+                        <button 
+                          onClick={handleMarkAllAsRead}
+                          className="text-xs font-extrabold text-green-600 hover:text-green-700 cursor-pointer transition-colors"
+                        >
+                          Mark all as read
+                        </button>
+                      )}
+                    </div>
+                    
+                    {/* List */}
+                    <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
+                      {notifications.length > 0 ? (
+                        notifications.map((n) => (
+                          <div 
+                            key={n.id}
+                            onClick={() => handleMarkAsRead(n.id)}
+                            className={`flex items-start gap-3 p-3.5 hover:bg-slate-50/80 cursor-pointer transition-all ${
+                              !n.is_read ? 'bg-green-50/10' : ''
+                            }`}
+                          >
+                            <div className="mt-0.5 shrink-0">
+                              {getNotificationIcon(n.type)}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-[13px] leading-snug ${
+                                !n.is_read ? 'text-slate-900 font-extrabold' : 'text-slate-600 font-medium'
+                              }`}>
+                                {n.title}
+                              </p>
+                              <p className="text-slate-500 text-xs mt-0.5 font-medium leading-relaxed">
+                                {n.message}
+                              </p>
+                              <span className="text-[10px] text-slate-400 font-semibold block mt-1">
+                                {formatRelativeTime(n.created_at)}
+                              </span>
+                            </div>
+                            {!n.is_read && (
+                              <span className="w-2 h-2 rounded-full bg-green-500 mt-2 shrink-0 animate-pulse" />
+                            )}
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-10 px-4 space-y-2">
+                          <div className="h-10 w-10 bg-slate-50 rounded-full flex items-center justify-center mx-auto text-slate-300">
+                            <Bell size={20} />
+                          </div>
+                          <p className="text-slate-400 text-xs font-bold">No new notifications</p>
+                          <p className="text-[10px] text-slate-300">We'll let you know when things change.</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          
+
             <div className="flex items-center gap-3 border-l border-slate-200 pl-4">
               
               {/* UPDATED: Dynamic Profile Display using our new logic */}
