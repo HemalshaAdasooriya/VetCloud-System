@@ -89,6 +89,16 @@ export function registerUser(req, res) {
                     },
                     (err, result) => {
                         if (err) return res.status(500).json(err);
+                        //isuri-user notification
+                        // Send verification email in background
+                        const verifyHtml = getAccountVerificationTemplate(`${data.firstName} ${data.lastName}`, data.email);
+                        sendEmail({
+                            to: data.email,
+                            subject: "Verify your VetCloud Account",
+                            html: verifyHtml,
+                            text: `Welcome to VetCloud, ${data.firstName}! Please verify your account.`
+                        }).catch(console.error);
+                        //-------------
                         return res.status(201).json({ message: "Pet Owner registered successfully" });
                     }
                 );
@@ -116,6 +126,16 @@ export function registerUser(req, res) {
                             }
                             return res.status(500).json(err);
                         }
+                        //isuri-user notification
+                         // Send verification email in background
+                        const verifyHtml = getAccountVerificationTemplate(`${data.firstName} ${data.lastName}`, data.email);
+                        sendEmail({
+                            to: data.email,
+                            subject: "Verify your VetCloud Account",
+                            html: verifyHtml,
+                            text: `Welcome to VetCloud, ${data.firstName}! Please verify your account.`
+                        }).catch(console.error);
+                        //---------
                         return res.status(201).json({ message: "Veterinarian registered successfully" });
                     }
                 );
