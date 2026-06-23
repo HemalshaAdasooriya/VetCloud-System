@@ -1,139 +1,289 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { 
   Clock, CheckCircle2, XCircle, AlertCircle, FileText, 
-  User, Video, Phone, MapPin, Calendar, ChevronRight 
+  User, Video, Phone, MapPin, Calendar, ChevronRight,
+  HourglassIcon, Stethoscope
 } from 'lucide-react';
 import { Button, Card, Badge, Textarea } from '../components/ui/ui';
-
 export default function VetConsultationRequests() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('pending');
+  const [appointments, setAppointments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [declineReason, setDeclineReason] = useState('');
-
-  const pendingRequests = [
-    {
-      id: 101,
-      patientName: 'Bessie',
-      ownerName: 'John Smith',
-      ownerType: 'Dairy Farmer',
-      date: 'Mar 25, 2026',
-      time: '2:30 PM',
-      type: 'Video Call',
-      symptoms: 'Loss of appetite for 2 days, mild fever (102.5°F), reduced milk production',
-      urgency: 'high',
-      image: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=1974&auto=format&fit=crop',
-      requestedAt: '2 hours ago',
-      ownerContact: '+1 (555) 123-4567',
-      animalAge: '4 years',
-      animalBreed: 'Holstein'
-    },
-    {
-      id: 102,
-      patientName: 'Luna',
-      ownerName: 'Emily Wilson',
-      ownerType: 'Pet Owner',
-      date: 'Mar 26, 2026',
-      time: '11:00 AM',
-      type: 'Clinic Visit',
-      symptoms: 'Excessive scratching, skin irritation on neck area, possible allergic reaction',
-      urgency: 'medium',
-      image: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?q=80&w=2043&auto=format&fit=crop',
-      requestedAt: '5 hours ago',
-      ownerContact: '+1 (555) 987-6543',
-      animalAge: '3 years',
-      animalBreed: 'Persian Cat'
-    },
-    {
-      id: 103,
-      patientName: 'Max',
-      ownerName: 'Robert Johnson',
-      ownerType: 'Pet Owner',
-      date: 'Mar 27, 2026',
-      time: '3:00 PM',
-      type: 'Clinic Visit',
-      symptoms: 'Annual vaccination checkup, general wellness examination',
-      urgency: 'low',
-      image: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?q=80&w=2070&auto=format&fit=crop',
-      requestedAt: '1 day ago',
-      ownerContact: '+1 (555) 456-7890',
-      animalAge: '5 years',
-      animalBreed: 'Golden Retriever'
+  const [actionLoading, setActionLoading] = useState(false);
+  const [showApproveModal, setShowApproveModal] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState(null);
+  const [selectedSlot, setSelectedSlot] = useState('');
+  const [availableSlots, setAvailableSlots] = useState([]);
+  const vetId = localStorage.getItem('userId');
+  useEffect(() => {
+    if (!vetId) {
+      setError('Please sign in to view consultation requests.');
+      setLoading(false);
+      return;
     }
-  ];
-
-  const reviewedRequests = [
-    {
-      id: 104,
-      patientName: 'Charlie',
-      ownerName: 'Sarah Brown',
-      type: 'Video Call',
-      status: 'approved',
-      reviewedAt: '1 hour ago'
-    },
-    {
-      id: 105,
-      patientName: 'Daisy',
-      ownerName: 'Mike Davis',
-      type: 'Clinic Visit',
-      status: 'declined',
-      reviewedAt: '3 hours ago',
-      reason: 'Requested time slot already booked'
+    fetchAppointments();
+  }, [vetId]);
+  const fetchAppointments = async () => {
+    try {
+      const res = await axios.get(`http://localhost:5000/api/vet-appointments/vet/${vetId}`);
+      setAppointments(res.data);
+    } catch (err) {
+      console.error('Failed to fetch appointments:', err);
+      setError('Failed to load appointments.');
+    } finally {
+      setLoading(false);
     }
-  ];
-
-  const handleApprove = (requestId) => {
-    // In a real app, this would make an API call
-    console.log(`Approved request ${requestId}`);
-    alert('Consultation approved! The client will be notified.');
   };
-
-  const handleDecline = (requestId) => {
+  const fetchAvailableSlots = async (appointmentId) => {
+    try {
+      const res = await axios.get(`http://localhost:5000/api/vet-appointments/${appointmentId}/available-slots`);
+      setAvailableSlots(res.data);
+    } catch (err) {
+      console.error('Failed to fetch available slots:', err);
+      setAvailableSlots([]);
+    }
+  };
+  // Filter appointments by status
+  const pendingRequests = appointments.filter(a => a.status === 'Pending');
+  const reviewedRequests = appointments.filter(a => 
+    a.status === 'Approved' || a.status === 'Rejected' || a.status === 'Completed' || a.status === 'Cancelled'
+  );
+  // Format date and time
+  const formatDate = (date, time) => {
+    if (!date) return 'TBD';
+    
+    try {
+      const dateStr = date.includes('T') ? date.split('T')[0] : date;
+      const timeStr = time || '00:00:00';
+      const d = new Date(`${dateStr}T${timeStr}`);
+      
+      if (isNaN(d.getTime())) return 'TBD';
+      
+      return d.toLocaleDateString(undefined, {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      }) + (time ? `, ${d.toLocaleTimeString(undefined, {
+        hour: '2-digit',
+        minute: '2-digit'
+      })}` : '');
+    } catch {
+      return 'TBD';
+    }
+  };
+  // Format availability slots
+  const formatAvailability = (availability) => {
+    if (!Array.isArray(availability) || availability.length === 0) {
+      return 'No slots provided';
+    }
+    
+    return availability
+      .map((s) => {
+        const date = s.date ?? s.slot_date ?? '';
+        const time = s.time ?? s.slot_time ?? '';
+        return `${date}${time ? ` at ${time}` : ''}`.trim();
+      })
+      .join(' • ');
+  };
+  // Format submitted date
+  const formatSubmittedDate = (value) => {
+    if (!value) return 'Unknown date';
+    try {
+      const date = new Date(value);
+      return isNaN(date.getTime()) ? 'Unknown date' : date.toLocaleDateString();
+    } catch {
+      return 'Unknown date';
+    }
+  };
+  // Get urgency badge based on symptoms or reason
+  const getUrgencyBadge = () => {
+    // You can add logic here to determine urgency based on reason content
+    // For now, return medium by default
+    return (
+      <Badge className="bg-amber-100 text-amber-700 border-amber-200">
+        Medium Priority
+      </Badge>
+    );
+  };
+  // Get type icon
+  const getTypeIcon = (consultationType) => {
+    switch(consultationType) {
+      case 'video':
+        return <Video size={16} className="text-blue-500" />;
+      case 'chat':
+        return <Phone size={16} className="text-purple-500" />;
+      default:
+        return <Video size={16} className="text-blue-500" />;
+    }
+  };
+  // Get type label
+  const getTypeLabel = (consultationType) => {
+    switch(consultationType) {
+      case 'video':
+        return 'Video Call';
+      case 'chat':
+        return 'Chat Consultation';
+      default:
+        return 'Video Call';
+    }
+  };
+  // Get status badge
+  const getStatusBadge = (status) => {
+    const statusConfig = {
+      'Pending': {
+        bg: 'bg-amber-100',
+        text: 'text-amber-700',
+        border: 'border-amber-200',
+        icon: <HourglassIcon size={14} />,
+        label: 'Pending Review'
+      },
+      'Approved': {
+        bg: 'bg-green-100',
+        text: 'text-green-700',
+        border: 'border-green-200',
+        icon: <CheckCircle2 size={14} />,
+        label: 'Approved'
+      },
+      'Completed': {
+        bg: 'bg-blue-100',
+        text: 'text-blue-700',
+        border: 'border-blue-200',
+        icon: <CheckCircle2 size={14} />,
+        label: 'Completed'
+      },
+      'Cancelled': {
+        bg: 'bg-red-100',
+        text: 'text-red-700',
+        border: 'border-red-200',
+        icon: <XCircle size={14} />,
+        label: 'Cancelled'
+      },
+      'Rejected': {
+        bg: 'bg-red-100',
+        text: 'text-red-700',
+        border: 'border-red-200',
+        icon: <XCircle size={14} />,
+        label: 'Rejected'
+      }
+    };
+    const config = statusConfig[status];
+    if (!config) return null;
+    return (
+      <Badge className={`${config.bg} ${config.text} border ${config.border} flex items-center gap-1 px-3 py-1`}>
+        {config.icon}
+        {config.label}
+      </Badge>
+    );
+  };
+  // Handle approve action - open modal
+  const handleApproveClick = async (appointment) => {
+    setSelectedAppointment(appointment);
+    await fetchAvailableSlots(appointment.id);
+    setShowApproveModal(true);
+  };
+  // Handle confirm approve
+  const handleConfirmApprove = async () => {
+    if (!selectedSlot) {
+      alert('Please select a time slot');
+      return;
+    }
+    setActionLoading(true);
+    try {
+      await axios.patch(`http://localhost:5000/api/vet-appointments/${selectedAppointment.id}/approve`, {
+        slotId: selectedSlot
+      });
+      await fetchAppointments();
+      setShowApproveModal(false);
+      setSelectedAppointment(null);
+      setSelectedSlot('');
+      setAvailableSlots([]);
+    } catch (err) {
+      console.error('Failed to approve appointment:', err);
+      alert('Failed to approve appointment. Please try again.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+  // Handle reject
+  const handleDecline = async (appointmentId) => {
     if (!declineReason.trim()) {
       alert('Please provide a reason for declining this request.');
       return;
     }
-    // In a real app, this would make an API call
-    console.log(`Declined request ${requestId} with reason: ${declineReason}`);
-    alert('Consultation declined. The client will be notified with your feedback.');
-    setSelectedRequest(null);
-    setDeclineReason('');
-  };
-
-  const getUrgencyBadge = (urgency) => {
-    switch(urgency) {
-      case 'high':
-        return <Badge className="bg-red-100 text-red-700 border-red-200 flex items-center gap-1">
-          <AlertCircle size={12} />
-          High Priority
-        </Badge>;
-      case 'medium':
-        return <Badge className="bg-amber-100 text-amber-700 border-amber-200">
-          Medium Priority
-        </Badge>;
-      case 'low':
-        return <Badge className="bg-blue-100 text-blue-700 border-blue-200">
-          Routine
-        </Badge>;
+    setActionLoading(true);
+    try {
+      // You can store the decline reason in a notes field or separate table
+      // For now, we'll just reject and log the reason
+      await axios.patch(`http://localhost:5000/api/vet-appointments/${appointmentId}/reject`);
+      await fetchAppointments();
+      setSelectedRequest(null);
+      setDeclineReason('');
+      alert('Consultation declined. The client will be notified.');
+    } catch (err) {
+      console.error('Failed to decline appointment:', err);
+      alert('Failed to decline appointment. Please try again.');
+    } finally {
+      setActionLoading(false);
     }
   };
-
-  const getTypeIcon = (type) => {
-    switch(type) {
-      case 'Video Call':
-        return <Video size={16} className="text-blue-500" />;
-      case 'Clinic Visit':
-        return <MapPin size={16} className="text-green-500" />;
-      case 'Phone Call':
-        return <Phone size={16} className="text-purple-500" />;
-      default:
-        return <User size={16} />;
+  // Handle complete
+  const handleComplete = async (appointmentId) => {
+    if (!window.confirm('Mark this appointment as completed?')) return;
+    try {
+      await axios.patch(`http://localhost:5000/api/vet-appointments/${appointmentId}/complete`);
+      await fetchAppointments();
+      alert('Appointment marked as completed successfully!');
+    } catch (err) {
+      console.error('Failed to complete appointment:', err);
+      alert('Failed to complete appointment. Please try again.');
     }
   };
-
+  // Handle cancel
+  const handleCancel = async (appointmentId) => {
+    if (!window.confirm('Are you sure you want to cancel this appointment?')) return;
+    try {
+      await axios.patch(`http://localhost:5000/api/vet-appointments/${appointmentId}/cancel`);
+      await fetchAppointments();
+      alert('Appointment cancelled successfully!');
+    } catch (err) {
+      console.error('Failed to cancel appointment:', err);
+      alert('Failed to cancel appointment. Please try again.');
+    }
+  };
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20 text-slate-500">
+        <div className="animate-pulse flex flex-col items-center">
+          <div className="w-12 h-12 border-4 border-green-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+          Loading consultation requests...
+        </div>
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-red-500">
+        <AlertCircle size={48} className="mb-4" />
+        <p>{error}</p>
+        <Button 
+          onClick={() => window.location.reload()} 
+          className="mt-4 bg-red-600 hover:bg-red-700 text-white"
+        >
+          Try Again
+        </Button>
+      </div>
+    );
+  }
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Consultation Requests</h2>
@@ -146,7 +296,6 @@ export default function VetConsultationRequests() {
           </Badge>
         </div>
       </div>
-
       {/* Tabs */}
       <div className="flex items-center gap-4 border-b border-slate-200">
         <button
@@ -166,157 +315,157 @@ export default function VetConsultationRequests() {
             activeTab === 'reviewed' ? 'text-green-600' : 'text-slate-500 hover:text-slate-700'
           }`}
         >
-          Recently Reviewed
+          Reviewed ({reviewedRequests.length})
           {activeTab === 'reviewed' && (
             <span className="absolute bottom-0 left-0 w-full h-0.5 bg-green-600 rounded-t-full"></span>
           )}
         </button>
       </div>
-
       {/* Pending Requests Tab */}
       {activeTab === 'pending' && (
         <div className="grid gap-6">
-          {pendingRequests.map((request) => (
-            <Card key={request.id} className="p-0 border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-              {/* Header */}
-              <div className="bg-gradient-to-r from-amber-50 to-orange-50 p-4 border-b border-amber-100 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm">
-                    {getTypeIcon(request.type)}
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-slate-900">{request.patientName}</h3>
-                    <p className="text-sm text-slate-600">Owned by {request.ownerName} • {request.ownerType}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {getUrgencyBadge(request.urgency)}
-                  <span className="text-xs text-slate-500">{request.requestedAt}</span>
-                </div>
-              </div>
-
-              {/* Content */}
-              <div className="p-6">
-                <div className="grid md:grid-cols-3 gap-6 mb-6">
-                  {/* Animal Image and Details */}
-                  <div className="md:col-span-1">
-                    <img 
-                      src={request.image} 
-                      alt={request.patientName} 
-                      className="w-full h-48 object-cover rounded-lg border border-slate-200 mb-4"
-                    />
-                    <div className="space-y-2">
-                      <div className="flex items-center text-sm">
-                        <span className="text-slate-500 w-20">Breed:</span>
-                        <span className="text-slate-900 font-medium">{request.animalBreed}</span>
+          {pendingRequests.length > 0 ? (
+            pendingRequests.map((request) => {
+              const availability = request.availability_slots || [];
+              const notes = request.reason_notes || '';
+              
+              return (
+                <Card key={request.id} className="p-0 border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                  {/* Header */}
+                  <div className="bg-gradient-to-r from-amber-50 to-orange-50 p-4 border-b border-amber-100 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm">
+                        {getTypeIcon(request.consultation_type)}
                       </div>
-                      <div className="flex items-center text-sm">
-                        <span className="text-slate-500 w-20">Age:</span>
-                        <span className="text-slate-900 font-medium">{request.animalAge}</span>
-                      </div>
-                      <div className="flex items-center text-sm">
-                        <span className="text-slate-500 w-20">Contact:</span>
-                        <span className="text-slate-900 font-medium">{request.ownerContact}</span>
+                      <div>
+                        <h3 className="font-semibold text-slate-900">{request.animal_name}</h3>
+                        <p className="text-sm text-slate-600">
+                          Owned by {request.owner_name} • Submitted {formatSubmittedDate(request.created_at)}
+                        </p>
                       </div>
                     </div>
+                    <div className="flex items-center gap-2">
+                      {getStatusBadge(request.status)}
+                      {getUrgencyBadge(request.reason)}
+                    </div>
                   </div>
-
-                  {/* Consultation Details */}
-                  <div className="md:col-span-2 space-y-4">
-                    <div>
-                      <h4 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-2">
-                        Requested Appointment
-                      </h4>
-                      <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-2">
-                        <div className="flex items-center gap-3">
-                          <Calendar size={18} className="text-slate-400" />
-                          <span className="font-medium text-slate-900">{request.date} at {request.time}</span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          {getTypeIcon(request.type)}
-                          <span className="text-slate-700">{request.type}</span>
+                  {/* Content */}
+                  <div className="p-6">
+                    <div className="grid md:grid-cols-3 gap-6 mb-6">
+                      {/* Patient Info */}
+                      <div className="md:col-span-1 space-y-4">
+                        <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                          <h4 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-3">
+                            Patient Details
+                          </h4>
+                          <div className="space-y-2">
+                            <div className="flex items-center text-sm">
+                              <span className="text-slate-500 w-24">Animal:</span>
+                              <span className="text-slate-900 font-medium">{request.animal_name}</span>
+                            </div>
+                            <div className="flex items-center text-sm">
+                              <span className="text-slate-500 w-24">Veterinarian:</span>
+                              <span className="text-slate-900 font-medium">{request.veterinarian_name}</span>
+                            </div>
+                            <div className="flex items-center text-sm">
+                              <span className="text-slate-500 w-24">Type:</span>
+                              <span className="text-slate-900 font-medium">{getTypeLabel(request.consultation_type)}</span>
+                            </div>
+                          </div>
                         </div>
                       </div>
-                    </div>
-
-                    <div>
-                      <h4 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-2">
-                        Reported Symptoms / Reason
-                      </h4>
-                      <div className="bg-amber-50 p-4 rounded-lg border border-amber-200">
-                        <p className="text-slate-800 leading-relaxed">{request.symptoms}</p>
-                      </div>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="pt-4 border-t border-slate-200">
-                      {selectedRequest === request.id ? (
-                        <div className="space-y-3">
+                      {/* Consultation Details */}
+                      <div className="md:col-span-2 space-y-4">
+                        <div>
+                          <h4 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-2">
+                            Requested Availability
+                          </h4>
+                          <div className="bg-amber-50 p-4 rounded-lg border border-amber-200">
+                            <p className="text-slate-800 leading-relaxed">
+                              {formatAvailability(availability)}
+                            </p>
+                          </div>
+                        </div>
+                        {notes && (
                           <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-2">
-                              Reason for Declining (will be sent to client)
-                            </label>
-                            <Textarea
-                              value={declineReason}
-                              onChange={(e) => setDeclineReason(e.target.value)}
-                              placeholder="e.g., Requested time slot is unavailable. Please book another slot or contact us for alternative times."
-                              className="min-h-[100px]"
-                            />
+                            <h4 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-2">
+                              Symptoms / Notes
+                            </h4>
+                            <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                              <p className="text-slate-800 leading-relaxed">{notes}</p>
+                            </div>
                           </div>
-                          <div className="flex gap-3">
-                            <Button
-                              onClick={() => handleDecline(request.id)}
-                              className="flex-1 bg-red-600 hover:bg-red-700 text-white"
-                            >
-                              <XCircle size={18} className="mr-2" />
-                              Confirm Decline
-                            </Button>
-                            <Button
-                              onClick={() => {
-                                setSelectedRequest(null);
-                                setDeclineReason('');
-                              }}
-                              variant="outline"
-                              className="flex-1"
-                            >
-                              Cancel
-                            </Button>
-                          </div>
+                        )}
+                        {/* Action Buttons */}
+                        <div className="pt-4 border-t border-slate-200">
+                          {selectedRequest === request.id ? (
+                            <div className="space-y-3">
+                              <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-2">
+                                  Reason for Declining (will be sent to client)
+                                </label>
+                                <Textarea
+                                  value={declineReason}
+                                  onChange={(e) => setDeclineReason(e.target.value)}
+                                  placeholder="e.g., Requested time slot is unavailable. Please book another slot or contact us for alternative times."
+                                  className="min-h-[100px] w-full"
+                                />
+                              </div>
+                              <div className="flex gap-3">
+                                <Button
+                                  onClick={() => handleDecline(request.id)}
+                                  className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                                  disabled={actionLoading}
+                                >
+                                  <XCircle size={18} className="mr-2" />
+                                  Confirm Decline
+                                </Button>
+                                <Button
+                                  onClick={() => {
+                                    setSelectedRequest(null);
+                                    setDeclineReason('');
+                                  }}
+                                  variant="outline"
+                                  className="flex-1"
+                                >
+                                  Cancel
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex gap-3">
+                              <Button
+                                onClick={() => handleApproveClick(request)}
+                                className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                              >
+                                <CheckCircle2 size={18} className="mr-2" />
+                                Approve Consultation
+                              </Button>
+                              <Button
+                                onClick={() => setSelectedRequest(request.id)}
+                                variant="outline"
+                                className="flex-1 border-red-300 text-red-600 hover:bg-red-50"
+                              >
+                                <XCircle size={18} className="mr-2" />
+                                Decline Request
+                              </Button>
+                              <Button
+                                onClick={() => navigate(`/dashboard/vet/consultations/${request.id}`)}
+                                variant="ghost"
+                                className="px-4"
+                              >
+                                <FileText size={18} />
+                              </Button>
+                            </div>
+                          )}
                         </div>
-                      ) : (
-                        <div className="flex gap-3">
-                          <Button
-                            onClick={() => handleApprove(request.id)}
-                            className="flex-1 bg-green-600 hover:bg-green-700 text-white"
-                          >
-                            <CheckCircle2 size={18} className="mr-2" />
-                            Approve Consultation
-                          </Button>
-                          <Button
-                            onClick={() => setSelectedRequest(request.id)}
-                            variant="outline"
-                            className="flex-1 border-red-300 text-red-600 hover:bg-red-50"
-                          >
-                            <XCircle size={18} className="mr-2" />
-                            Decline Request
-                          </Button>
-                          <Button
-                            onClick={() => navigate(`/dashboard/vet/consultations/${request.id}`)}
-                            variant="ghost"
-                            className="px-4"
-                          >
-                            <FileText size={18} />
-                          </Button>
-                        </div>
-                      )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
-            </Card>
-          ))}
-
-          {pendingRequests.length === 0 && (
+                </Card>
+              );
+            })
+          ) : (
             <Card className="p-12 border-slate-200 border-dashed flex flex-col items-center justify-center text-center bg-slate-50/50">
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4 text-green-600">
                 <CheckCircle2 size={24} />
@@ -329,48 +478,154 @@ export default function VetConsultationRequests() {
           )}
         </div>
       )}
-
       {/* Reviewed Tab */}
       {activeTab === 'reviewed' && (
         <div className="grid gap-4">
-          {reviewedRequests.map((request) => (
-            <Card key={request.id} className="p-4 border-slate-200">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                    request.status === 'approved' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
-                  }`}>
-                    {request.status === 'approved' ? <CheckCircle2 size={20} /> : <XCircle size={20} />}
+          {reviewedRequests.length > 0 ? (
+            reviewedRequests.map((request) => (
+              <Card key={request.id} className="p-4 border-slate-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                      request.status === 'Approved' || request.status === 'Completed' 
+                        ? 'bg-green-100 text-green-600' 
+                        : 'bg-red-100 text-red-600'
+                    }`}>
+                      {request.status === 'Approved' || request.status === 'Completed' 
+                        ? <CheckCircle2 size={20} /> 
+                        : <XCircle size={20} />
+                      }
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-slate-900">{request.animal_name}</h4>
+                      <p className="text-sm text-slate-500">
+                        Owner: {request.owner_name} • {getTypeLabel(request.consultation_type)}
+                      </p>
+                      {request.appointment_date && (
+                        <p className="text-xs text-slate-400 mt-1">
+                          {formatDate(request.appointment_date, request.appointment_time)}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="font-semibold text-slate-900">{request.patientName}</h4>
-                    <p className="text-sm text-slate-500">Owner: {request.ownerName} • {request.type}</p>
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      {getStatusBadge(request.status)}
+                      <p className="text-xs text-slate-500 mt-1">
+                        {formatSubmittedDate(request.updated_at || request.created_at)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {request.status === 'Approved' && (
+                        <>
+                          <Button
+                            onClick={() => handleComplete(request.id)}
+                            size="sm"
+                            className="bg-blue-600 hover:bg-blue-700 text-white"
+                          >
+                            Complete
+                          </Button>
+                          <Button
+                            onClick={() => handleCancel(request.id)}
+                            size="sm"
+                            variant="outline"
+                            className="border-red-300 text-red-600 hover:bg-red-50"
+                          >
+                            Cancel
+                          </Button>
+                        </>
+                      )}
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => navigate(`/dashboard/vet/consultations/${request.id}`)}
+                      >
+                        <ChevronRight size={20} />
+                      </Button>
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-4">
-                  <div className="text-right">
-                    <Badge className={request.status === 'approved' 
-                      ? 'bg-green-100 text-green-700 border-green-200' 
-                      : 'bg-red-100 text-red-700 border-red-200'
-                    }>
-                      {request.status === 'approved' ? 'Approved' : 'Declined'}
-                    </Badge>
-                    <p className="text-xs text-slate-500 mt-1">{request.reviewedAt}</p>
+                {request.status === 'Rejected' && (
+                  <div className="mt-3 pt-3 border-t border-slate-100">
+                    <p className="text-sm text-slate-600">
+                      <span className="font-medium">Declined:</span> Appointment request was not approved.
+                    </p>
                   </div>
-                  <Button variant="ghost" size="sm">
-                    <ChevronRight size={20} />
-                  </Button>
-                </div>
+                )}
+              </Card>
+            ))
+          ) : (
+            <Card className="p-12 border-slate-200 border-dashed flex flex-col items-center justify-center text-center bg-slate-50/50">
+              <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4 text-slate-400">
+                <FileText size={24} />
               </div>
-              {request.status === 'declined' && request.reason && (
-                <div className="mt-3 pt-3 border-t border-slate-100">
-                  <p className="text-sm text-slate-600">
-                    <span className="font-medium">Reason:</span> {request.reason}
-                  </p>
+              <h3 className="text-lg font-medium text-slate-900 mb-1">No reviewed requests</h3>
+              <p className="text-slate-500 max-w-sm">
+                You haven't reviewed any consultation requests yet.
+              </p>
+            </Card>
+          )}
+        </div>
+      )}
+      {/* Approve Modal */}
+      {showApproveModal && selectedAppointment && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-semibold text-slate-900 mb-4">
+              Approve Consultation
+            </h3>
+            <p className="text-slate-600 mb-4">
+              Select a time slot for {selectedAppointment.animal_name}'s consultation:
+            </p>
+            
+            <div className="space-y-3 mb-6">
+              {availableSlots.length > 0 ? (
+                availableSlots.map((slot) => (
+                  <button
+                    key={slot.id}
+                    onClick={() => setSelectedSlot(slot.id)}
+                    className={`w-full p-3 border-2 rounded-lg text-left transition-all ${
+                      selectedSlot === slot.id
+                        ? 'border-green-500 bg-green-50'
+                        : 'border-slate-200 hover:border-green-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Calendar size={18} className="text-slate-400" />
+                      <span className="font-medium">
+                        {formatDate(slot.slot_date, slot.slot_time)}
+                      </span>
+                    </div>
+                  </button>
+                ))
+              ) : (
+                <div className="text-center py-4 text-slate-500">
+                  No available slots found for this appointment.
                 </div>
               )}
-            </Card>
-          ))}
+            </div>
+            <div className="flex gap-3">
+              <Button
+                onClick={handleConfirmApprove}
+                disabled={!selectedSlot || actionLoading}
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+              >
+                {actionLoading ? 'Processing...' : 'Confirm Approval'}
+              </Button>
+              <Button
+                onClick={() => {
+                  setShowApproveModal(false);
+                  setSelectedAppointment(null);
+                  setSelectedSlot('');
+                  setAvailableSlots([]);
+                }}
+                variant="outline"
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>

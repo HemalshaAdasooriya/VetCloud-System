@@ -32,7 +32,7 @@ export default function ConsultationPage() {
     }
 
     try {
-      const res = await axios.get(`http://localhost:5000/api/appointments/owner/${ownerId}`);
+      const res = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/appointments/owner/${ownerId}`);
       setAppointments(res.data);
     } catch (err) {
       console.error('Failed to fetch appointments:', err);
@@ -52,7 +52,7 @@ export default function ConsultationPage() {
       const animalName = appointment?.animal_name || 'your animal';
       const vetName = appointment?.veterinarian_name || 'the veterinarian';
 
-      await axios.patch(`http://localhost:5000/api/appointments/${appointmentId}/cancel`);
+      await axios.patch(`${import.meta.env.VITE_BACKEND_URL}/api/appointments/${appointmentId}/cancel`);
       toast.success("Consultation request cancelled successfully.");
       setCancelModalId(null);
 
