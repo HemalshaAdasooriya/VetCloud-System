@@ -31,7 +31,7 @@ export default function VetConsultationRequests() {
   }, [vetId]);
   const fetchAppointments = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/vet-appointments/vet/${vetId}`);
+      const res = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/vet-appointments/vet/${vetId}`);
       setAppointments(res.data);
     } catch (err) {
       console.error('Failed to fetch appointments:', err);
@@ -42,7 +42,7 @@ export default function VetConsultationRequests() {
   };
   const fetchAvailableSlots = async (appointmentId) => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/vet-appointments/${appointmentId}/available-slots`);
+      const res = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/vet-appointments/${appointmentId}/available-slots`);
       setAvailableSlots(res.data);
     } catch (err) {
       console.error('Failed to fetch available slots:', err);
@@ -196,7 +196,7 @@ export default function VetConsultationRequests() {
     }
     setActionLoading(true);
     try {
-      await axios.patch(`http://localhost:5000/api/vet-appointments/${selectedAppointment.id}/approve`, {
+      await axios.patch(`${import.meta.env.VITE_BACKEND_URL}/api/vet-appointments/${selectedAppointment.id}/approve`, {
         slotId: selectedSlot
       });
       await fetchAppointments();
@@ -221,7 +221,7 @@ export default function VetConsultationRequests() {
     try {
       // You can store the decline reason in a notes field or separate table
       // For now, we'll just reject and log the reason
-      await axios.patch(`http://localhost:5000/api/vet-appointments/${appointmentId}/reject`);
+      await axios.patch(`${import.meta.env.VITE_BACKEND_URL}/api/vet-appointments/${appointmentId}/reject`);
       await fetchAppointments();
       setSelectedRequest(null);
       setDeclineReason('');
@@ -237,7 +237,7 @@ export default function VetConsultationRequests() {
   const handleComplete = async (appointmentId) => {
     if (!window.confirm('Mark this appointment as completed?')) return;
     try {
-      await axios.patch(`http://localhost:5000/api/vet-appointments/${appointmentId}/complete`);
+      await axios.patch(`${import.meta.env.VITE_BACKEND_URL}/api/vet-appointments/${appointmentId}/complete`);
       await fetchAppointments();
       alert('Appointment marked as completed successfully!');
     } catch (err) {
@@ -249,7 +249,7 @@ export default function VetConsultationRequests() {
   const handleCancel = async (appointmentId) => {
     if (!window.confirm('Are you sure you want to cancel this appointment?')) return;
     try {
-      await axios.patch(`http://localhost:5000/api/vet-appointments/${appointmentId}/cancel`);
+      await axios.patch(`${import.meta.env.VITE_BACKEND_URL}/api/vet-appointments/${appointmentId}/cancel`);
       await fetchAppointments();
       alert('Appointment cancelled successfully!');
     } catch (err) {

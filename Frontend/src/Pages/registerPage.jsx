@@ -62,16 +62,19 @@ export default function RegisterPage() {
     // GOOGLE HANDLER
 
     const handleGoogleSuccess = async (credentialResponse) => {
+        console.log("handleGoogleSuccess (register) triggered. credentialResponse:", credentialResponse);
         setIsLoading(true);
         const backendRole = role === 'user' ? "Farmer/PetOwner" : "Veterinary Doctor";
         
         try {
+            console.log("Sending token to backend at:", `${import.meta.env.VITE_BACKEND_URL}/api/users/google-login`);
             const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/google-login`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ token: credentialResponse.access_token, role: backendRole })
             });
             const data = await response.json();
+            console.log("Backend response status:", response.status, "data:", data);
             
             if (response.ok) {
                 toast.success("Google Authentication Successful!");
@@ -88,7 +91,8 @@ export default function RegisterPage() {
             } else {
                 setSubmitMessage({ text: data.message || "Google registration failed", isError: true });
             }
-        } catch {
+        } catch (error) {
+            console.error("Google registration fetch error:", error);
             setSubmitMessage({ text: "Server connection failed.", isError: true });
         } finally {
             setIsLoading(false);
