@@ -138,7 +138,6 @@ export function DashboardLayout() {
   ] : isVet ? [
     { name: 'Doctor Dashboard', path: '/dashboard/doctor', icon: LayoutDashboard },
     { name: 'Consultation Requests', path: '/dashboard/doctor/requests', icon: ClipboardList }, //Navindu 2026/06/19 ... vet consultation requests
-    { name: 'Consultations', path: '/dashboard/doctor/consultations', icon: Stethoscope },
     { name: 'Schedule', path: '/dashboard/doctor/schedule', icon: Calendar },
     { name: 'Settings', path: '/dashboard/doctor/settings', icon: Settings },
   ] : [
