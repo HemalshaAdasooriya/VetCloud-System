@@ -220,11 +220,18 @@ export default function RegisterPage() {
                 });
 
             const result = await response.json()
-            if (response.status === 201) {
+            if (response.status === 201 || response.status === 200) {
                 toast.success("Account created successfully!");
-                setFirstName(""); setLastName(""); setPhone(""); setEmail(""); setPassword(""); 
-                setConfirmPassword(""); setNumberOfAnimals(""); 
-                setLicense(""); setSpecialization(""); setExperience(""); setFee("");
+                if (result.token) localStorage.setItem("token", result.token);
+                if (result.user) localStorage.setItem("user", JSON.stringify(result.user));
+                if (result.user && result.user.id) localStorage.setItem("userId", result.user.id);
+
+                // Redirect user to their dashboard
+                if (role === 'user') {
+                    navigate("/dashboard/user");
+                } else if (role === 'vet') {
+                    navigate("/dashboard/doctor");
+                }
             } else {
                 setSubmitMessage({ text: result.message || "Registration failed", isError: true });
             }

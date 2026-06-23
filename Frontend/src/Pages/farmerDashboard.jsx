@@ -31,6 +31,8 @@ export default function FarmerDashboard() {
   const [animals, setAnimals] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [notifications, setNotifications] = useState([]);
+  const [appointments, setAppointments] = useState([]);
+  const [isAppointmentsLoading, setIsAppointmentsLoading] = useState(true);
 
   // Modal and Form States
   const [showRegisterModal, setShowRegisterModal] = useState(false);
@@ -82,20 +84,27 @@ export default function FarmerDashboard() {
     }
   };
 
-  const fetchNotifications = async () => {
-    if (!ownerId) return;
+  const fetchAppointments = async () => {
+    if (!ownerId) {
+      setIsAppointmentsLoading(false);
+      return;
+    }
     try {
-      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/notifications`, {
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/appointments/owner/${ownerId}`, {
         headers: {
           "Authorization": `Bearer ${token}`
         }
       });
       if (res.ok) {
         const data = await res.json();
-        setNotifications(data);
+        setAppointments(data);
+      } else {
+        console.error("Failed to load appointments");
       }
     } catch (err) {
-      console.error("Failed to load notifications:", err);
+      console.error("Could not connect to server", err);
+    } finally {
+      setIsAppointmentsLoading(false);
     }
   };
 
@@ -113,9 +122,58 @@ export default function FarmerDashboard() {
     };
   }, [ownerId, token]);
 
-  // Mock handler for rescheduling
-  const handleReschedule = (appointmentName) => {
-    toast.success(`Reschedule request initiated for ${appointmentName}`);
+  const handleReschedule = (appointmentId) => {
+    navigate('/dashboard/user/appoinment', { state: { resubmitAppointmentId: appointmentId } });
+  };
+
+  const formatAppointmentTime = (date, time) => {
+    if (!date) return 'Awaiting slot confirmation';
+    try {
+      const dateStr = date.includes('T') ? date.split('T')[0] : date;
+      const timeStr = time || '00:00:00';
+      const d = new Date(`${dateStr}T${timeStr}`);
+      if (isNaN(d.getTime())) return 'TBD';
+
+      const today = new Date();
+      const tomorrow = new Date();
+      tomorrow.setDate(today.getDate() + 1);
+
+      const dDateStr = d.toDateString();
+      const todayDateStr = today.toDateString();
+      const tomorrowDateStr = tomorrow.toDateString();
+
+      const timeOptions = { hour: '2-digit', minute: '2-digit' };
+      const formattedTime = time ? d.toLocaleTimeString(undefined, timeOptions) : '';
+
+      if (dDateStr === todayDateStr) {
+        return `Today${formattedTime ? `, ${formattedTime}` : ''}`;
+      } else if (dDateStr === tomorrowDateStr) {
+        return `Tomorrow${formattedTime ? `, ${formattedTime}` : ''}`;
+      } else {
+        return d.toLocaleDateString(undefined, {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'
+        }) + (formattedTime ? `, ${formattedTime}` : '');
+      }
+    } catch {
+      return 'TBD';
+    }
+  };
+
+  const getStatusBadge = (status) => {
+    if (status === 'Approved') {
+      return (
+        <span className="inline-flex items-center gap-1 bg-green-50 text-green-700 border border-green-100 px-2 py-0.5 rounded-full text-[11px] font-bold">
+          <Check size={12} strokeWidth={3} className="text-green-600" /> Confirmed
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-700 border border-amber-100 px-2 py-0.5 rounded-full text-[11px] font-bold">
+        <Clock size={12} strokeWidth={3} className="text-amber-500" /> Pending Confirmation
+      </span>
+    );
   };
 
   // Navigate to My Animals page and trigger history modal
@@ -177,17 +235,22 @@ export default function FarmerDashboard() {
       } else {
         toast.error(data.message || "Failed to register profile");
       }
-    } catch (err) {
-      console.error(err);
+    } catch {
       toast.error("Failed to communicate with server");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Determine dynamic names based on database animals
-  const firstAnimalName = animals[0] ? `${animals[0].name} (${animals[0].species})` : 'Bessie (Cow)';
-  const secondAnimalName = animals[1] ? `${animals[1].name} (${animals[1].species})` : (animals[0] ? 'Max (Dog)' : 'Max (Dog)');
+  const activeAppointments = appointments.filter(a => a.status === 'Approved' || a.status === 'Pending');
+  const sortedAppointments = [...activeAppointments].sort((a, b) => {
+    if (a.status === 'Approved' && b.status === 'Approved') {
+      return new Date(`${a.appointment_date}T${a.appointment_time || '00:00:00'}`) - new Date(`${b.appointment_date}T${b.appointment_time || '00:00:00'}`);
+    }
+    if (a.status === 'Approved') return -1;
+    if (b.status === 'Approved') return 1;
+    return new Date(b.created_at) - new Date(a.created_at);
+  });
 
   return (
     <div className="max-w-[1400px] mx-auto space-y-6 animate-fade-in">
@@ -199,7 +262,15 @@ export default function FarmerDashboard() {
             <Sparkles className="text-amber-400 shrink-0" size={24} />
           </h2>
           <p className="text-slate-500 text-sm md:text-base font-medium">
-            You have 2 upcoming appointments this week.
+            {isAppointmentsLoading ? (
+              "Checking your schedule..."
+            ) : activeAppointments.length === 0 ? (
+              "You have no upcoming appointments."
+            ) : activeAppointments.length === 1 ? (
+              "You have 1 upcoming appointment."
+            ) : (
+              `You have ${activeAppointments.length} upcoming appointments.`
+            )}
           </p>
         </div>
 
@@ -226,7 +297,7 @@ export default function FarmerDashboard() {
                 <h3 className="font-bold text-slate-800 text-lg">Upcoming Appointments</h3>
               </div>
               <Link 
-                to="/dashboard/user/appoinment" 
+                to="/dashboard/user/consultations" 
                 className="text-green-600 hover:text-green-700 font-bold text-sm transition-all flex items-center gap-0.5"
               >
                 View All <ChevronRight size={16} />
@@ -234,61 +305,56 @@ export default function FarmerDashboard() {
             </div>
 
             <div className="space-y-4">
-              {/* Appointment 1 */}
-              <div className="bg-slate-50/50 border border-slate-100 rounded-xl p-4 md:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:shadow-md hover:bg-slate-50 transition-all duration-300">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full flex items-center justify-center bg-blue-50 text-blue-500 shrink-0">
-                    <Video size={20} />
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-slate-800 text-sm md:text-base">
-                      {firstAnimalName} - Dr. Sarah Smith
-                    </h4>
-                    <div className="flex flex-wrap items-center gap-3 mt-1.5 text-xs font-semibold text-slate-400">
-                      <span className="flex items-center gap-1 text-slate-500">
-                        <Clock size={14} className="text-slate-400" /> Tomorrow, 10:00 AM
-                      </span>
-                      <span className="inline-flex items-center gap-1 bg-green-50 text-green-700 border border-green-100 px-2 py-0.5 rounded-full text-[11px] font-bold">
-                        <Check size={12} strokeWidth={3} className="text-green-600" /> Confirmed
-                      </span>
-                    </div>
-                  </div>
+              {isAppointmentsLoading ? (
+                <div className="flex flex-col items-center justify-center py-8 space-y-2">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+                  <p className="text-xs text-slate-400">Loading appointments...</p>
                 </div>
-                <button 
-                  onClick={() => handleReschedule(`${firstAnimalName} with Dr. Sarah Smith`)}
-                  className="bg-white hover:bg-slate-50 text-slate-700 font-bold px-4 py-2 border border-slate-200 rounded-xl text-sm transition-all shadow-sm hover:border-slate-300 active:scale-98 cursor-pointer self-start sm:self-auto"
-                >
-                  Reschedule
-                </button>
-              </div>
-
-              {/* Appointment 2 */}
-              <div className="bg-slate-50/50 border border-slate-100 rounded-xl p-4 md:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:shadow-md hover:bg-slate-50 transition-all duration-300">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full flex items-center justify-center bg-blue-50 text-blue-500 shrink-0">
-                    <Activity size={20} />
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-slate-800 text-sm md:text-base">
-                      {secondAnimalName} - Dr. John Doe
-                    </h4>
-                    <div className="flex flex-wrap items-center gap-3 mt-1.5 text-xs font-semibold text-slate-400">
-                      <span className="flex items-center gap-1 text-slate-500">
-                        <Clock size={14} className="text-slate-400" /> Oct 24, 2:30 PM
-                      </span>
-                      <span className="inline-flex items-center gap-1 bg-green-50 text-green-700 border border-green-100 px-2 py-0.5 rounded-full text-[11px] font-bold">
-                        <Check size={12} strokeWidth={3} className="text-green-600" /> Confirmed
-                      </span>
+              ) : sortedAppointments.length > 0 ? (
+                sortedAppointments.slice(0, 2).map((apt) => {
+                  const isVideo = apt.consultation_type === 'video';
+                  return (
+                    <div 
+                      key={apt.id} 
+                      className="bg-slate-50/50 border border-slate-100 rounded-xl p-4 md:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:shadow-md hover:bg-slate-50 transition-all duration-300"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${isVideo ? 'bg-blue-50 text-blue-500' : 'bg-purple-50 text-purple-500'}`}>
+                          {isVideo ? <Video size={20} /> : <Activity size={20} />}
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-slate-800 text-sm md:text-base">
+                            {apt.animal_name} {apt.animal_species ? `(${apt.animal_species})` : ''} - Dr. {apt.veterinarian_name}
+                          </h4>
+                          <div className="flex flex-wrap items-center gap-3 mt-1.5 text-xs font-semibold text-slate-400">
+                            <span className="flex items-center gap-1 text-slate-500">
+                              <Clock size={14} className="text-slate-400" /> {formatAppointmentTime(apt.appointment_date, apt.appointment_time)}
+                            </span>
+                            {getStatusBadge(apt.status)}
+                          </div>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => handleReschedule(apt.id)}
+                        className="bg-white hover:bg-slate-50 text-slate-700 font-bold px-4 py-2 border border-slate-200 rounded-xl text-sm transition-all shadow-sm hover:border-slate-300 active:scale-98 cursor-pointer self-start sm:self-auto"
+                      >
+                        Reschedule
+                      </button>
                     </div>
-                  </div>
+                  );
+                })
+              ) : (
+                <div className="text-center py-8 space-y-3">
+                  <p className="text-sm text-slate-400">No upcoming appointments scheduled.</p>
+                  <Link 
+                    to="/dashboard/user/appoinment"
+                    className="inline-flex items-center gap-1.5 text-xs bg-green-50 border border-green-100 text-green-700 hover:bg-green-100 font-bold px-3.5 py-2 rounded-xl transition-all cursor-pointer"
+                  >
+                    <Plus size={14} strokeWidth={2.5} />
+                    Book an Appointment
+                  </Link>
                 </div>
-                <button 
-                  onClick={() => handleReschedule(`${secondAnimalName} with Dr. John Doe`)}
-                  className="bg-white hover:bg-slate-50 text-slate-700 font-bold px-4 py-2 border border-slate-200 rounded-xl text-sm transition-all shadow-sm hover:border-slate-300 active:scale-98 cursor-pointer self-start sm:self-auto"
-                >
-                  Reschedule
-                </button>
-              </div>
+              )}
             </div>
           </div>
 
