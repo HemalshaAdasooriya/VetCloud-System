@@ -30,6 +30,7 @@ export default function FarmerDashboard() {
   const navigate = useNavigate();
   const [animals, setAnimals] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [notifications, setNotifications] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [isAppointmentsLoading, setIsAppointmentsLoading] = useState(true);
 
@@ -107,9 +108,38 @@ export default function FarmerDashboard() {
     }
   };
 
+  const fetchNotifications = async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/notifications`, {
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setNotifications(data);
+      } else {
+        console.error("Failed to load notifications");
+      }
+    } catch (err) {
+      console.error("Could not connect to server", err);
+    }
+  };
+
   useEffect(() => {
     fetchAnimals();
     fetchAppointments();
+    fetchNotifications();
+
+    const handleNotificationsUpdated = () => {
+      fetchNotifications();
+    };
+    window.addEventListener("notificationsUpdated", handleNotificationsUpdated);
+
+    return () => {
+      window.removeEventListener("notificationsUpdated", handleNotificationsUpdated);
+    };
   }, [ownerId, token]);
 
   const handleReschedule = (appointmentId) => {
@@ -350,43 +380,82 @@ export default function FarmerDashboard() {
 
           {/* Recent Notifications Card */}
           <div className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm">
-            <div className="flex items-center gap-2 mb-5">
-              <AlertCircle className="text-orange-500 shrink-0" size={22} />
-              <h3 className="font-bold text-slate-800 text-lg">Recent Notifications</h3>
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="text-orange-500 shrink-0" size={22} />
+                <h3 className="font-bold text-slate-800 text-lg">Recent Notifications</h3>
+              </div>
+              {notifications.some(n => !n.is_read) && (
+                <button 
+                  onClick={async () => {
+                    try {
+                      await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/notifications/read-all`, {
+                        method: "PUT",
+                        headers: { "Authorization": `Bearer ${token}` }
+                      });
+                      fetchNotifications();
+                      window.dispatchEvent(new Event("notificationsReloadRequest"));
+                    } catch (err) {
+                      console.error(err);
+                    }
+                  }}
+                  className="text-xs font-bold text-green-600 hover:text-green-700 cursor-pointer"
+                >
+                  Mark all read
+                </button>
+              )}
             </div>
 
-            <div className="space-y-5">
-              {/* Notification 1 */}
-              <div className="flex items-start gap-3">
-                <span className="w-2 h-2 rounded-full bg-blue-500 mt-2 shrink-0" />
-                <div className="space-y-0.5">
-                  <h4 className="font-bold text-slate-800 text-sm md:text-base">
-                    Prescription ready for {animals[0] ? animals[0].name : 'Bessie'}
-                  </h4>
-                  <p className="text-slate-500 text-xs md:text-sm font-medium leading-relaxed">
-                    Dr. Sarah has uploaded a new prescription following your consultation.
-                  </p>
-                  <span className="text-slate-400 text-[11px] font-semibold block mt-1">
-                    2 hours ago
-                  </span>
+            <div className="space-y-5 max-h-[350px] overflow-y-auto pr-1">
+              {notifications.length > 0 ? (
+                notifications.slice(0, 5).map((n) => (
+                  <div 
+                    key={n.id} 
+                    onClick={async () => {
+                      if (n.is_read) return;
+                      try {
+                        await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/notifications/${n.id}/read`, {
+                          method: "PUT",
+                          headers: { "Authorization": `Bearer ${token}` }
+                        });
+                        fetchNotifications();
+                        window.dispatchEvent(new Event("notificationsReloadRequest"));
+                      } catch (err) {
+                        console.error(err);
+                      }
+                    }}
+                    className={`flex items-start gap-3 p-2 rounded-xl transition-all cursor-pointer hover:bg-slate-50 ${!n.is_read ? 'bg-green-50/10 border-l-2 border-green-500 pl-2' : ''}`}
+                  >
+                    <span className={`w-2 h-2 rounded-full mt-2 shrink-0 ${!n.is_read ? 'bg-green-500 animate-pulse' : 'bg-slate-300'}`} />
+                    <div className="space-y-0.5 flex-1 min-w-0">
+                      <h4 className={`font-bold text-sm leading-snug ${!n.is_read ? 'text-slate-900 font-extrabold' : 'text-slate-600 font-bold'}`}>
+                        {n.title}
+                      </h4>
+                      <p className="text-slate-500 text-xs font-medium leading-relaxed">
+                        {n.message}
+                      </p>
+                      <span className="text-slate-400 text-[11px] font-semibold block mt-1">
+                        {(() => {
+                          const date = new Date(n.created_at);
+                          const now = new Date();
+                          const diffMs = now - date;
+                          const diffSec = Math.floor(diffMs / 1000);
+                          const diffMin = Math.floor(diffSec / 60);
+                          const diffHour = Math.floor(diffMin / 60);
+                          if (diffSec < 60) return "Just now";
+                          if (diffMin < 60) return `${diffMin}m ago`;
+                          if (diffHour < 24) return `${diffHour}h ago`;
+                          return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                        })()}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-6">
+                  <p className="text-sm text-slate-400">No notifications yet.</p>
                 </div>
-              </div>
-
-              {/* Notification 2 */}
-              <div className="flex items-start gap-3">
-                <span className="w-2 h-2 rounded-full bg-slate-300 mt-2 shrink-0" />
-                <div className="space-y-0.5">
-                  <h4 className="font-bold text-slate-600 text-sm md:text-base">
-                    Payment successful
-                  </h4>
-                  <p className="text-slate-500 text-xs md:text-sm font-medium leading-relaxed">
-                    Receipt for your last consultation has been generated.
-                  </p>
-                  <span className="text-slate-400 text-[11px] font-semibold block mt-1">
-                    1 day ago
-                  </span>
-                </div>
-              </div>
+              )}
             </div>
           </div>
         </div>

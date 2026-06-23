@@ -108,6 +108,16 @@ const [passwordData, setPasswordData] = useState({
   const [verificationCode, setVerificationCode] = useState('');
   const [activeSessions, setActiveSessions] = useState([]);
 
+  //isuri-notification
+   // --- Simulation states ---
+  const [ownerAppts, setOwnerAppts] = useState([]);
+  const [ownerAnimals, setOwnerAnimals] = useState([]);
+  const [simPaymentAmount, setSimPaymentAmount] = useState('1500');
+  const [selectedSimAppt, setSelectedSimAppt] = useState('');
+  const [simVaccineName, setSimVaccineName] = useState('Foot-and-Mouth Booster');
+  const [selectedSimAnimal, setSelectedSimAnimal] = useState('');
+  const [simVaccineDueDate, setSimVaccineDueDate] = useState('');
+  //---
   // --- Feedback States ---
   const [toast, setToast] = useState(null); // { message: string, type: 'success' | 'info' | 'error' }
 
@@ -134,6 +144,68 @@ const [passwordData, setPasswordData] = useState({
       
       fetchSessions(); 
   }, []);
+
+  //isuri-user notification
+  // --- URL Email Verification Check ---
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const emailToVerify = params.get("verifyEmail");
+    if (emailToVerify) {
+      const verifyEmail = async () => {
+        try {
+          const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/notifications/verify-email`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: emailToVerify })
+          });
+          if (res.ok) {
+            showToast("Account email verified successfully!");
+            // Remove search params from URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+          } else {
+            showToast("Failed to verify email. Please try again.", "error");
+          }
+        } catch (err) {
+          console.error("Email verification error:", err);
+        }
+      };
+      verifyEmail();
+    }
+  }, []);
+  // --- Load Owner Data for Simulations ---
+  useEffect(() => {
+    const fetchOwnerDataForSimulation = async () => {
+      const token = localStorage.getItem("token");
+      const savedUser = localStorage.getItem("user");
+      if (!token || !savedUser) return;
+      const parsedUser = JSON.parse(savedUser);
+      const userId = parsedUser.id;
+      try {
+        // Fetch Appointments
+        const resAppts = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/appointments/owner/${userId}`, {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        if (resAppts.ok) {
+          const data = await resAppts.json();
+          setOwnerAppts(data);
+        }
+        // Fetch Animals
+        const resAnimals = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/animals?ownerId=${userId}`, {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        if (resAnimals.ok) {
+          const data = await resAnimals.json();
+          setOwnerAnimals(data);
+        }
+      } catch (err) {
+        console.error("Failed to load simulation dropdown options:", err);
+      }
+    };
+    if (activeTab === 'simulation') {
+      fetchOwnerDataForSimulation();
+    }
+  }, [activeTab]);
+  //-------------
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -560,6 +632,20 @@ const verify2FACode = async (e) => {
                     </svg>
                     Security
                 </button>
+                {/* isuri user notification */}
+                 <button
+                    onClick={() => setActiveTab('simulation')}
+                    className={`flex items-center gap-2 pb-3 text-sm font-semibold border-b-2 transition-all cursor-pointer ${
+                    activeTab === 'simulation'
+                        ? 'border-indigo-500 text-indigo-600'
+                        : 'border-transparent text-slate-400 hover:text-slate-600'
+                    }`}
+                >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                    </svg>
+                    Testing & Simulations
+                </button>
             </div>
 
             {/* Tab Content Panels */}
@@ -802,7 +888,7 @@ const verify2FACode = async (e) => {
                     </button>
                 </div>
                 </form>
-            ) : (
+             ) : activeTab === 'security' ? (
                 <div className="space-y-6 animate-fade-in-up">
                 {/* Change Password Card */}
                 <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm">
@@ -1039,6 +1125,189 @@ const verify2FACode = async (e) => {
                     )}
                     </div>
                 </div>
+                </div>
+                // isuri-user notification 
+                 ) : (
+                <div className="space-y-6 animate-fade-in-up">
+                    {/* Account Verification Card */}
+                    <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm">
+                        <h3 className="text-base font-bold text-slate-800 mb-2 font-display">Simulate Email Verification</h3>
+                        <p className="text-slate-500 text-xs mb-4">Send a stylized HTML verification email to your inbox and mark your email address as verified.</p>
+                        <button
+                            type="button"
+                            onClick={async () => {
+                                try {
+                                    const token = localStorage.getItem("token");
+                                    const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/notifications/send-verification`, {
+                                        method: "POST",
+                                        headers: { "Authorization": `Bearer ${token}` }
+                                    });
+                                    if (res.ok) {
+                                        showToast("Account verification email sent successfully!");
+                                    } else {
+                                        showToast("Failed to send verification email.", "error");
+                                    }
+                                } catch (err) {
+                                    showToast("Server connection failed.", "error");
+                                }
+                            }}
+                            className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold shadow-md shadow-emerald-500/10 transition-all cursor-pointer"
+                        >
+                            Send Verification Email
+                        </button>
+                    </div>
+                    {/* Simulate Successful Payment Card */}
+                    <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm">
+                        <h3 className="text-base font-bold text-slate-800 mb-2 font-display">Simulate Payment Success</h3>
+                        <p className="text-slate-500 text-xs mb-4">Choose an appointment and simulation amount to trigger in-app alerts (client and vet side) and email an invoice receipt.</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 mb-2">Simulate Amount (LKR)</label>
+                                <input
+                                    type="number"
+                                    value={simPaymentAmount}
+                                    onChange={(e) => setSimPaymentAmount(e.target.value)}
+                                    placeholder="e.g. 1500"
+                                    className="w-full px-4 py-2.5 rounded-xl border border-slate-100 bg-slate-50/30 focus:bg-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 outline-hidden transition-all text-xs font-medium text-slate-700"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 mb-2">Select Appointment</label>
+                                <select
+                                    value={selectedSimAppt}
+                                    onChange={(e) => setSelectedSimAppt(e.target.value)}
+                                    className="w-full px-4 py-2.5 rounded-xl border border-slate-100 bg-slate-50/30 focus:bg-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 outline-hidden transition-all text-xs font-medium text-slate-700"
+                                >
+                                    <option value="">-- Choose Appointment --</option>
+                                    {ownerAppts.map(apt => (
+                                        <option key={apt.id} value={apt.id}>
+                                            Apt #{apt.id} with Dr. {apt.veterinarian_name} ({apt.animal_name} - {apt.status})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={async () => {
+                                if (!selectedSimAppt) return showToast("Please select an appointment first.", "error");
+                                if (!simPaymentAmount) return showToast("Please input an amount.", "error");
+                                try {
+                                    const token = localStorage.getItem("token");
+                                    const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/notifications/simulate-payment`, {
+                                        method: "POST",
+                                        headers: {
+                                            "Content-Type": "application/json",
+                                            "Authorization": `Bearer ${token}`
+                                        },
+                                        body: JSON.stringify({
+                                            amount: simPaymentAmount,
+                                            appointmentId: selectedSimAppt
+                                        })
+                                    });
+                                    if (res.ok) {
+                                        showToast("Successful payment simulated! In-App alerts & invoice receipt dispatched.");
+                                        window.dispatchEvent(new Event("notificationsReloadRequest"));
+                                    } else {
+                                        showToast("Simulation failed. Check console.", "error");
+                                    }
+                                } catch (err) {
+                                    showToast("Server connection failed.", "error");
+                                }
+                            }}
+                            className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-500/10 transition-all cursor-pointer"
+                        >
+                            Trigger Simulated Payment
+                        </button>
+                    </div>
+                    {/* Simulate Vaccination Schedule Card */}
+                    <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm">
+                        <h3 className="text-base font-bold text-slate-800 mb-2 font-display">Simulate Vaccination Due Alert</h3>
+                        <p className="text-slate-500 text-xs mb-4">Register a vaccination schedule for one of your animals. Set a date 7 days from now (or any date) to verify background schedule alerts.</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 mb-2">Vaccine Name</label>
+                                <input
+                                    type="text"
+                                    value={simVaccineName}
+                                    onChange={(e) => setSimVaccineName(e.target.value)}
+                                    placeholder="e.g. Rabies Booster"
+                                    className="w-full px-4 py-2.5 rounded-xl border border-slate-100 bg-slate-50/30 focus:bg-white focus:border-pink-500 focus:ring-1 focus:ring-pink-500/20 outline-hidden transition-all text-xs font-medium text-slate-700"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 mb-2">Select Animal</label>
+                                <select
+                                    value={selectedSimAnimal}
+                                    onChange={(e) => setSelectedSimAnimal(e.target.value)}
+                                    className="w-full px-4 py-2.5 rounded-xl border border-slate-100 bg-slate-50/30 focus:bg-white focus:border-pink-500 focus:ring-1 focus:ring-pink-500/20 outline-hidden transition-all text-xs font-medium text-slate-700"
+                                >
+                                    <option value="">-- Choose Animal --</option>
+                                    {ownerAnimals.map(a => (
+                                        <option key={a.id} value={a.id}>
+                                            {a.name} ({a.species} - {a.breed})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 mb-2">Due Date</label>
+                                <input
+                                    type="date"
+                                    value={simVaccineDueDate}
+                                    onChange={(e) => setSimVaccineDueDate(e.target.value)}
+                                    className="w-full px-4 py-2.5 rounded-xl border border-slate-100 bg-slate-50/30 focus:bg-white focus:border-pink-500 focus:ring-1 focus:ring-pink-500/20 outline-hidden transition-all text-xs font-medium text-slate-700"
+                                />
+                            </div>
+                        </div>
+                        <div className="flex gap-3">
+                            <button
+                                type="button"
+                                onClick={async () => {
+                                    if (!selectedSimAnimal) return showToast("Please select an animal.", "error");
+                                    if (!simVaccineName.trim()) return showToast("Please enter a vaccine name.", "error");
+                                    if (!simVaccineDueDate) return showToast("Please choose a due date.", "error");
+                                    try {
+                                        const token = localStorage.getItem("token");
+                                        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/notifications/vaccinations`, {
+                                            method: "POST",
+                                            headers: {
+                                                "Content-Type": "application/json",
+                                                "Authorization": `Bearer ${token}`
+                                            },
+                                            body: JSON.stringify({
+                                                animalId: selectedSimAnimal,
+                                                vaccineName: simVaccineName,
+                                                dueDate: simVaccineDueDate
+                                            })
+                                        });
+                                        if (res.ok) {
+                                            showToast("Vaccination schedule added! Check your Bell dropdown.");
+                                            window.dispatchEvent(new Event("notificationsReloadRequest"));
+                                        } else {
+                                            showToast("Failed to create vaccination schedule.", "error");
+                                        }
+                                    } catch (err) {
+                                        showToast("Server connection failed.", "error");
+                                    }
+                                }}
+                                className="px-5 py-2.5 rounded-xl bg-pink-600 hover:bg-pink-700 text-white text-xs font-bold shadow-md shadow-pink-500/10 transition-all cursor-pointer"
+                            >
+                                Schedule Vaccination
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const date = new Date();
+                                    date.setDate(date.getDate() + 7);
+                                    setSimVaccineDueDate(date.toISOString().split("T")[0]);
+                                }}
+                                className="px-3 py-2 text-pink-600 hover:bg-pink-50 text-xs font-bold rounded-xl transition-all cursor-pointer"
+                            >
+                                Set to +7 Days
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
             </div>
