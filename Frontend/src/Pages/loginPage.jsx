@@ -139,16 +139,19 @@ export default function LoginPage() {
 
     // --- GOOGLE LOGIN HANDLER ---
     const handleGoogleSuccess = async (tokenResponse) => {
+        console.log("handleGoogleSuccess triggered. tokenResponse:", tokenResponse);
         if (!role) return toast.error("Please select a role first!");
         setIsLoading(true);
         
         try {
+            console.log("Sending token to backend at:", `${import.meta.env.VITE_BACKEND_URL}/api/users/google-login`);
             const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/google-login`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ token: tokenResponse.access_token, role: role === 'farmer' ? "Farmer/PetOwner" : role === 'doctor' ? "Veterinary Doctor" : "Admin" }) 
             });
             const data = await response.json();
+            console.log("Backend response status:", response.status, "data:", data);
             
             if (response.ok) {
                 toast.success("Google Login Successful!");
@@ -167,7 +170,8 @@ export default function LoginPage() {
             } else {
                 toast.error(data.message || "Google login failed");
             }
-        } catch {
+        } catch (error) {
+            console.error("Google login fetch error:", error);
             toast.error("Server connection failed.");
         } finally {
             setIsLoading(false);

@@ -235,15 +235,32 @@ export async function googleLogin(req, res) {
     const { token, role } = req.body;
 
     try {
-        const ticket = await googleClient.verifyIdToken({
-            idToken: token,
-            audience: process.env.VITE_GOOGLE_CLIENT_ID, 
-        });
-        const payload = ticket.getPayload();
-        
+        let email, name, picture;
+
+        // Check if token is an ID Token (JWT format containing exactly 3 segments separated by dots) or an Access Token
+        if (token && token.split('.').length === 3) {
+            const ticket = await googleClient.verifyIdToken({
+                idToken: token,
+                audience: process.env.VITE_GOOGLE_CLIENT_ID, 
+            });
+            const payload = ticket.getPayload();
+            email = payload.email;
+            name = payload.name;
+            picture = payload.picture;
+        } else {
+            // Retrieve user info using the Google Access Token
+            const googleResponse = await axios.get("https://www.googleapis.com/oauth2/v3/userinfo", {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            email = googleResponse.data.email;
+            name = googleResponse.data.name;
+            picture = googleResponse.data.picture;
+        }
+
         // Notice we are now passing 'req' so we can read the device info
-        handleSocialLogin(req, res, payload.email, payload.name, payload.picture, role, 'google');
+        handleSocialLogin(req, res, email, name, picture, role, 'google');
     } catch (error) {
+        console.error("Google login verification failed:", error.response?.data || error.message || error);
         return res.status(401).json({ message: "Invalid Google Token" });
     }
 }
@@ -286,7 +303,17 @@ function handleSocialLogin(req, res, email, name, image, role, provider) {
             });
         } else {
             // New user -> Register them instantly
-            const userData = { email, password: null, firstName: splitFirstName, lastName: splitLastName, image, provider };
+            const userData = { 
+                email, 
+                password: null, 
+                firstName: splitFirstName, 
+                lastName: splitLastName, 
+                image, 
+                provider,
+                contact_No: "",
+                license_number: "TEMP-" + Math.random().toString(36).substring(2, 11).toUpperCase(),
+                specialization: "General"
+            };
             
             const callback = (regErr, result) => {
                 if (regErr) return res.status(500).json(regErr);

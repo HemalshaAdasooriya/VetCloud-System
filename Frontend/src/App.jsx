@@ -57,9 +57,7 @@ function App() {
 
             <Route path='/dashboard/user/*' element={<DashboardLayout />}>
               <Route path='animals' element={<MyAnimalsPage />} />
-              {/* <Route path='scheduling' element={<Scheduling />} /> */}
               <Route path='appoinment' element={<Scheduling />} />
-              {/* <Route path='appoinment' element={<UserAppoinment />} /> */}
               <Route path='consultations' element={<UserConsultations />} />
               <Route path='clinics' element={<UserClinics />} />
               <Route path='diseases' element={<UserDiseases />} />
