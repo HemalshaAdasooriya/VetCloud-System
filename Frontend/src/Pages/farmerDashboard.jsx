@@ -108,8 +108,28 @@ export default function FarmerDashboard() {
     }
   };
 
+  const fetchNotifications = async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/notifications`, {
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setNotifications(data);
+      } else {
+        console.error("Failed to load notifications");
+      }
+    } catch (err) {
+      console.error("Could not connect to server", err);
+    }
+  };
+
   useEffect(() => {
     fetchAnimals();
+    fetchAppointments();
     fetchNotifications();
 
     const handleNotificationsUpdated = () => {
