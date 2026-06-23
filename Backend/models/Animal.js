@@ -65,8 +65,13 @@ export const updateAnimal = (id, animalData, callback) => {
 
 // Delete an animal profile
 export const deleteAnimal = (id, callback) => {
-    const sql = "DELETE FROM animals WHERE id = ?";
-    db.query(sql, [id], callback);
+    const deleteAppointmentsSql = "DELETE FROM appointments WHERE animal_id = ?";
+    db.query(deleteAppointmentsSql, [id], (err, result) => {
+        if (err) return callback(err, null);
+        
+        const sql = "DELETE FROM animals WHERE id = ?";
+        db.query(sql, [id], callback);
+    });
 };
 
 // Fetch medical histories for an animal
