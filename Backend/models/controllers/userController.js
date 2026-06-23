@@ -30,9 +30,7 @@ import {
     deleteOtherSessions,
     getFullVeterinarianProfile,
     updateClinicDetails,
-    updateConsultationFees,
-    getUserPasswordById, 
-    updateUserPasswordById
+    updateConsultationFees
 } from "../models/User.js";
 //... Navindu
 import fs from "fs";
@@ -89,13 +87,7 @@ export function registerUser(req, res) {
                     },
                     (err, result) => {
                         if (err) return res.status(500).json(err);
-                         // Automatically log in the user after creation
-                        getUserByEmailAndRole(data.email, "farmer", (fetchErr, userResults) => {
-                            if (fetchErr || userResults.length === 0) {
-                                return res.status(201).json({ message: "Pet Owner registered successfully. Please log in manually." });
-                            }
-                            issueTokenAndSession(req, res, userResults[0], "farmer");
-                        });
+                        return res.status(201).json({ message: "Pet Owner registered successfully" });
                     }
                 );
             } 
@@ -122,13 +114,7 @@ export function registerUser(req, res) {
                             }
                             return res.status(500).json(err);
                         }
-                        // Automatically log in the user after creation
-                        getUserByEmailAndRole(data.email, "doctor", (fetchErr, userResults) => {
-                            if (fetchErr || userResults.length === 0) {
-                                return res.status(201).json({ message: "Veterinarian registered successfully. Please log in manually." });
-                            }
-                            issueTokenAndSession(req, res, userResults[0], "doctor");
-                        });
+                        return res.status(201).json({ message: "Veterinarian registered successfully" });
                     }
                 );
             } 
@@ -655,6 +641,8 @@ export const getUserProfile = (req, res) => {
 };
 
 //change password
+import { getUserPasswordById, updateUserPasswordById } from "../models/User.js";
+
 export const changePassword = (req, res) => {
     // 1. Verify the User Token
     const authHeader = req.headers.authorization;

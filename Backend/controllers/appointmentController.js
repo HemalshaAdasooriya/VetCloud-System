@@ -1,3 +1,5 @@
+
+import db from "../config/db.js";
 import {
     createAppointment,
     getAppointmentById,
@@ -58,7 +60,28 @@ export const getAppointment = (req, res) => {
             return res.status(404).json({ message: "Appointment not found" });
         }
 
-        res.json(results[0]);
+        // Group slots from multiple rows
+        const appointment = { ...results[0] };
+        const slots = [];
+        results.forEach(row => {
+            if (row.slot_id) {
+                slots.push({
+                    id: row.slot_id,
+                    date: row.slot_date,
+                    time: row.slot_time,
+                    is_selected: row.is_selected
+                });
+            }
+        });
+        appointment.slots = slots;
+
+        // Clean up slot-specific fields from the main object
+        delete appointment.slot_id;
+        delete appointment.slot_date;
+        delete appointment.slot_time;
+        delete appointment.is_selected;
+
+        res.json(appointment);
     });
 };
 
