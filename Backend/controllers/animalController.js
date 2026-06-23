@@ -13,6 +13,8 @@ import {
     
 } from "../models/Animal.js";
 
+import { triggerHistoryNotification } from "./notificationController.js";//isuri- user notification
+
 // Get all animals for an owner
 export const getAnimals = (req, res) => {
     const ownerId = req.query.ownerId;
@@ -201,6 +203,8 @@ export const addAnimalHistory = (req, res) => {
             console.error("Error adding medical history record:", err);
             return res.status(500).json({ message: "Failed to add medical history record.", error: err });
         }
+        triggerHistoryNotification(req.app, result.insertId, "created");// isuri-notification
+
         return res.status(201).json({
             message: "Medical record added successfully.",
             record: { id: result.insertId, ...historyData }
@@ -230,6 +234,8 @@ export const updateAnimalHistory = (req, res) => {
             console.error("Error updating medical history record:", err);
             return res.status(500).json({ message: "Failed to update medical history record.", error: err });
         }
+         triggerHistoryNotification(req.app, historyId, "updated");//isuri-notification
+
         return res.status(200).json({
             message: "Medical record updated successfully.",
             record: { id: historyId, ...historyData }

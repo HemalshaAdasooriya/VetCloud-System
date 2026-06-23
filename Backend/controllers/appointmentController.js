@@ -10,6 +10,7 @@ import {
     updateAppointmentStatus,
     deleteAppointment
 } from "../models/Appointment.js";
+import { triggerAppointmentNotification } from "./notificationController.js";//isuri-notification
 
 export const bookAppointment = (req, res) => {
     const { pet_owner_id, veterinarian_id, animal_id, reason, availability } = req.body;
@@ -25,6 +26,8 @@ export const bookAppointment = (req, res) => {
                 message: "Failed to create appointment request"
             });
         }
+
+        triggerAppointmentNotification(req.app, result.appointmentId, "appointment_requested");//isuri-notification
 
         res.status(201).json({
             message: "Appointment request submitted successfully",
@@ -121,6 +124,7 @@ export const approveAppointment = (req, res) => {
                 });
             }
 
+            triggerAppointmentNotification(req.app, req.params.id, "appointment_confirmed");//isuri-notification
             res.json({
                 message: "Appointment approved successfully",
                 data: result
@@ -162,6 +166,8 @@ export const resubmitAppointment = (req, res) => {
             });
         }
 
+        triggerAppointmentNotification(req.app, req.params.id, "appointment_rescheduled");//isuri-notification
+
         res.json({
             message: "Appointment request resubmitted successfully",
             data: result
@@ -197,6 +203,8 @@ export const cancelAppointment = (req, res) => {
                     message: "Failed to cancel appointment"
                 });
             }
+
+            triggerAppointmentNotification(req.app, req.params.id, "appointment_cancelled");//isuri-notification
 
             res.json({
                 message: "Appointment cancelled"
