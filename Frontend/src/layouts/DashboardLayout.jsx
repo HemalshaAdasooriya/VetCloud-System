@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Users, Calendar, Settings, LogOut, Bell, Stethoscope, Bird, ShieldCheck, Activity, Book, ClipboardList, Video, DollarSign, Database, MessageSquare, Star, BarChart3, UserCog, Search, MapPin, X } from 'lucide-react';
+import { LayoutDashboard, Users, Calendar, Settings, LogOut, Bell, Stethoscope, Bird, ShieldCheck, Activity, Book, ClipboardList, Video, DollarSign, Database, MessageSquare, Star, BarChart3, UserCog, Search, MapPin, Check, Clock, X } from 'lucide-react';
 import { BsDatabaseCheck } from 'react-icons/bs';
 import { PiDogFill } from "react-icons/pi";
-import { useEffect } from 'react';
+import io from 'socket.io-client';
+import toast from 'react-hot-toast';
 
 export function DashboardLayout() {
   const location = useLocation();
@@ -14,79 +15,7 @@ export function DashboardLayout() {
     return savedUser ? JSON.parse(savedUser) : null;
   });
 
-  const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [showNotificationsDropdown, setShowNotificationsDropdown] = useState(false);
 
-  const loadNotifications = () => {
-    const userId = user?.id || localStorage.getItem('userId') || 'guest';
-    const storageKey = `vetcloud_notifications_${userId}`;
-    const stored = JSON.parse(localStorage.getItem(storageKey) || '[]');
-    setNotifications(stored);
-    setUnreadCount(stored.filter((n) => !n.isRead).length);
-  };
-
-  const markAllAsRead = () => {
-    const userId = user?.id || localStorage.getItem('userId') || 'guest';
-    const storageKey = `vetcloud_notifications_${userId}`;
-    const updated = notifications.map((n) => ({ ...n, isRead: true }));
-    localStorage.setItem(storageKey, JSON.stringify(updated));
-    setNotifications(updated);
-    setUnreadCount(0);
-  };
-
-  const markAsRead = (id) => {
-    const userId = user?.id || localStorage.getItem('userId') || 'guest';
-    const storageKey = `vetcloud_notifications_${userId}`;
-    const updated = notifications.map((n) => n.id === id ? { ...n, isRead: true } : n);
-    localStorage.setItem(storageKey, JSON.stringify(updated));
-    setNotifications(updated);
-    setUnreadCount(updated.filter((n) => !n.isRead).length);
-  };
-
-  const deleteNotification = (id, e) => {
-    e.stopPropagation();
-    const userId = user?.id || localStorage.getItem('userId') || 'guest';
-    const storageKey = `vetcloud_notifications_${userId}`;
-    const updated = notifications.filter((n) => n.id !== id);
-    localStorage.setItem(storageKey, JSON.stringify(updated));
-    setNotifications(updated);
-    setUnreadCount(updated.filter((n) => !n.isRead).length);
-  };
-
-  const clearAllNotifications = () => {
-    const userId = user?.id || localStorage.getItem('userId') || 'guest';
-    const storageKey = `vetcloud_notifications_${userId}`;
-    localStorage.removeItem(storageKey);
-    setNotifications([]);
-    setUnreadCount(0);
-  };
-
-  const formatTimeAgo = (isoString) => {
-    try {
-      const diffMs = Date.now() - new Date(isoString).getTime();
-      const diffMins = Math.floor(diffMs / 60000);
-      if (diffMins < 1) return 'Just now';
-      if (diffMins < 60) return `${diffMins}m ago`;
-      const diffHours = Math.floor(diffMins / 60);
-      if (diffHours < 24) return `${diffHours}h ago`;
-      const diffDays = Math.floor(diffHours / 24);
-      return `${diffDays}d ago`;
-    } catch {
-      return 'Recently';
-    }
-  };
-
-  useEffect(() => {
-    loadNotifications();
-
-    const handleNotificationsChange = () => {
-      loadNotifications();
-    };
-
-    window.addEventListener("notificationsUpdated", handleNotificationsChange);
-    return () => window.removeEventListener("notificationsUpdated", handleNotificationsChange);
-  }, [user?.id]);
 
   useEffect(() => {
     const handleStorageChange = () => {
@@ -121,7 +50,122 @@ export function DashboardLayout() {
 
   const profileImageUrl = getProfileImage();
 
+ const [notifications, setNotifications] = useState([]);//isuri-notification
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);//isuri-notification
 
+  //isuri-user notification
+   const fetchNotifications = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    try {
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/notifications`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setNotifications(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch notifications:", err);
+    }
+  };
+  useEffect(() => {
+    fetchNotifications();
+    if (!user) return;
+    const socket = io(import.meta.env.VITE_BACKEND_URL || "http://localhost:5000");
+    socket.emit("register", { userId: user.id, role: user.role });
+    socket.on("new-notification", (notification) => {
+      setNotifications((prev) => [notification, ...prev]);
+      toast.success(notification.title || "New notification");
+      // Fire a custom event to notify other pages (like farmerDashboard) to reload
+      window.dispatchEvent(new Event("notificationsUpdated"));
+    });
+    // Listen to reload events from child pages
+    const handleReload = () => {
+      fetchNotifications();
+    };
+    window.addEventListener("notificationsReloadRequest", handleReload);
+    return () => {
+      socket.disconnect();
+      window.removeEventListener("notificationsReloadRequest", handleReload);
+    };
+  }, [user]);
+  const handleMarkAsRead = async (id) => {
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/notifications/${id}/read`, {
+        method: "PUT",
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setNotifications((prev) =>
+          prev.map((n) => (n.id === id ? { ...n, is_read: 1 } : n))
+        );
+        window.dispatchEvent(new Event("notificationsUpdated"));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+  const handleMarkAllAsRead = async () => {
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/notifications/read-all`, {
+        method: "PUT",
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setNotifications((prev) => prev.map((n) => ({ ...n, is_read: 1 })));
+        window.dispatchEvent(new Event("notificationsUpdated"));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+  const getNotificationIcon = (type) => {
+    const iconClass = "p-1.5 rounded-lg shrink-0";
+    switch (type) {
+      case "payment_success":
+      case "payment_received":
+        return <div className={`${iconClass} bg-green-100 text-green-600`}><DollarSign size={16} /></div>;
+      case "appointment_confirmed":
+        return <div className={`${iconClass} bg-blue-100 text-blue-600`}><Check size={16} /></div>;
+      case "appointment_reminder":
+      case "appointment_starting":
+        return <div className={`${iconClass} bg-amber-100 text-amber-600`}><Clock size={16} /></div>;
+      case "appointment_rescheduled":
+        return <div className={`${iconClass} bg-violet-100 text-violet-600`}><Calendar size={16} /></div>;
+      case "appointment_cancelled":
+        return <div className={`${iconClass} bg-red-100 text-red-600`}><X size={16} /></div>;
+      case "prescription_available":
+        return <div className={`${iconClass} bg-emerald-100 text-emerald-600`}><ClipboardList size={16} /></div>;
+      case "vaccination_due":
+      case "vaccination_due_soon":
+      case "vaccination_scheduled":
+        return <div className={`${iconClass} bg-pink-100 text-pink-600`}><Activity size={16} /></div>;
+      case "test_results":
+        return <div className={`${iconClass} bg-teal-100 text-teal-600`}><ShieldCheck size={16} /></div>;
+      case "feedback_request":
+        return <div className={`${iconClass} bg-indigo-100 text-indigo-600`}><Star size={16} /></div>;
+      default:
+        return <div className={`${iconClass} bg-slate-100 text-slate-500`}><Bell size={16} /></div>;
+    }
+  };
+  const formatRelativeTime = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHour = Math.floor(diffMin / 60);
+    const diffDay = Math.floor(diffHour / 24);
+    if (diffSec < 60) return "Just now";
+    if (diffMin < 60) return `${diffMin}m ago`;
+    if (diffHour < 24) return `${diffHour}h ago`;
+    if (diffDay === 1) return "Yesterday";
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  };
+//------------
   const isUser = location.pathname.includes('/user') || location.pathname === '/dashboard/user';
   const isVet = location.pathname.includes('/doctor') || location.pathname === '/dashboard/doctor';
   const isAdmin = location.pathname.includes('/admin') || location.pathname === '/dashboard/admin';
@@ -138,7 +182,6 @@ export function DashboardLayout() {
   ] : isVet ? [
     { name: 'Doctor Dashboard', path: '/dashboard/doctor', icon: LayoutDashboard },
     { name: 'Consultation Requests', path: '/dashboard/doctor/requests', icon: ClipboardList }, //Navindu 2026/06/19 ... vet consultation requests
-    { name: 'Consultations', path: '/dashboard/doctor/consultations', icon: Stethoscope },
     { name: 'Schedule', path: '/dashboard/doctor/schedule', icon: Calendar },
     { name: 'Settings', path: '/dashboard/doctor/settings', icon: Settings },
   ] : [
@@ -219,98 +262,79 @@ export function DashboardLayout() {
                 />
               </div>
             )}
+            {/*isuri-notification*/}
             <div className="relative">
               <button 
-                onClick={() => setShowNotificationsDropdown(!showNotificationsDropdown)}
-                className="relative p-2 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                className="relative p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-all cursor-pointer focus:outline-none"
               >
                 <Bell size={20} />
-                {unreadCount > 0 && (
-                  <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border border-white flex items-center justify-center text-[7px] text-white font-bold">
-                    {unreadCount}
+                {notifications.some((n) => !n.is_read) && (
+                  <span className="absolute top-1 right-1 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-red-500 text-[9px] font-extrabold text-white ring-2 ring-white">
+                    {notifications.filter((n) => !n.is_read).length}
                   </span>
                 )}
               </button>
-
-              {showNotificationsDropdown && (
+              {isDropdownOpen && (
                 <>
-                  <div 
-                    className="fixed inset-0 z-40" 
-                    onClick={() => setShowNotificationsDropdown(false)}
-                  />
-                  <div className="absolute right-0 mt-2 w-80 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+                  {/* Backdrop to close dropdown on click outside */}
+                  <div className="fixed inset-0 z-30" onClick={() => setIsDropdownOpen(false)} />
+                  <div className="absolute right-0 mt-3 w-80 sm:w-96 bg-white border border-slate-200/80 rounded-2xl shadow-xl py-3 z-40 animate-in fade-in slide-in-from-top-2 duration-200">
                     {/* Header */}
-                    <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                      <span className="font-bold text-slate-800 text-sm flex items-center gap-1.5">
-                        Notifications
-                        {unreadCount > 0 && (
-                          <span className="bg-red-100 text-red-600 text-[10px] px-1.5 py-0.5 rounded-full font-bold">
-                            {unreadCount} new
-                          </span>
-                        )}
-                      </span>
-                      {notifications.length > 0 && (
+                    <div className="flex items-center justify-between px-4 pb-2 border-b border-slate-100 mb-1">
+                      <h3 className="font-extrabold text-slate-800 text-sm">Notifications</h3>
+                      {notifications.some((n) => !n.is_read) && (
                         <button 
-                          onClick={markAllAsRead}
-                          className="text-xs text-green-600 hover:text-green-700 font-semibold cursor-pointer"
+                          onClick={handleMarkAllAsRead}
+                          className="text-xs font-extrabold text-green-600 hover:text-green-700 cursor-pointer transition-colors"
                         >
-                          Mark all read
+                          Mark all as read
                         </button>
                       )}
                     </div>
-
-                    {/* Notification List */}
-                    <div className="max-h-80 overflow-y-auto divide-y divide-slate-50">
-                      {notifications.length === 0 ? (
-                        <div className="p-8 text-center text-slate-400 flex flex-col items-center gap-2">
-                          <Bell size={28} className="text-slate-300" />
-                          <p className="text-sm font-medium">All caught up!</p>
-                          <p className="text-xs text-slate-400">No new notifications.</p>
-                        </div>
-                      ) : (
-                        notifications.map((notification) => (
+                    
+                    {/* List */}
+                    <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
+                      {notifications.length > 0 ? (
+                        notifications.map((n) => (
                           <div 
-                            key={notification.id}
-                            onClick={() => markAsRead(notification.id)}
-                            className={`p-4 flex gap-3 items-start transition-colors cursor-pointer hover:bg-slate-50/50 ${
-                              !notification.isRead ? 'bg-green-50/15' : ''
+                            key={n.id}
+                            onClick={() => handleMarkAsRead(n.id)}
+                            className={`flex items-start gap-3 p-3.5 hover:bg-slate-50/80 cursor-pointer transition-all ${
+                              !n.is_read ? 'bg-green-50/10' : ''
                             }`}
                           >
-                            <span className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${
-                              !notification.isRead ? 'bg-green-500' : 'bg-slate-200'
-                            }`} />
-                            <div className="flex-1 min-w-0 space-y-0.5">
-                              <p className={`text-xs md:text-sm leading-relaxed ${
-                                !notification.isRead ? 'font-semibold text-slate-800' : 'text-slate-600'
+                            <div className="mt-0.5 shrink-0">
+                              {getNotificationIcon(n.type)}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-[13px] leading-snug ${
+                                !n.is_read ? 'text-slate-900 font-extrabold' : 'text-slate-600 font-medium'
                               }`}>
-                                {notification.message}
+                                {n.title}
                               </p>
-                              <span className="text-[10px] text-slate-400 font-semibold block">
-                                {formatTimeAgo(notification.timestamp)}
+                              <p className="text-slate-500 text-xs mt-0.5 font-medium leading-relaxed">
+                                {n.message}
+                              </p>
+                              <span className="text-[10px] text-slate-400 font-semibold block mt-1">
+                                {formatRelativeTime(n.created_at)}
                               </span>
                             </div>
-                            <button
-                              onClick={(e) => deleteNotification(notification.id, e)}
-                              className="text-slate-400 hover:text-slate-600 p-0.5 rounded transition-colors shrink-0 cursor-pointer"
-                            >
-                              <X size={14} />
-                            </button>
+                            {!n.is_read && (
+                              <span className="w-2 h-2 rounded-full bg-green-500 mt-2 shrink-0 animate-pulse" />
+                            )}
                           </div>
                         ))
+                      ) : (
+                        <div className="text-center py-10 px-4 space-y-2">
+                          <div className="h-10 w-10 bg-slate-50 rounded-full flex items-center justify-center mx-auto text-slate-300">
+                            <Bell size={20} />
+                          </div>
+                          <p className="text-slate-400 text-xs font-bold">No new notifications</p>
+                          <p className="text-[10px] text-slate-300">We'll let you know when things change.</p>
+                        </div>
                       )}
                     </div>
-
-                    {/* Footer */}
-                    {notifications.length > 0 && (
-                      <div className="px-4 py-2.5 border-t border-slate-100 text-center bg-slate-50/30">
-                        <button 
-                          onClick={clearAllNotifications}
-                          className="text-xs text-slate-500 hover:text-slate-600 font-medium cursor-pointer"
-                        >
-                          Clear all history
-                        </button>
-                      </div>
-                    )}
                   </div>
                 </>
               )}

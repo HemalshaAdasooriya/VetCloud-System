@@ -10,6 +10,7 @@ import {
     deleteAppointment,
     rejectAppointmentWithReason  // ← ADD THIS IMPORT
 } from "../models/Appointment.js";
+import { triggerAppointmentNotification } from "./notificationController.js";//isuri-notification
 
 // Get all appointments for a veterinarian
 export const getVetAppointments = (req, res) => {
@@ -102,6 +103,7 @@ export const approveAppointment = (req, res) => {
             });
         }
 
+         triggerAppointmentNotification(req.app, id, "appointment_confirmed");//isuri-notification
         res.json({
             message: "Appointment approved successfully",
             data: result
@@ -147,6 +149,7 @@ export const completeAppointment = (req, res) => {
             });
         }
 
+        triggerAppointmentNotification(req.app, id, "appointment_completed");//isuri-notification
         res.json({
             message: "Appointment completed successfully",
             data: result
@@ -166,6 +169,7 @@ export const cancelAppointment = (req, res) => {
             });
         }
 
+        triggerAppointmentNotification(req.app, id, "appointment_cancelled");//isuri-notification
         res.json({
             message: "Appointment cancelled successfully",
             data: result

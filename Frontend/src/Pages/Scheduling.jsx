@@ -12,10 +12,22 @@ import {
   Star,
   ShieldCheck,
   Plus,
+  Trash2,
   X
 } from 'lucide-react';
 
 import { Button, Card, Input, Badge } from '../components/ui/ui';
+
+// Default high-quality images based on species
+const SPECIES_IMAGES = {
+  Cattle: "https://images.unsplash.com/photo-1570042225831-d98fa7577f1e?auto=format&fit=crop&q=80&w=600",
+  Dog: "https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&q=80&w=600",
+  Poultry: "https://images.unsplash.com/photo-1548550023-2bdb3c5beed7?auto=format&fit=crop&q=80&w=600",
+  Cat: "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?auto=format&fit=crop&q=80&w=600",
+  Horse: "https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&q=80&w=600",
+  Sheep: "https://images.unsplash.com/photo-1484557985045-edf25e08da73?auto=format&fit=crop&q=80&w=600",
+  Other: "https://images.unsplash.com/photo-1535268647977-a403b69fc756?auto=format&fit=crop&q=80&w=600"
+};
 
 export default function Scheduling() {
   const [step, setStep] = useState(1);
@@ -48,13 +60,43 @@ export default function Scheduling() {
     status: 'Healthy',
     image: ''
   });
+  const [formImageFile, setFormImageFile] = useState(null);
   const [addingAnimal, setAddingAnimal] = useState(false);
 
+  // Restored states for symptoms/appointment upload images
   const [uploadedImages, setUploadedImages] = useState([]);
   const handleImageUpload = (e) => {
     const files = Array.from(e.target.files);
-
     setUploadedImages((prev) => [...prev, ...files]);
+  };
+
+  // Delete Animal States & Logic
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletingAnimalId, setDeletingAnimalId] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDeleteAnimalClick = (e, animalId) => {
+    e.stopPropagation();
+    setDeletingAnimalId(animalId);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeleteAnimal = async () => {
+    if (!deletingAnimalId) return;
+    setIsDeleting(true);
+    try {
+      await axios.delete(`${import.meta.env.VITE_BACKEND_URL}/api/animals/${deletingAnimalId}`);
+      setAnimals((prev) => prev.filter((a) => a.id !== deletingAnimalId));
+      if (selectedAnimal === deletingAnimalId) {
+        setSelectedAnimal(null);
+      }
+      setShowDeleteModal(false);
+      setDeletingAnimalId(null);
+    } catch (err) {
+      console.error("Failed to delete animal:", err);
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   // 🔥 VETS (TEMP until backend ready)
@@ -66,7 +108,7 @@ export default function Scheduling() {
     const fetchAnimals = async () => {
       try {
         const ownerId = localStorage.getItem('userId'); // IMPORTANT
-        const res = await axios.get(`http://localhost:5000/api/animals?ownerId=${ownerId}`);
+        const res = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/animals?ownerId=${ownerId}`);
         setAnimals(res.data);
       } catch (err) {
         console.error('Failed to load animals:', err);
@@ -81,7 +123,7 @@ export default function Scheduling() {
   useEffect(() => {
   const fetchVets = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/api/users/vets");
+      const res = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/users/vets`);
       setVets(res.data);
     } catch (err) {
       console.error("Failed to load vets:", err);
@@ -126,7 +168,7 @@ export default function Scheduling() {
 
     const fetchAppointmentForResubmit = async () => {
       try {
-        const res = await axios.get(`http://localhost:5000/api/appointments/${resubmitAppointmentId}`);
+        const res = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/appointments/${resubmitAppointmentId}`);
         const appointment = res.data;
         setSelectedAnimal(appointment.animal_id);
         setSelectedVet(appointment.veterinarian_id);
@@ -201,19 +243,29 @@ export default function Scheduling() {
 
     try {
       const ownerId = localStorage.getItem('userId');
-      const response = await axios.post('http://localhost:5000/api/animals', {
-        owner_id: ownerId,
-        name: addAnimalForm.name,
-        species: addAnimalForm.species,
-        breed: addAnimalForm.breed,
-        age: addAnimalForm.age,
-        weight: addAnimalForm.weight,
-        status: addAnimalForm.status,
-        image: addAnimalForm.image
+      const formData = new FormData();
+      formData.append('owner_id', ownerId);
+      formData.append('name', addAnimalForm.name);
+      formData.append('species', addAnimalForm.species);
+      formData.append('breed', addAnimalForm.breed);
+      formData.append('age', addAnimalForm.age);
+      formData.append('weight', addAnimalForm.weight);
+      formData.append('status', addAnimalForm.status);
+
+      if (formImageFile) {
+        formData.append('image', formImageFile);
+      } else {
+         formData.append('image', addAnimalForm.image || SPECIES_IMAGES[addAnimalForm.species] || SPECIES_IMAGES.Other);
+      }
+
+      const response = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/animals`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
       });
 
       // Refresh animals list
-      const res = await axios.get(`http://localhost:5000/api/animals?ownerId=${ownerId}`);
+      const res = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/animals?ownerId=${ownerId}`);
       setAnimals(res.data);
 
       // Reset form and close modal
@@ -226,6 +278,7 @@ export default function Scheduling() {
         status: 'Healthy',
         image: ''
       });
+      setFormImageFile(null);
       setShowAddAnimalModal(false);
     } catch (err) {
       console.error('Failed to add animal:', err);
@@ -312,7 +365,7 @@ export default function Scheduling() {
       const availability = buildAvailabilityPayload();
 
       if (resubmitAppointmentId) {
-        await axios.patch(`http://localhost:5000/api/appointments/${resubmitAppointmentId}/resubmit`, {
+        await axios.patch(`${import.meta.env.VITE_BACKEND_URL}/api/appointments/${resubmitAppointmentId}/resubmit`, {
           availability,
           reason: symptoms,
           consultation_type: consultType // Added consultation type
@@ -320,7 +373,7 @@ export default function Scheduling() {
         setSubmissionMessage('Request resubmitted. Your doctor will review the updated availability.');
         setResubmitAppointmentId(null);
       } else {
-        await axios.post('http://localhost:5000/api/appointments', {
+        await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/appointments`, {
           pet_owner_id: ownerId,
           veterinarian_id: selectedVet,
           animal_id: selectedAnimal,
@@ -398,13 +451,31 @@ export default function Scheduling() {
                       onClick={() => setSelectedAnimal(animal.id)}
                     >
                       <div className="flex gap-4">
-                        <img src={animal.image || '/default.jpg'} alt={animal.name} className="w-20 h-20 rounded-lg object-cover" />
+                        <img 
+                          src={
+                            animal.image && animal.image.startsWith('/uploads/') 
+                              ? `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}${animal.image}` 
+                              : (animal.image || SPECIES_IMAGES[animal.species] || SPECIES_IMAGES.Other)
+                          } 
+                          alt={animal.name} 
+                          className="w-20 h-20 rounded-lg object-cover" 
+                        />
                         <div className="flex-1">
                           <div className="flex justify-between items-start mb-1">
                             <h3 className="font-bold text-lg text-slate-900">{animal.name}</h3>
-                            {selectedAnimal === animal.id && (
-                              <CheckCircle2 size={20} className="text-green-600" />
-                            )}
+                            <div className="flex items-center gap-2">
+                              {selectedAnimal === animal.id && (
+                                <CheckCircle2 size={20} className="text-green-600" />
+                              )}
+                              <button
+                                type="button"
+                                onClick={(e) => handleDeleteAnimalClick(e, animal.id)}
+                                className="text-slate-400 hover:text-red-500 p-1.5 rounded-full hover:bg-red-50 transition-all active:scale-90"
+                                title="Delete Profile"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
                           </div>
                           <p className="text-sm font-medium text-green-600 mb-1">{animal.breed || 'Unknown'}</p>
                           <div className="flex items-center gap-3 text-xs text-slate-500">
@@ -506,10 +577,14 @@ export default function Scheduling() {
                     </h3>
                     <div className="flex gap-4">
                       <img
-                        src={getSelectedAnimal().image || '/default.jpg'}
-                        alt={getSelectedAnimal().name}
-                        className="w-24 h-24 rounded-xl object-cover border-2 border-white shadow-sm"
-                      />
+                          src={
+                            getSelectedAnimal().image && getSelectedAnimal().image.startsWith('/uploads/') 
+                              ? `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}${getSelectedAnimal().image}` 
+                              : (getSelectedAnimal().image || SPECIES_IMAGES[getSelectedAnimal().species] || SPECIES_IMAGES.Other)
+                          }
+                          alt={getSelectedAnimal().name}
+                          className="w-24 h-24 rounded-xl object-cover border-2 border-white shadow-sm"
+                        />
                       <div className="flex-1">
                         <h4 className="font-bold text-xl text-slate-900 mb-1">{getSelectedAnimal().name}</h4>
                         <p className="text-sm font-medium text-green-700 mb-3">{getSelectedAnimal().species || getSelectedAnimal().breed || 'Animal'}</p>
@@ -844,7 +919,10 @@ export default function Scheduling() {
             <div className="sticky top-0 bg-white border-b border-slate-200 p-6 flex justify-between items-center">
               <h2 className="text-2xl font-bold text-slate-900">Register New Animal</h2>
               <button
-                onClick={() => setShowAddAnimalModal(false)}
+                onClick={() => {
+                  setFormImageFile(null);
+                  setShowAddAnimalModal(false);
+                }}
                 className="text-slate-500 hover:text-slate-700"
               >
                 <X size={24} />
@@ -942,22 +1020,57 @@ export default function Scheduling() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Image URL (Optional)</label>
-                <Input
-                  type="url"
-                  name="image"
-                  value={addAnimalForm.image}
-                  onChange={handleAddAnimalChange}
-                  placeholder="https://example.com/image.jpg"
-                  className="w-full"
-                />
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Profile Picture (Optional)</label>
+                <div className="flex items-center gap-4 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                  <img 
+                    src={
+                      formImageFile 
+                        ? URL.createObjectURL(formImageFile) 
+                        : (SPECIES_IMAGES[addAnimalForm.species] || SPECIES_IMAGES.Other)
+                    }
+                    alt="Preview" 
+                    className="w-16 h-16 rounded-xl object-cover border border-slate-200 bg-white"
+                  />
+                  <div className="flex-1 space-y-1">
+                    <input 
+                      type="file" 
+                      accept="image/*"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          setFormImageFile(e.target.files[0]);
+                        }
+                      }}
+                      id="animalImageUploadScheduling"
+                      className="hidden"
+                    />
+                    <label 
+                      htmlFor="animalImageUploadScheduling"
+                      className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 rounded-lg text-xs font-bold shadow-xs cursor-pointer active:scale-95 transition-all"
+                    >
+                      Upload Photo
+                    </label>
+                    {formImageFile && (
+                      <button
+                        type="button"
+                        onClick={() => setFormImageFile(null)}
+                        className="ml-3 text-xs font-bold text-red-500 hover:text-red-600 transition-colors"
+                      >
+                        Clear
+                      </button>
+                    )}
+                    <p className="text-[10px] text-slate-400">PNG, JPG or JPEG. If left empty, default picture is used.</p>
+                  </div>
+                </div>
               </div>
 
               <div className="flex justify-end gap-3 pt-6 border-t border-slate-200 mt-6">
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setShowAddAnimalModal(false)}
+                  onClick={() => {
+                    setFormImageFile(null);
+                    setShowAddAnimalModal(false);
+                  }}
                   disabled={addingAnimal}
                 >
                   Cancel
@@ -975,6 +1088,37 @@ export default function Scheduling() {
         </div>
       )}
       {/* 🔥 UPDATED BY NAVINDU ON 2026-06-10 - END (Add Animal Modal) */}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <Card className="w-full max-w-md bg-white p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+            <h3 className="text-xl font-bold text-slate-900">Unregister Animal?</h3>
+            <p className="text-sm text-slate-600">
+              Are you sure you want to unregister this animal? This profile will be permanently deleted and all past medical history files will be removed.
+            </p>
+            <div className="flex justify-end gap-3 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setDeletingAnimalId(null);
+                }}
+                disabled={isDeleting}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={confirmDeleteAnimal}
+                disabled={isDeleting}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                {isDeleting ? 'Deleting...' : 'Yes, Unregister'}
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

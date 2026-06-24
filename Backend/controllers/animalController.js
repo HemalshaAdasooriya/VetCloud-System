@@ -13,6 +13,8 @@ import {
     
 } from "../models/Animal.js";
 
+import { triggerHistoryNotification } from "./notificationController.js";//isuri- user notification
+
 // Get all animals for an owner
 export const getAnimals = (req, res) => {
     const ownerId = req.query.ownerId;
@@ -61,6 +63,11 @@ export const createNewAnimal = (req, res) => {
         year: "numeric"
     });
 
+    let animalImage = image;
+    if (req.file) {
+        animalImage = `/uploads/${req.file.filename}`;
+    }
+
     const animalData = {
         owner_id,
         name,
@@ -69,7 +76,7 @@ export const createNewAnimal = (req, res) => {
         age,
         weight,
         status: status || "Healthy",
-        image,
+        image: animalImage,
         lastVisit
     };
 
@@ -118,6 +125,11 @@ export const updateAnimalProfile = (req, res) => {
             return res.status(404).json({ message: "Animal profile not found." });
         }
 
+        let animalImage = image || existing.image;
+        if (req.file) {
+            animalImage = `/uploads/${req.file.filename}`;
+        }
+
         const animalData = {
             name,
             species,
@@ -125,7 +137,7 @@ export const updateAnimalProfile = (req, res) => {
             age,
             weight,
             status,
-            image: image || existing.image,
+            image: animalImage,
             lastVisit: existing.lastVisit || new Date().toLocaleDateString("en-GB", {
                 day: "2-digit",
                 month: "short",
@@ -191,6 +203,8 @@ export const addAnimalHistory = (req, res) => {
             console.error("Error adding medical history record:", err);
             return res.status(500).json({ message: "Failed to add medical history record.", error: err });
         }
+        triggerHistoryNotification(req.app, result.insertId, "created");// isuri-notification
+
         return res.status(201).json({
             message: "Medical record added successfully.",
             record: { id: result.insertId, ...historyData }
@@ -220,6 +234,8 @@ export const updateAnimalHistory = (req, res) => {
             console.error("Error updating medical history record:", err);
             return res.status(500).json({ message: "Failed to update medical history record.", error: err });
         }
+         triggerHistoryNotification(req.app, historyId, "updated");//isuri-notification
+
         return res.status(200).json({
             message: "Medical record updated successfully.",
             record: { id: historyId, ...historyData }
