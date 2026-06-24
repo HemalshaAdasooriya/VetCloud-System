@@ -12,6 +12,7 @@ import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
 import otpGenerator from "otp-generator";
 import { UAParser } from "ua-parser-js";
+import { sendEmail, getAccountVerificationTemplate } from "../config/email.js";
 
 import {
     savePasswordResetOTP,
