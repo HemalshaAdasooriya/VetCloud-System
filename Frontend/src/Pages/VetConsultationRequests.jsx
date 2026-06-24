@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
+import axios from 'axios';
 import { 
   Clock, CheckCircle2, XCircle, AlertCircle, FileText, 
-  User, Video, Phone, MapPin, Calendar, ChevronRight 
+  User, Video, Phone, MapPin, Calendar, ChevronRight, 
+  Loader2, MessageCircle
 } from 'lucide-react';
 import { Button, Card, Badge, Textarea } from '../components/ui/ui';
 
@@ -11,111 +13,254 @@ export default function VetConsultationRequests() {
   const [activeTab, setActiveTab] = useState('pending');
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [declineReason, setDeclineReason] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [selectedSlotId, setSelectedSlotId] = useState({});
+  
+  // State for data from backend
+  const [pendingRequests, setPendingRequests] = useState([]);
+  const [reviewedRequests, setReviewedRequests] = useState([]);
 
-  const pendingRequests = [
-    {
-      id: 101,
-      patientName: 'Bessie',
-      ownerName: 'John Smith',
-      ownerType: 'Dairy Farmer',
-      date: 'Mar 25, 2026',
-      time: '2:30 PM',
-      type: 'Video Call',
-      symptoms: 'Loss of appetite for 2 days, mild fever (102.5°F), reduced milk production',
-      urgency: 'high',
-      image: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=1974&auto=format&fit=crop',
-      requestedAt: '2 hours ago',
-      ownerContact: '+1 (555) 123-4567',
-      animalAge: '4 years',
-      animalBreed: 'Holstein'
-    },
-    {
-      id: 102,
-      patientName: 'Luna',
-      ownerName: 'Emily Wilson',
-      ownerType: 'Pet Owner',
-      date: 'Mar 26, 2026',
-      time: '11:00 AM',
-      type: 'Clinic Visit',
-      symptoms: 'Excessive scratching, skin irritation on neck area, possible allergic reaction',
-      urgency: 'medium',
-      image: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?q=80&w=2043&auto=format&fit=crop',
-      requestedAt: '5 hours ago',
-      ownerContact: '+1 (555) 987-6543',
-      animalAge: '3 years',
-      animalBreed: 'Persian Cat'
-    },
-    {
-      id: 103,
-      patientName: 'Max',
-      ownerName: 'Robert Johnson',
-      ownerType: 'Pet Owner',
-      date: 'Mar 27, 2026',
-      time: '3:00 PM',
-      type: 'Clinic Visit',
-      symptoms: 'Annual vaccination checkup, general wellness examination',
-      urgency: 'low',
-      image: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?q=80&w=2070&auto=format&fit=crop',
-      requestedAt: '1 day ago',
-      ownerContact: '+1 (555) 456-7890',
-      animalAge: '5 years',
-      animalBreed: 'Golden Retriever'
-    }
-  ];
-
-  const reviewedRequests = [
-    {
-      id: 104,
-      patientName: 'Charlie',
-      ownerName: 'Sarah Brown',
-      type: 'Video Call',
-      status: 'approved',
-      reviewedAt: '1 hour ago'
-    },
-    {
-      id: 105,
-      patientName: 'Daisy',
-      ownerName: 'Mike Davis',
-      type: 'Clinic Visit',
-      status: 'declined',
-      reviewedAt: '3 hours ago',
-      reason: 'Requested time slot already booked'
-    }
-  ];
-
-  const handleApprove = (requestId) => {
-    // In a real app, this would make an API call
-    console.log(`Approved request ${requestId}`);
-    alert('Consultation approved! The client will be notified.');
+  // Get vet ID from localStorage
+  const getVetId = () => {
+    return localStorage.getItem('userId');
   };
 
-  const handleDecline = (requestId) => {
+  // Fetch appointments on component mount
+  useEffect(() => {
+    fetchAppointments();
+  }, []);
+
+  const fetchAppointments = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const vetId = getVetId();
+      if (!vetId) {
+        throw new Error('Veterinarian ID not found. Please login again.');
+      }
+
+      // Fetch all appointments for this vet
+      const response = await axios.get(`http://localhost:5000/api/vet-appointments/vet/${vetId}`);
+      const appointments = response.data || [];
+
+      console.log('📊 Appointments from API:', appointments);
+
+      // Separate pending and reviewed appointments
+      const pending = appointments.filter(app => 
+        app.status === 'Pending' || app.status === 'pending'
+      );
+      
+      const reviewed = appointments.filter(app => 
+        app.status === 'Approved' || app.status === 'approved' ||
+        app.status === 'Rejected' || app.status === 'rejected' ||
+        app.status === 'Completed' || app.status === 'completed'
+      );
+
+      // For each pending appointment, fetch its slots
+      const pendingWithSlots = await Promise.all(
+        pending.map(async (app) => {
+          try {
+            const slotsResponse = await axios.get(
+              `http://localhost:5000/api/vet-appointments/${app.id}/slots`
+            );
+            return { ...app, all_slots: slotsResponse.data || [] };
+          } catch (slotErr) {
+            console.error(`Failed to fetch slots for appointment ${app.id}:`, slotErr);
+            return { ...app, all_slots: [] };
+          }
+        })
+      );
+
+      // Transform data to match component format
+      const formattedPending = pendingWithSlots.map(app => formatAppointmentData(app));
+      const formattedReviewed = reviewed.map(app => formatReviewedData(app));
+
+      setPendingRequests(formattedPending);
+      setReviewedRequests(formattedReviewed);
+    } catch (err) {
+      console.error('Error fetching appointments:', err);
+      setError('Failed to load consultation requests. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Format appointment data for pending requests
+  const formatAppointmentData = (app) => {
+    // Parse reason field to extract notes
+    let notes = app.reason_notes || app.reason || '';
+    
+    if (typeof app.reason === 'string' && !app.reason_notes) {
+      try {
+        const parsed = JSON.parse(app.reason);
+        notes = parsed.notes || '';
+      } catch {
+        notes = app.reason;
+      }
+    }
+
+    // Get slots from the database
+    const slots = app.all_slots || [];
+    
+    // Get first slot for display
+    const firstSlot = slots.length > 0 ? slots[0] : null;
+    const displayDate = firstSlot ? formatDate(firstSlot.slot_date || firstSlot.date) : 'Date pending';
+    const displayTime = firstSlot ? formatTime(firstSlot.slot_time || firstSlot.time) : 'Time pending';
+
+    return {
+      id: app.id,
+      patientName: app.animal_name || 'Unknown Animal',
+      ownerName: app.owner_name || 'Unknown Owner',
+      ownerType: 'Pet Owner',
+      date: displayDate,
+      time: displayTime,
+      type: app.consultation_type === 'video' ? 'Video Call' : 
+            app.consultation_type === 'chat' ? 'Chat / Messages' : 'Clinic Visit',
+      symptoms: notes || 'No symptoms provided',
+      urgency: 'medium',
+      image: app.animal_image || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=1974&auto=format&fit=crop',
+      requestedAt: app.created_at ? timeAgo(app.created_at) : 'Recently',
+      ownerContact: app.owner_contact || '',
+      animalAge: app.animal_age || 'N/A',
+      animalBreed: app.animal_breed || 'Unknown',
+      animalId: app.animal_id,
+      slots: slots.map(slot => ({
+        id: slot.id,
+        date: slot.slot_date || slot.date,
+        time: slot.slot_time || slot.time,
+        is_selected: slot.is_selected || 0
+      })),
+      originalData: app
+    };
+  };
+
+  // Format data for reviewed requests
+  const formatReviewedData = (app) => {
+    return {
+      id: app.id,
+      patientName: app.animal_name || 'Unknown Animal',
+      ownerName: app.owner_name || 'Unknown Owner',
+      type: app.consultation_type === 'video' ? 'Video Call' : 'Clinic Visit',
+      status: app.status === 'Approved' ? 'approved' : 
+              app.status === 'Rejected' ? 'declined' : 
+              app.status === 'Completed' ? 'completed' : 'pending',
+      reviewedAt: app.updated_at ? timeAgo(app.updated_at) : 'Recently',
+      reason: app.rejection_reason || ''
+    };
+  };
+
+  // Helper: Format date
+  const formatDate = (dateStr) => {
+    if (!dateStr) return 'Date pending';
+    try {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric' 
+      });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  // Helper: Format time
+  const formatTime = (timeStr) => {
+    if (!timeStr) return 'Time pending';
+    try {
+      const [hours, minutes] = timeStr.split(':');
+      const hour = parseInt(hours);
+      const ampm = hour >= 12 ? 'PM' : 'AM';
+      const hour12 = hour % 12 || 12;
+      return `${hour12}:${minutes} ${ampm}`;
+    } catch {
+      return timeStr;
+    }
+  };
+
+  // Helper: Time ago
+  const timeAgo = (dateStr) => {
+    const now = new Date();
+    const then = new Date(dateStr);
+    const diffMs = now - then;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+    return then.toLocaleDateString();
+  };
+
+  // Handle approve
+  const handleApprove = async (requestId) => {
+    const slotId = selectedSlotId[requestId];
+    if (!slotId) {
+      alert('Please select a time slot for this appointment.');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setSuccessMessage('');
+
+    try {
+      await axios.patch(`http://localhost:5000/api/vet-appointments/${requestId}/approve`, {
+        slotId: slotId
+      });
+      
+      setSuccessMessage('Consultation approved successfully! The client will be notified.');
+      
+      // Clear the selected slot for this appointment
+      setSelectedSlotId(prev => ({
+        ...prev,
+        [requestId]: null
+      }));
+      
+      // Refresh appointments after 2 seconds
+      setTimeout(() => {
+        fetchAppointments();
+      }, 2000);
+    } catch (err) {
+      console.error('Error approving appointment:', err);
+      setError('Failed to approve consultation. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle decline
+  const handleDecline = async (requestId) => {
     if (!declineReason.trim()) {
       alert('Please provide a reason for declining this request.');
       return;
     }
-    // In a real app, this would make an API call
-    console.log(`Declined request ${requestId} with reason: ${declineReason}`);
-    alert('Consultation declined. The client will be notified with your feedback.');
-    setSelectedRequest(null);
-    setDeclineReason('');
-  };
 
-  const getUrgencyBadge = (urgency) => {
-    switch(urgency) {
-      case 'high':
-        return <Badge className="bg-red-100 text-red-700 border-red-200 flex items-center gap-1">
-          <AlertCircle size={12} />
-          High Priority
-        </Badge>;
-      case 'medium':
-        return <Badge className="bg-amber-100 text-amber-700 border-amber-200">
-          Medium Priority
-        </Badge>;
-      case 'low':
-        return <Badge className="bg-blue-100 text-blue-700 border-blue-200">
-          Routine
-        </Badge>;
+    setLoading(true);
+    setError(null);
+    setSuccessMessage('');
+
+    try {
+      await axios.patch(`http://localhost:5000/api/vet-appointments/${requestId}/reject`, {
+        reason: declineReason
+      });
+      
+      setSuccessMessage('Consultation declined. The client will be notified with your feedback.');
+      setSelectedRequest(null);
+      setDeclineReason('');
+      
+      // Refresh appointments after 2 seconds
+      setTimeout(() => {
+        fetchAppointments();
+      }, 2000);
+    } catch (err) {
+      console.error('Error declining appointment:', err);
+      setError('Failed to decline consultation. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -127,10 +272,24 @@ export default function VetConsultationRequests() {
         return <MapPin size={16} className="text-green-500" />;
       case 'Phone Call':
         return <Phone size={16} className="text-purple-500" />;
+      case 'Chat / Messages':
+        return <MessageCircle size={16} className="text-indigo-500" />;
       default:
         return <User size={16} />;
     }
   };
+
+  // Loading state
+  if (loading && pendingRequests.length === 0 && reviewedRequests.length === 0) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <Loader2 size={40} className="animate-spin text-green-600 mx-auto mb-4" />
+          <p className="text-slate-600">Loading consultation requests...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -144,8 +303,30 @@ export default function VetConsultationRequests() {
             <Clock size={14} className="mr-1" />
             {pendingRequests.length} Pending
           </Badge>
+          {/* <Button 
+            variant="outline" 
+            size="sm"
+            onClick={fetchAppointments}
+            disabled={loading}
+          >
+            {loading ? <Loader2 size={16} className="animate-spin" /> : '🔄 Refresh'}
+          </Button> */}
         </div>
       </div>
+
+      {/* Success/Error Messages */}
+      {successMessage && (
+        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg flex items-center gap-2">
+          <CheckCircle2 size={18} />
+          {successMessage}
+        </div>
+      )}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2">
+          <AlertCircle size={18} />
+          {error}
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex items-center gap-4 border-b border-slate-200">
@@ -166,7 +347,7 @@ export default function VetConsultationRequests() {
             activeTab === 'reviewed' ? 'text-green-600' : 'text-slate-500 hover:text-slate-700'
           }`}
         >
-          Recently Reviewed
+          Recently Reviewed ({reviewedRequests.length})
           {activeTab === 'reviewed' && (
             <span className="absolute bottom-0 left-0 w-full h-0.5 bg-green-600 rounded-t-full"></span>
           )}
@@ -186,11 +367,10 @@ export default function VetConsultationRequests() {
                   </div>
                   <div>
                     <h3 className="font-semibold text-slate-900">{request.patientName}</h3>
-                    <p className="text-sm text-slate-600">Owned by {request.ownerName} • {request.ownerType}</p>
+                    <p className="text-sm text-slate-600">Owned by {request.ownerName}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  {getUrgencyBadge(request.urgency)}
                   <span className="text-xs text-slate-500">{request.requestedAt}</span>
                 </div>
               </div>
@@ -214,10 +394,12 @@ export default function VetConsultationRequests() {
                         <span className="text-slate-500 w-20">Age:</span>
                         <span className="text-slate-900 font-medium">{request.animalAge}</span>
                       </div>
-                      <div className="flex items-center text-sm">
-                        <span className="text-slate-500 w-20">Contact:</span>
-                        <span className="text-slate-900 font-medium">{request.ownerContact}</span>
-                      </div>
+                      {request.ownerContact && (
+                        <div className="flex items-center text-sm">
+                          <span className="text-slate-500 w-20">Contact:</span>
+                          <span className="text-slate-900 font-medium">{request.ownerContact}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -248,6 +430,44 @@ export default function VetConsultationRequests() {
                       </div>
                     </div>
 
+                    {/* Available Slots Selection */}
+                    {request.slots && request.slots.length > 0 ? (
+                      <div>
+                        <h4 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-2">
+                          Available Time Slots (Select One to Approve)
+                        </h4>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                          {request.slots.map((slot, index) => (
+                            <button
+                              key={index}
+                              onClick={() => setSelectedSlotId(prev => ({
+                                ...prev,
+                                [request.id]: slot.id  // Track slot per appointment
+                              }))}
+                              className={`p-2 rounded-lg border text-xs font-medium transition-colors ${
+                                selectedSlotId[request.id] === slot.id  // Check per appointment
+                                  ? 'bg-green-600 border-green-600 text-white'
+                                  : 'border-slate-200 text-slate-700 hover:border-green-300 hover:bg-slate-50'
+                              }`}
+                            >
+                              {formatDate(slot.date)} {formatTime(slot.time)}
+                            </button>
+                          ))}
+                        </div>
+                        {selectedSlotId[request.id] && (
+                          <p className="text-xs text-green-600 mt-2">
+                            Slot selected for approval
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                        <p className="text-sm text-yellow-700">
+                          ⚠️ No available time slots found for this appointment. The client needs to resubmit with available slots.
+                        </p>
+                      </div>
+                    )}
+
                     {/* Action Buttons */}
                     <div className="pt-4 border-t border-slate-200">
                       {selectedRequest === request.id ? (
@@ -267,8 +487,9 @@ export default function VetConsultationRequests() {
                             <Button
                               onClick={() => handleDecline(request.id)}
                               className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                              disabled={loading}
                             >
-                              <XCircle size={18} className="mr-2" />
+                              {loading ? <Loader2 size={18} className="animate-spin mr-2" /> : <XCircle size={18} className="mr-2" />}
                               Confirm Decline
                             </Button>
                             <Button
@@ -284,13 +505,14 @@ export default function VetConsultationRequests() {
                           </div>
                         </div>
                       ) : (
-                        <div className="flex gap-3">
+                        <div className="flex gap-3 flex-wrap">
                           <Button
                             onClick={() => handleApprove(request.id)}
                             className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                            disabled={loading || !selectedSlotId[request.id] || !request.slots || request.slots.length === 0}
                           >
-                            <CheckCircle2 size={18} className="mr-2" />
-                            Approve Consultation
+                            {loading ? <Loader2 size={18} className="animate-spin mr-2" /> : <CheckCircle2 size={18} className="mr-2" />}
+                            {selectedSlotId[request.id] ? 'Approve Consultation' : 'Select a Slot First'}
                           </Button>
                           <Button
                             onClick={() => setSelectedRequest(request.id)}
@@ -300,13 +522,13 @@ export default function VetConsultationRequests() {
                             <XCircle size={18} className="mr-2" />
                             Decline Request
                           </Button>
-                          <Button
-                            onClick={() => navigate(`/dashboard/vet/consultations/${request.id}`)}
+                          {/* <Button
+                            onClick={() => navigate(`/dashboard/doctor/consultations/${request.id}`)}
                             variant="ghost"
                             className="px-4"
                           >
                             <FileText size={18} />
-                          </Button>
+                          </Button> */}
                         </div>
                       )}
                     </div>
@@ -321,7 +543,7 @@ export default function VetConsultationRequests() {
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4 text-green-600">
                 <CheckCircle2 size={24} />
               </div>
-              <h3 className="text-lg font-medium text-slate-900 mb-1">All caught up!</h3>
+              <h3 className="text-lg font-medium text-slate-900 mb-1">All caught up! 🎉</h3>
               <p className="text-slate-500 max-w-sm">
                 There are no pending consultation requests at the moment.
               </p>
@@ -338,9 +560,13 @@ export default function VetConsultationRequests() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                    request.status === 'approved' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
+                    request.status === 'approved' ? 'bg-green-100 text-green-600' : 
+                    request.status === 'declined' ? 'bg-red-100 text-red-600' : 
+                    'bg-blue-100 text-blue-600'
                   }`}>
-                    {request.status === 'approved' ? <CheckCircle2 size={20} /> : <XCircle size={20} />}
+                    {request.status === 'approved' ? <CheckCircle2 size={20} /> : 
+                     request.status === 'declined' ? <XCircle size={20} /> : 
+                     <Clock size={20} />}
                   </div>
                   <div>
                     <h4 className="font-semibold text-slate-900">{request.patientName}</h4>
@@ -351,15 +577,22 @@ export default function VetConsultationRequests() {
                   <div className="text-right">
                     <Badge className={request.status === 'approved' 
                       ? 'bg-green-100 text-green-700 border-green-200' 
-                      : 'bg-red-100 text-red-700 border-red-200'
+                      : request.status === 'declined'
+                      ? 'bg-red-100 text-red-700 border-red-200'
+                      : 'bg-blue-100 text-blue-700 border-blue-200'
                     }>
-                      {request.status === 'approved' ? 'Approved' : 'Declined'}
+                      {request.status === 'approved' ? 'Approved' : 
+                       request.status === 'declined' ? 'Declined' : 'Completed'}
                     </Badge>
                     <p className="text-xs text-slate-500 mt-1">{request.reviewedAt}</p>
                   </div>
-                  <Button variant="ghost" size="sm">
+                  {/* <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => navigate(`/dashboard/doctor/consultations/${request.id}`)}
+                  >
                     <ChevronRight size={20} />
-                  </Button>
+                  </Button> */}
                 </div>
               </div>
               {request.status === 'declined' && request.reason && (
@@ -371,6 +604,18 @@ export default function VetConsultationRequests() {
               )}
             </Card>
           ))}
+
+          {reviewedRequests.length === 0 && (
+            <Card className="p-12 border-slate-200 border-dashed flex flex-col items-center justify-center text-center bg-slate-50/50">
+              <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4 text-slate-400">
+                <Clock size={24} />
+              </div>
+              <h3 className="text-lg font-medium text-slate-900 mb-1">No reviewed requests</h3>
+              <p className="text-slate-500 max-w-sm">
+                You haven't reviewed any consultation requests yet.
+              </p>
+            </Card>
+          )}
         </div>
       )}
     </div>
