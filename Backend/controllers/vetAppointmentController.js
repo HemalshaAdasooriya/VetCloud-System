@@ -7,7 +7,8 @@ import {
     updateAppointmentStatus,
     completeAppointment as completeApp,
     cancelAppointment as cancelApp,
-    deleteAppointment
+    deleteAppointment,
+    rejectAppointmentWithReason  // ← ADD THIS IMPORT
 } from "../models/Appointment.js";
 
 // Get all appointments for a veterinarian
@@ -108,15 +109,22 @@ export const approveAppointment = (req, res) => {
     });
 };
 
-// Reject appointment
+// 🔥 UPDATED: Use rejectAppointmentWithReason from model
 export const rejectAppointment = (req, res) => {
     const { id } = req.params;
+    const { reason } = req.body;
 
-    updateAppointmentStatus(id, "Rejected", (err, result) => {
+    if (!reason || !reason.trim()) {
+        return res.status(400).json({ 
+            message: "Reason for rejection is required" 
+        });
+    }
+
+    rejectAppointmentWithReason(id, reason, (err, result) => {
         if (err) {
             console.error('Error rejecting appointment:', err);
             return res.status(500).json({
-                message: "Failed to reject appointment"
+                message: "Failed to reject appointment: " + err.message
             });
         }
 
@@ -164,25 +172,6 @@ export const cancelAppointment = (req, res) => {
         });
     });
 };
-
-// Delete appointment
-// export const deleteAppointment = (req, res) => {
-//     const { id } = req.params;
-
-//     deleteAppointment(id, (err, result) => {
-//         if (err) {
-//             console.error('Error deleting appointment:', err);
-//             return res.status(500).json({
-//                 message: "Failed to delete appointment"
-//             });
-//         }
-
-//         res.json({
-//             message: "Appointment deleted successfully",
-//             data: result
-//         });
-//     });
-// };
 
 // Get appointment statistics for vet dashboard
 export const getVetAppointmentStats = (req, res) => {
