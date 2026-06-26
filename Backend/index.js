@@ -12,6 +12,7 @@ import vetAppointmentRouter from "./routes/vetAppointmentRouter.js";
 import { initializeNotificationTables } from "./models/Notification.js";
 import notificationRouter from "./routes/notificationRouter.js";
 import { startReminderScheduler } from "./config/scheduler.js";
+import scheduleRouter from "./routes/scheduleRouter.js";
 
 dotenv.config();
 
@@ -61,7 +62,8 @@ app.use("/api/users", userRouter);
 app.use("/api/map", mapRouter);
 app.use("/api/animals", animalRouter);
 app.use("/api/appointments", appointmentRouter);
-app.use('/api/vet-appointments', vetAppointmentRouter); //Navindu 2026/06/16 
+app.use('/api/vet-appointments', vetAppointmentRouter); //Navindu 2026/06/16
+app.use("/api/schedule", scheduleRouter); //Navindu 2026/06/26 
 app.use("/api/payments", paymentRouter);
 app.use("/api/notifications", notificationRouter);
 app.use("/uploads", express.static("uploads"));
