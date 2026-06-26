@@ -48,7 +48,6 @@ export default function VetSchedule() {
         `http://localhost:5000/api/schedule/vet/${vetId}/month/${year}/${month}`
       );
       
-      // Group slots by date
       const grouped = {};
       response.data.forEach(slot => {
         const date = new Date(slot.slot_date).getDate();
@@ -261,9 +260,9 @@ export default function VetSchedule() {
   // Get consultation type label
   const getTypeLabel = (type) => {
     switch(type) {
-      case 'video': return 'Video Only';
-      case 'clinic': return 'In-Clinic Only';
-      case 'both': return 'Video or In-Clinic';
+      case 'video': return 'Video Call';
+      case 'chat': return 'Chat Consultation';
+      case 'both': return 'Video or Chat';
       default: return 'Unknown';
     }
   };
@@ -272,8 +271,8 @@ export default function VetSchedule() {
   const getTypeColor = (type) => {
     switch(type) {
       case 'video': return 'bg-blue-100 text-blue-700';
-      case 'clinic': return 'bg-green-100 text-green-700';
-      case 'both': return 'bg-purple-100 text-purple-700';
+      case 'chat': return 'bg-purple-100 text-purple-700';
+      case 'both': return 'bg-green-100 text-green-700';
       default: return 'bg-gray-100 text-gray-700';
     }
   };
@@ -311,13 +310,12 @@ export default function VetSchedule() {
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-5xl mx-auto pb-12">
-      {/* Header - WITHOUT Save Changes button */}
+      {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Manage Schedule</h2>
-          <p className="text-slate-500">Set your availability for consultations and clinic visits</p>
+          <p className="text-slate-500">Set your availability for video calls and chat consultations</p>
         </div>
-        {/* Save Changes button REMOVED */}
       </div>
 
       {/* Messages */}
@@ -498,9 +496,8 @@ export default function VetSchedule() {
                       onChange={(e) => setNewSlotType(e.target.value)}
                       className="h-10 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 min-w-[160px]"
                     >
-                      <option value="video">Video Only</option>
-                      <option value="clinic">In-Clinic Only</option>
-                      <option value="both">Video or In-Clinic</option>
+                      <option value="video">Video Call</option>
+                      <option value="chat">Chat Consultation</option>
                     </select>
                   </div>
                   <div className="flex gap-2 ml-auto">
@@ -542,7 +539,7 @@ export default function VetSchedule() {
                         <p className={`font-semibold ${slot.isBooked ? 'text-slate-600' : 'text-slate-900'}`}>{slot.time}</p>
                         <div className="flex items-center gap-2 mt-1">
                           <span className={`text-xs px-2 py-0.5 rounded-full ${getTypeColor(slot.type)}`}>
-                            {getTypeLabel(slot.type)}
+                             {getTypeLabel(slot.type)}
                           </span>
                           {slot.isBooked && (
                             <Badge className="bg-amber-100 text-amber-700 text-[10px] px-1.5 py-0 h-4 border-none">Booked</Badge>
