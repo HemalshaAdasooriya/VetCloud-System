@@ -1,16 +1,16 @@
-
 import db from "../config/db.js";
 import {
     createAppointment,
     getAppointmentById,
     getAppointmentsByOwner,
     getAppointmentsByVet,
-    selectAppointmentSlot,  // CHANGED: use this instead of updateAppointmentWithFinalSlot
+    selectAppointmentSlot,
     resubmitAppointmentRequest,
     updateAppointmentStatus,
     deleteAppointment
 } from "../models/Appointment.js";
-import { triggerAppointmentNotification } from "./notificationController.js";//isuri-notification
+import { triggerAppointmentNotification } from "./notificationController.js"; //isuri-notification
+import { markSlotAsBooked } from "../models/Schedule.js"; //Navindu 2026/06/26 ... markSlotAsBooked
 
 export const bookAppointment = (req, res) => {
     const { pet_owner_id, veterinarian_id, animal_id, reason, availability } = req.body;
@@ -102,35 +102,46 @@ export const getVetAppointments = (req, res) => {
     });
 };
 
-// FIXED: Approve appointment with slot selection
+//Approve appointment with slot selection AND mark slot as booked
 export const approveAppointment = (req, res) => {
+    const { id } = req.params;
     const { slotId } = req.body;
 
     if (!slotId) {
         return res.status(400).json({ 
-            message: "Slot ID is required for approval." 
+            message: "Slot ID is required for approval" 
         });
     }
 
-    selectAppointmentSlot(
-        req.params.id,
-        slotId,
-        "Approved",
-        (err, result) => {
-            if (err) {
-                console.error(err);
-                return res.status(500).json({
-                    message: "Failed to approve appointment: " + err.message
-                });
-            }
-
-            triggerAppointmentNotification(req.app, req.params.id, "appointment_confirmed");//isuri-notification
-            res.json({
-                message: "Appointment approved successfully",
-                data: result
+    // First, select the appointment slot
+    selectAppointmentSlot(id, slotId, "Approved", (err, result) => {
+        if (err) {
+            console.error('Error approving appointment:', err);
+            return res.status(500).json({
+                message: "Failed to approve appointment: " + err.message
             });
         }
-    );
+
+        // Mark the schedule slot as booked
+        markSlotAsBooked(slotId, id, (scheduleErr, scheduleResult) => {
+            if (scheduleErr) {
+                console.error('Error marking schedule slot as booked:', scheduleErr);
+                // Still return success for the appointment, but log the error
+                // The slot might not exist in the schedule table yet
+            }
+
+            //Send notification
+            triggerAppointmentNotification(req.app, id, "appointment_confirmed");
+
+            res.json({
+                message: "Appointment approved successfully and slot booked",
+                data: {
+                    appointment: result,
+                    schedule: scheduleResult || null
+                }
+            });
+        });
+    });
 };
 
 export const rejectAppointment = (req, res) => {
@@ -166,7 +177,7 @@ export const resubmitAppointment = (req, res) => {
             });
         }
 
-        triggerAppointmentNotification(req.app, req.params.id, "appointment_rescheduled");//isuri-notification
+        triggerAppointmentNotification(req.app, req.params.id, "appointment_rescheduled");
 
         res.json({
             message: "Appointment request resubmitted successfully",
@@ -204,7 +215,7 @@ export const cancelAppointment = (req, res) => {
                 });
             }
 
-            triggerAppointmentNotification(req.app, req.params.id, "appointment_cancelled");//isuri-notification
+            triggerAppointmentNotification(req.app, req.params.id, "appointment_cancelled");
 
             res.json({
                 message: "Appointment cancelled"
