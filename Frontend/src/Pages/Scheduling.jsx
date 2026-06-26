@@ -330,7 +330,7 @@ export default function Scheduling() {
     }
   };
 
-  // ✅ FIXED: Compare dates using local date values
+  // Compare dates using local date values
   const areSameDate = (dateA, dateB) => {
     if (!dateA || !dateB) return false;
     return dateA.getFullYear() === dateB.getFullYear() &&
@@ -354,7 +354,7 @@ export default function Scheduling() {
     );
   };
 
-  // ✅ FIXED: Format date using local date values (no timezone issues)
+  // Format date using local date values (no timezone issues)
   const formatDateKey = (date) => {
     if (!date || !(date instanceof Date)) return "";
     const year = date.getFullYear();
@@ -816,10 +816,10 @@ export default function Scheduling() {
                       </div>
                     </div>
 
-                    {/* Time Slots Section - Grouped by Date */}
+                    {/* Time Slots Section - Grouped by Date with Consultation Type Filtering */}
                     <div>
                       <p className="text-xs text-slate-500 mb-2 uppercase tracking-wide">
-                        Selected Dates & Available Time Slots
+                        Selected Dates & Available {consultType === 'video' ? 'Video Call' : 'Chat'} Slots
                         {selectedVet && (
                           <span className="ml-2 text-green-600 font-medium">
                             (from {getSelectedVet()?.name || 'Doctor'}'s schedule)
@@ -854,8 +854,9 @@ export default function Scheduling() {
                             const formattedDate = formatDateKey(date);
                             const dateLabel = formatDateLabel(date);
                             
-                            // Filter slots for this specific date
+                            // Filter slots by date AND consultation type
                             const slotsForDate = availableTimeSlots.filter(slot => {
+                              // Check date match
                               const slotDate = slot.slot_date || slot.date;
                               let slotDateStr = '';
                               
@@ -868,7 +869,11 @@ export default function Scheduling() {
                                 }
                               }
                               
-                              return slotDateStr === formattedDate;
+                              // Check consultation type match
+                              const slotType = slot.consultation_type || slot.type || 'video';
+                              const matchesType = slotType === consultType;
+                              
+                              return slotDateStr === formattedDate && matchesType;
                             });
                             
                             return (
@@ -909,7 +914,7 @@ export default function Scheduling() {
                                     </div>
                                   ) : (
                                     <p className="text-xs text-slate-400 text-center py-2">
-                                      No available slots for this date
+                                      No {consultType === 'video' ? 'Video Call' : 'Chat'} slots available for this date
                                     </p>
                                   )}
                                 </div>
@@ -919,7 +924,7 @@ export default function Scheduling() {
                           
                           <div className="mt-3 text-sm text-slate-500 text-center">
                             {selectedTimes.length === 0 
-                              ? 'Select time slots from the dates above' 
+                              ? `Select ${consultType === 'video' ? 'Video Call' : 'Chat'} time slots from the dates above` 
                               : `${selectedTimes.length} time slot${selectedTimes.length > 1 ? 's' : ''} selected across ${selectedDates.length} date${selectedDates.length > 1 ? 's' : ''}`}
                           </div>
                         </div>
