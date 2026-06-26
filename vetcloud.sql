@@ -261,3 +261,29 @@ CREATE TABLE `appointment_slots` (
 	CONSTRAINT `appointment_slots_ibfk_1` FOREIGN KEY (`appointment_id`) REFERENCES `appointments` (`id`) ON DELETE CASCADE
 ) ENGINE = INNODB AUTO_INCREMENT = 1 DEFAULT CHARSET = latin1
 
+
+-- ----------------------------
+-- Table structure for vet_schedule
+-- ----------------------------
+DROP TABLE IF EXISTS `vet_schedule`;
+CREATE TABLE `vet_schedule` (
+	`id` INT (11) NOT NULL AUTO_INCREMENT,
+	`veterinarian_id` INT (11) NOT NULL,
+	`slot_date` date NOT NULL,
+	`slot_time` time NOT NULL,
+	`consultation_type` enum ('video', 'chat') DEFAULT 'video',
+	`is_booked` TINYINT (1) DEFAULT '0',
+	`appointment_id` INT (11) DEFAULT NULL,
+	`created_at` datetime DEFAULT NULL,
+	`updated_at` datetime DEFAULT NULL,
+	PRIMARY KEY (`id`),
+	UNIQUE KEY `unique_slot` (
+		`veterinarian_id`,
+		`slot_date`,
+		`slot_time`
+	),
+	KEY `appointment_id` (`appointment_id`),
+	CONSTRAINT `vet_schedule_ibfk_1` FOREIGN KEY (`veterinarian_id`) REFERENCES `veterinarians` (`id`) ON DELETE CASCADE,
+	CONSTRAINT `vet_schedule_ibfk_2` FOREIGN KEY (`appointment_id`) REFERENCES `appointments` (`id`) ON DELETE
+SET NULL
+) ENGINE = INNODB DEFAULT CHARSET = latin1
