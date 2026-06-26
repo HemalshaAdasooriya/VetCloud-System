@@ -9,7 +9,7 @@ import {
     clearDaySlotsHandler,
     updateSlotTypeHandler,
     applyScheduleTemplateHandler,
-    saveScheduleChangesHandler,
+    // saveScheduleChangesHandler,
     getAvailableSlotsForFarmersHandler
 } from "../controllers/scheduleController.js";
 
@@ -35,7 +35,7 @@ scheduleRouter.patch("/vet/:vetId/slot/:slotId", updateSlotTypeHandler);
 scheduleRouter.post("/vet/:vetId/template", applyScheduleTemplateHandler);
 
 // Save all changes
-scheduleRouter.put("/vet/:vetId/save", saveScheduleChangesHandler);
+// scheduleRouter.put("/vet/:vetId/save", saveScheduleChangesHandler);
 
 // Get available slots for farmers
 scheduleRouter.get("/vet/:vetId/available/:startDate/:endDate", getAvailableSlotsForFarmersHandler);
