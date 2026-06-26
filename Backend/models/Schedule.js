@@ -19,10 +19,20 @@ export const getVetSchedule = (vetId, callback) => {
 // Get schedule for a specific date
 export const getVetScheduleByDate = (vetId, date, callback) => {
     const sql = `
-        SELECT id, slot_date, slot_time, consultation_type, is_booked, appointment_id
-        FROM vet_schedule
-        WHERE veterinarian_id = ? AND slot_date = ?
-        ORDER BY slot_time ASC
+        SELECT
+            id,
+            DATE_FORMAT(slot_date, '%Y-%m-%d') AS slot_date,
+            slot_time,
+            consultation_type,
+            is_booked,
+            appointment_id
+        FROM
+            vet_schedule
+        WHERE
+            veterinarian_id = ?
+        AND DATE(slot_date) = ?
+        ORDER BY
+            slot_time ASC
     `;
     db.query(sql, [vetId, date], callback);
 };
@@ -83,7 +93,6 @@ export const addMultipleScheduleSlots = (data, callback) => {
 
 // Remove a schedule slot
 export const removeScheduleSlot = (slotId, vetId, callback) => {
-    // Check if slot is booked
     const checkSql = `SELECT is_booked FROM vet_schedule WHERE id = ? AND veterinarian_id = ?`;
     db.query(checkSql, [slotId, vetId], (err, results) => {
         if (err) return callback(err);
@@ -99,7 +108,6 @@ export const removeScheduleSlot = (slotId, vetId, callback) => {
 
 // Clear all slots for a specific day
 export const clearDaySlots = (vetId, date, callback) => {
-    // Only delete slots that are not booked
     const sql = `
         DELETE FROM vet_schedule 
         WHERE veterinarian_id = ? AND slot_date = ? AND is_booked = 0
@@ -118,7 +126,7 @@ export const updateSlotType = (slotId, vetId, consultationType, callback) => {
     db.query(sql, [consultationType, now, slotId, vetId], callback);
 };
 
-//Mark a slot as booked (when appointment is approved)
+// Mark a slot as booked (when appointment is approved)
 export const markSlotAsBooked = (slotId, appointmentId, callback) => {
     const now = getCurrentTimestamp();
     const sql = `
@@ -154,7 +162,6 @@ export const getAvailableSlotsForFarmers = (vetId, startDate, endDate, callback)
 // Apply template (copy slots from previous week)
 export const applyScheduleTemplate = (vetId, sourceDate, targetDate, callback) => {
     const now = getCurrentTimestamp();
-    // Get slots from source date
     const getSql = `
         SELECT slot_time, consultation_type
         FROM vet_schedule
@@ -166,7 +173,6 @@ export const applyScheduleTemplate = (vetId, sourceDate, targetDate, callback) =
             return callback(null, { message: 'No slots to copy from this date' });
         }
         
-        // Insert slots to target date
         const values = results.map(row => [
             vetId,
             targetDate,
@@ -182,56 +188,5 @@ export const applyScheduleTemplate = (vetId, sourceDate, targetDate, callback) =
             VALUES ?
         `;
         db.query(insertSql, [values], callback);
-    });
-};
-
-// Save all schedule changes (batch update)
-export const saveScheduleChanges = (vetId, slots, callback) => {
-    const now = getCurrentTimestamp();
-    db.beginTransaction((err) => {
-        if (err) return callback(err);
-        
-        // Delete slots that are not booked
-        const deleteSql = `
-            DELETE FROM vet_schedule 
-            WHERE veterinarian_id = ? AND is_booked = 0
-        `;
-        db.query(deleteSql, [vetId], (err) => {
-            if (err) {
-                return db.rollback(() => callback(err));
-            }
-            
-            // Insert new slots
-            if (slots && slots.length > 0) {
-                const values = slots.map(slot => [
-                    vetId,
-                    slot.slot_date,
-                    slot.slot_time,
-                    slot.consultation_type || 'video',
-                    0,
-                    now,
-                    now
-                ]);
-                const insertSql = `
-                    INSERT INTO vet_schedule 
-                    (veterinarian_id, slot_date, slot_time, consultation_type, is_booked, created_at, updated_at)
-                    VALUES ?
-                `;
-                db.query(insertSql, [values], (err) => {
-                    if (err) {
-                        return db.rollback(() => callback(err));
-                    }
-                    db.commit((err) => {
-                        if (err) return db.rollback(() => callback(err));
-                        callback(null, { message: 'Schedule saved successfully' });
-                    });
-                });
-            } else {
-                db.commit((err) => {
-                    if (err) return db.rollback(() => callback(err));
-                    callback(null, { message: 'Schedule cleared successfully' });
-                });
-            }
-        });
     });
 };
