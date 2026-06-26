@@ -13,7 +13,8 @@ import {
   ShieldCheck,
   Plus,
   Trash2,
-  X
+  X,
+  AlertCircle
 } from 'lucide-react';
 
 import { Button, Card, Input, Badge } from '../components/ui/ui';
@@ -75,6 +76,10 @@ export default function Scheduling() {
   const [deletingAnimalId, setDeletingAnimalId] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // States for fetching available slots from vet_schedule
+  const [availableTimeSlots, setAvailableTimeSlots] = useState([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+
   const handleDeleteAnimalClick = (e, animalId) => {
     e.stopPropagation();
     setDeletingAnimalId(animalId);
@@ -99,15 +104,15 @@ export default function Scheduling() {
     }
   };
 
-  // 🔥 VETS (TEMP until backend ready)
+  // Vets state
   const [vets, setVets] = useState([]);
   const [loadingVets, setLoadingVets] = useState(true);
 
-  // 🔥 GET animals from DB
+  // GET animals from DB
   useEffect(() => {
     const fetchAnimals = async () => {
       try {
-        const ownerId = localStorage.getItem('userId'); // IMPORTANT
+        const ownerId = localStorage.getItem('userId');
         const res = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/animals?ownerId=${ownerId}`);
         setAnimals(res.data);
       } catch (err) {
@@ -121,19 +126,43 @@ export default function Scheduling() {
   }, []);
 
   useEffect(() => {
-  const fetchVets = async () => {
-    try {
-      const res = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/users/vets`);
-      setVets(res.data);
-    } catch (err) {
-      console.error("Failed to load vets:", err);
-    } finally {
-      setLoadingVets(false);
-    }
-  };
+    const fetchVets = async () => {
+      try {
+        const res = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/users/vets`);
+        setVets(res.data);
+      } catch (err) {
+        console.error("Failed to load vets:", err);
+      } finally {
+        setLoadingVets(false);
+      }
+    };
 
-  fetchVets();
-}, []);
+    fetchVets();
+  }, []);
+
+  // Fetch available slots for all selected dates
+  useEffect(() => {
+    if (selectedVet && selectedDates.length > 0) {
+      const loadAllSlots = async () => {
+        setLoadingSlots(true);
+        try {
+          const allSlots = [];
+          for (const date of selectedDates) {
+            const slots = await fetchAvailableSlotsForVet(selectedVet, date);
+            allSlots.push(...slots);
+          }
+          setAvailableTimeSlots(allSlots);
+        } catch (err) {
+          console.error('Error loading slots:', err);
+        } finally {
+          setLoadingSlots(false);
+        }
+      };
+      loadAllSlots();
+    } else {
+      setAvailableTimeSlots([]);
+    }
+  }, [selectedVet, selectedDates]);
 
   const getSelectedAnimal = () =>
     animals.find(a => a.id === selectedAnimal);
@@ -141,7 +170,7 @@ export default function Scheduling() {
   const getSelectedVet = () =>
     vets.find(v => v.id === selectedVet);
 
-  // 🔥 UPDATED BY NAVINDU ON 2026-06-10 - START (Search & Filter)
+  // Search & Filter
   const filteredAnimals = animals.filter(animal =>
     animal.name.toLowerCase().includes(searchAnimal.toLowerCase()) ||
     animal.breed?.toLowerCase().includes(searchAnimal.toLowerCase()) ||
@@ -152,7 +181,6 @@ export default function Scheduling() {
     vet.name.toLowerCase().includes(searchVet.toLowerCase()) ||
     vet.spec.toLowerCase().includes(searchVet.toLowerCase())
   );
-  // 🔥 UPDATED BY NAVINDU ON 2026-06-10 - END (Search & Filter)
 
   const location = useLocation();
 
@@ -162,7 +190,27 @@ export default function Scheduling() {
     }
   }, [location?.state]);
 
-  // 🔥 UPDATED BY NAVINDU ON 2026-06-19 - START (Added consultation_type retrieval for resubmit)
+  // Fetch available slots from vet_schedule
+  const fetchAvailableSlotsForVet = async (vetId, date) => {
+    if (!vetId || !date) return [];
+    try {
+      const formattedDate = formatDateKey(date);
+      
+      const response = await axios.get(
+        `${import.meta.env.VITE_BACKEND_URL}/api/schedule/vet/${vetId}/date/${formattedDate}`
+      );
+      
+      // Filter only available slots (not booked)
+      const available = response.data.filter(slot => slot.is_booked === 0);
+      
+      return available;
+    } catch (err) {
+      console.error('Error fetching available slots:', err);
+      return [];
+    }
+  };
+
+  // Resubmit appointment logic
   useEffect(() => {
     if (!resubmitAppointmentId) return;
 
@@ -173,7 +221,6 @@ export default function Scheduling() {
         setSelectedAnimal(appointment.animal_id);
         setSelectedVet(appointment.veterinarian_id);
         
-        // Set consultation type if it exists
         if (appointment.consultation_type) {
           setConsultType(appointment.consultation_type);
         }
@@ -197,7 +244,6 @@ export default function Scheduling() {
             // Ignore parse error, proceed to fallback
           }
 
-          // Fallback to slot array returned from backend (e.g. appointment.slots)
           if (Array.isArray(appointment.slots) && appointment.slots.length > 0) {
             return appointment.slots.map((s) => ({
               date: s.date || s.slot_date,
@@ -226,9 +272,8 @@ export default function Scheduling() {
 
     fetchAppointmentForResubmit();
   }, [resubmitAppointmentId]);
-  // 🔥 UPDATED BY NAVINDU ON 2026-06-19 - END
 
-  // 🔥 UPDATED BY NAVINDU ON 2026-06-10 - START
+  // Add Animal handlers
   const handleAddAnimalChange = (e) => {
     const { name, value } = e.target;
     setAddAnimalForm(prev => ({
@@ -258,17 +303,15 @@ export default function Scheduling() {
          formData.append('image', addAnimalForm.image || SPECIES_IMAGES[addAnimalForm.species] || SPECIES_IMAGES.Other);
       }
 
-      const response = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/animals`, formData, {
+      await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/animals`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
       });
 
-      // Refresh animals list
       const res = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/animals?ownerId=${ownerId}`);
       setAnimals(res.data);
 
-      // Reset form and close modal
       setAddAnimalForm({
         name: '',
         species: 'Cattle',
@@ -287,10 +330,13 @@ export default function Scheduling() {
     }
   };
 
-  const areSameDate = (dateA, dateB) =>
-    dateA?.getFullYear() === dateB?.getFullYear() &&
-    dateA?.getMonth() === dateB?.getMonth() &&
-    dateA?.getDate() === dateB?.getDate();
+  // ✅ FIXED: Compare dates using local date values
+  const areSameDate = (dateA, dateB) => {
+    if (!dateA || !dateB) return false;
+    return dateA.getFullYear() === dateB.getFullYear() &&
+           dateA.getMonth() === dateB.getMonth() &&
+           dateA.getDate() === dateB.getDate();
+  };
 
   const toggleDateSelection = (date) => {
     setSelectedDates((prev) => {
@@ -308,9 +354,13 @@ export default function Scheduling() {
     );
   };
 
+  // ✅ FIXED: Format date using local date values (no timezone issues)
   const formatDateKey = (date) => {
     if (!date || !(date instanceof Date)) return "";
-    return date.toISOString().split('T')[0];
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
   const formatDateLabel = (date) => {
@@ -350,7 +400,6 @@ export default function Scheduling() {
     );
   };
 
-  // 🔥 UPDATED BY NAVINDU ON 2026-06-19 - START (Added consultation_type to payload)
   const handleSubmitAppointmentRequest = async () => {
     if (!selectedAnimal || !selectedVet || selectedDates.length === 0 || selectedTimes.length === 0) {
       return;
@@ -368,7 +417,7 @@ export default function Scheduling() {
         await axios.patch(`${import.meta.env.VITE_BACKEND_URL}/api/appointments/${resubmitAppointmentId}/resubmit`, {
           availability,
           reason: symptoms,
-          consultation_type: consultType // Added consultation type
+          consultation_type: consultType
         });
         setSubmissionMessage('Request resubmitted. Your doctor will review the updated availability.');
         setResubmitAppointmentId(null);
@@ -380,7 +429,7 @@ export default function Scheduling() {
           reason: symptoms,
           availability,
           status: 'Pending',
-          consultation_type: consultType // Added consultation type
+          consultation_type: consultType
         });
         setSubmissionMessage('Request submitted. Your doctor will review and approve one of your requested slots.');
       }
@@ -398,7 +447,6 @@ export default function Scheduling() {
       setIsSubmittingRequest(false);
     }
   };
-  // 🔥 UPDATED BY NAVINDU ON 2026-06-19 - END
 
   return (
     <div className="bg-slate-50 min-h-[calc(100vh-4rem)] py-4">
@@ -427,7 +475,6 @@ export default function Scheduling() {
             <div className="p-6">
               <div className="flex justify-between items-center mb-5">
                 <h2 className="text-xl font-bold text-slate-800">Select Your Animal</h2>
-                {/* 🔥 UPDATED BY NAVINDU ON 2026-06-10 - START (Search) */}
                 <div className="relative w-64">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                   <Input
@@ -437,7 +484,6 @@ export default function Scheduling() {
                     onChange={(e) => setSearchAnimal(e.target.value)}
                   />
                 </div>
-                {/* 🔥 UPDATED BY NAVINDU ON 2026-06-10 - END (Search) */}
               </div>
 
               {loadingAnimals ? (
@@ -489,7 +535,6 @@ export default function Scheduling() {
                 </div>
               )}
 
-              {/* 🔥 UPDATED BY NAVINDU ON 2026-06-10 - START (Add New Animal) */}
               <Card className="p-4 border-2 border-dashed border-slate-300 cursor-pointer hover:border-green-400 hover:bg-green-50 transition-all group" onClick={() => setShowAddAnimalModal(true)}>
                 <div className="flex items-center justify-center gap-3 text-slate-600 group-hover:text-green-600 transition-colors">
                   <div className="w-12 h-12 rounded-full bg-slate-100 group-hover:bg-green-100 flex items-center justify-center transition-colors">
@@ -501,7 +546,6 @@ export default function Scheduling() {
                   </div>
                 </div>
               </Card>
-              {/* 🔥 UPDATED BY NAVINDU ON 2026-06-10 - END (Add New Animal) */}
 
               <div className="flex justify-end pt-6 border-t border-slate-100 mt-6">
                 <Button onClick={() => setStep(2)} disabled={!selectedAnimal}>
@@ -515,7 +559,6 @@ export default function Scheduling() {
             <div className="p-6">
               <div className="flex justify-between items-center mb-5">
                 <h2 className="text-xl font-bold text-slate-800">Select a Veterinarian</h2>
-                {/* 🔥 UPDATED BY NAVINDU ON 2026-06-10 - START (Search) */}
                 <div className="relative w-64">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                   <Input
@@ -525,7 +568,6 @@ export default function Scheduling() {
                     onChange={(e) => setSearchVet(e.target.value)}
                   />
                 </div>
-                {/* 🔥 UPDATED BY NAVINDU ON 2026-06-10 - END (Search) */}
               </div>
 
               <div className="grid lg:grid-cols-2 gap-6">
@@ -686,6 +728,7 @@ export default function Scheduling() {
                   <label className="block text-sm font-semibold text-slate-700 mb-3">Choose Requested Dates & Time Slots</label>
                   <p className="text-xs text-slate-500 mb-4">Request one or more available slots and let the doctor choose the final appointment.</p>
                   <div className="grid md:grid-cols-2 gap-6">
+                    {/* Calendar Section */}
                     <div>
                       <div className="border border-slate-200 rounded-lg p-4 bg-white">
                         <div className="flex items-center justify-between mb-4">
@@ -773,40 +816,114 @@ export default function Scheduling() {
                       </div>
                     </div>
 
+                    {/* Time Slots Section - Grouped by Date */}
                     <div>
                       <p className="text-xs text-slate-500 mb-2 uppercase tracking-wide">
-                        Available Time Slots
+                        Selected Dates & Available Time Slots
+                        {selectedVet && (
+                          <span className="ml-2 text-green-600 font-medium">
+                            (from {getSelectedVet()?.name || 'Doctor'}'s schedule)
+                          </span>
+                        )}
                       </p>
 
-                      <div className="grid grid-cols-2 gap-2">
-                        {[
-                          '09:00 AM',
-                          '10:30 AM',
-                          '01:00 PM',
-                          '02:30 PM',
-                          '04:00 PM',
-                          '05:30 PM'
-                        ].map((time) => (
-                          <button
-                            key={time}
-                            type="button"
-                            onClick={() => toggleTimeSelection(time)}
-                            className={`p-3 rounded-xl border text-xs font-semibold transition-colors ${
-                              selectedTimes.includes(time)
-                                ? 'bg-green-600 border-green-600 text-white'
-                                : 'border-slate-200 text-slate-700 hover:border-green-300 hover:bg-slate-50'
-                            }`}
-                          >
-                            <span className="flex items-center gap-2 justify-center">
-                              <Clock size={14} /> {time}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-
-                      <div className="mt-4 text-sm text-slate-500">
-                        {selectedTimes.length === 0 ? 'Choose at least one time slot.' : `${selectedTimes.length} time slot${selectedTimes.length > 1 ? 's' : ''} selected.`}
-                      </div>
+                      {!selectedVet ? (
+                        <div className="text-center py-8 text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-300">
+                          <Clock size={32} className="mx-auto mb-2 opacity-40" />
+                          <p className="text-sm">Please select a veterinarian first</p>
+                        </div>
+                      ) : selectedDates.length === 0 ? (
+                        <div className="text-center py-8 text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-300">
+                          <CalendarIcon size={32} className="mx-auto mb-2 opacity-40" />
+                          <p className="text-sm">Please select one or more dates from the calendar</p>
+                        </div>
+                      ) : loadingSlots ? (
+                        <div className="text-center py-8 text-slate-400">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-2"></div>
+                          <p className="text-sm">Loading available slots...</p>
+                        </div>
+                      ) : availableTimeSlots.length === 0 ? (
+                        <div className="text-center py-8 text-amber-600 bg-amber-50 rounded-xl border border-amber-200">
+                          <AlertCircle size={24} className="mx-auto mb-2" />
+                          <p className="text-sm font-medium">No available slots found</p>
+                          <p className="text-xs mt-1 text-amber-500">The doctor has no available slots for the selected dates.</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+                          {selectedDates.map((date) => {
+                            const formattedDate = formatDateKey(date);
+                            const dateLabel = formatDateLabel(date);
+                            
+                            // Filter slots for this specific date
+                            const slotsForDate = availableTimeSlots.filter(slot => {
+                              const slotDate = slot.slot_date || slot.date;
+                              let slotDateStr = '';
+                              
+                              if (slotDate) {
+                                if (typeof slotDate === 'string') {
+                                  slotDateStr = slotDate.split('T')[0];
+                                } else {
+                                  const d = new Date(slotDate);
+                                  slotDateStr = formatDateKey(d);
+                                }
+                              }
+                              
+                              return slotDateStr === formattedDate;
+                            });
+                            
+                            return (
+                              <div key={formattedDate} className="border border-slate-200 rounded-lg overflow-hidden">
+                                <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 flex items-center justify-between">
+                                  <span className="text-sm font-semibold text-slate-700">
+                                    <CalendarIcon size={14} className="inline mr-2 text-green-600" />
+                                    {dateLabel}
+                                  </span>
+                                  <Badge className="bg-green-100 text-green-700 text-[10px]">
+                                    {slotsForDate.length} slot{slotsForDate.length !== 1 ? 's' : ''}
+                                  </Badge>
+                                </div>
+                                <div className="p-3">
+                                  {slotsForDate.length > 0 ? (
+                                    <div className="grid grid-cols-2 gap-2">
+                                      {slotsForDate.map((slot) => {
+                                        const timeLabel = normalizeTimeToLabel(slot.slot_time || slot.time);
+                                        const isSelected = selectedTimes.includes(timeLabel);
+                                        
+                                        return (
+                                          <button
+                                            key={slot.id}
+                                            type="button"
+                                            onClick={() => toggleTimeSelection(timeLabel)}
+                                            className={`p-2.5 rounded-lg border text-xs font-medium transition-colors ${
+                                              isSelected
+                                                ? 'bg-green-600 border-green-600 text-white'
+                                                : 'border-slate-200 text-slate-700 hover:border-green-300 hover:bg-slate-50'
+                                            }`}
+                                          >
+                                            <span className="flex items-center gap-2 justify-center">
+                                              <Clock size={12} /> {timeLabel}
+                                            </span>
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  ) : (
+                                    <p className="text-xs text-slate-400 text-center py-2">
+                                      No available slots for this date
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                          
+                          <div className="mt-3 text-sm text-slate-500 text-center">
+                            {selectedTimes.length === 0 
+                              ? 'Select time slots from the dates above' 
+                              : `${selectedTimes.length} time slot${selectedTimes.length > 1 ? 's' : ''} selected across ${selectedDates.length} date${selectedDates.length > 1 ? 's' : ''}`}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -843,7 +960,6 @@ export default function Scheduling() {
                       <span className="text-slate-500">Patient</span>
                       <span className="font-medium text-slate-900">{getSelectedAnimal()?.name || 'Bessie'} ({getSelectedAnimal()?.species || 'Animal'})</span>
                     </div>
-                    {/* 🔥 UPDATED BY NAVINDU ON 2026-06-19 - START (Enhanced consultation type display) */}
                     <div className="flex justify-between">
                       <span className="text-slate-500">Consultation Type</span>
                       <span className="font-medium text-slate-900 flex items-center gap-1">
@@ -860,7 +976,6 @@ export default function Scheduling() {
                         )}
                       </span>
                     </div>
-                    {/* 🔥 UPDATED BY NAVINDU ON 2026-06-19 - END */}
                     <div className="space-y-2">
                       <span className="text-slate-500">Requested Availability</span>
                       <div className="grid gap-2">
@@ -912,7 +1027,7 @@ export default function Scheduling() {
         </div>
       </div>
 
-      {/* 🔥 UPDATED BY NAVINDU ON 2026-06-10 - START (Add Animal Modal) */}
+      {/* Add Animal Modal */}
       {showAddAnimalModal && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white animate-in fade-in zoom-in-95 duration-200">
@@ -1087,7 +1202,6 @@ export default function Scheduling() {
           </Card>
         </div>
       )}
-      {/* 🔥 UPDATED BY NAVINDU ON 2026-06-10 - END (Add Animal Modal) */}
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
