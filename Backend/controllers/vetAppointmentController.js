@@ -8,9 +8,10 @@ import {
     completeAppointment as completeApp,
     cancelAppointment as cancelApp,
     deleteAppointment,
-    rejectAppointmentWithReason  // ← ADD THIS IMPORT
+    rejectAppointmentWithReason
 } from "../models/Appointment.js";
-import { triggerAppointmentNotification } from "./notificationController.js";//isuri-notification
+import { triggerAppointmentNotification } from "./notificationController.js"; //isuri-notification
+import { markSlotAsBooked } from "../models/Schedule.js"; //Navindu 2026/06/26 ... markSlotAsBooked
 
 // Get all appointments for a veterinarian
 export const getVetAppointments = (req, res) => {
@@ -84,7 +85,7 @@ export const getAvailableSlots = (req, res) => {
     });
 };
 
-// Approve appointment with slot selection
+//Approve appointment with slot selection AND mark slot as booked
 export const approveAppointment = (req, res) => {
     const { id } = req.params;
     const { slotId } = req.body;
@@ -95,6 +96,7 @@ export const approveAppointment = (req, res) => {
         });
     }
 
+    // 1. Select the appointment slot
     selectAppointmentSlot(id, slotId, "Approved", (err, result) => {
         if (err) {
             console.error('Error approving appointment:', err);
@@ -103,15 +105,30 @@ export const approveAppointment = (req, res) => {
             });
         }
 
-         triggerAppointmentNotification(req.app, id, "appointment_confirmed");//isuri-notification
-        res.json({
-            message: "Appointment approved successfully",
-            data: result
+        // 2. Mark the schedule slot as booked
+        markSlotAsBooked(slotId, id, (scheduleErr, scheduleResult) => {
+            if (scheduleErr) {
+                console.error('Error marking schedule slot as booked:', scheduleErr);
+                // Don't fail the request - the appointment is already approved
+                // Just log the error and continue
+            }
+
+            // 3. Send notification
+            triggerAppointmentNotification(req.app, id, "appointment_confirmed");
+
+            // 4. Return success response
+            res.json({
+                message: "Appointment approved successfully and slot booked",
+                data: {
+                    appointment: result,
+                    schedule: scheduleResult || null
+                }
+            });
         });
     });
 };
 
-// 🔥 UPDATED: Use rejectAppointmentWithReason from model
+// Reject appointment with reason
 export const rejectAppointment = (req, res) => {
     const { id } = req.params;
     const { reason } = req.body;
@@ -129,6 +146,9 @@ export const rejectAppointment = (req, res) => {
                 message: "Failed to reject appointment: " + err.message
             });
         }
+
+        // Send notification for rejection
+        triggerAppointmentNotification(req.app, id, "appointment_rejected");
 
         res.json({
             message: "Appointment rejected successfully",
@@ -149,7 +169,7 @@ export const completeAppointment = (req, res) => {
             });
         }
 
-        triggerAppointmentNotification(req.app, id, "appointment_completed");//isuri-notification
+        triggerAppointmentNotification(req.app, id, "appointment_completed");
         res.json({
             message: "Appointment completed successfully",
             data: result
@@ -169,7 +189,7 @@ export const cancelAppointment = (req, res) => {
             });
         }
 
-        triggerAppointmentNotification(req.app, id, "appointment_cancelled");//isuri-notification
+        triggerAppointmentNotification(req.app, id, "appointment_cancelled");
         res.json({
             message: "Appointment cancelled successfully",
             data: result
