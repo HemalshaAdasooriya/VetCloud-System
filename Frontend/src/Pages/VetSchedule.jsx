@@ -16,7 +16,6 @@ export default function VetSchedule() {
   const [isAdding, setIsAdding] = useState(false);
   const [newSlotTime, setNewSlotTime] = useState('09:00');
   const [newSlotType, setNewSlotType] = useState('video');
-  const [saving, setSaving] = useState(false);
   const [monthSlots, setMonthSlots] = useState({});
 
   // Get vet ID from localStorage
@@ -77,7 +76,6 @@ export default function VetSchedule() {
         `http://localhost:5000/api/schedule/vet/${vetId}/date/${formattedDate}`
       );
       
-      // Format slots for display
       const slots = response.data.map(slot => ({
         id: slot.id,
         time: formatTimeForDisplay(slot.slot_time),
@@ -116,7 +114,6 @@ export default function VetSchedule() {
   // Format time for API (HH:MM:SS)
   const formatTimeForAPI = (timeStr) => {
     if (!timeStr) return '';
-    // Convert "09:00 AM" to "09:00:00"
     const [time, period] = timeStr.split(' ');
     let [hours, minutes] = time.split(':');
     let hour = parseInt(hours);
@@ -134,7 +131,7 @@ export default function VetSchedule() {
   const handleAddSlot = async () => {
     if (!newSlotTime) return;
 
-    setSaving(true);
+    setLoading(true);
     try {
       const vetId = getVetId();
       if (!vetId) throw new Error('Veterinarian ID not found');
@@ -153,7 +150,6 @@ export default function VetSchedule() {
       setNewSlotTime('09:00');
       setNewSlotType('video');
       
-      // Refresh schedule
       await fetchScheduleForDate(selectedDate);
       await fetchMonthSchedule();
 
@@ -162,7 +158,7 @@ export default function VetSchedule() {
       console.error('Error adding slot:', err);
       setError('Failed to add slot. Please try again.');
     } finally {
-      setSaving(false);
+      setLoading(false);
     }
   };
 
@@ -175,7 +171,7 @@ export default function VetSchedule() {
 
     if (!window.confirm(`Are you sure you want to remove the slot at ${time}?`)) return;
 
-    setSaving(true);
+    setLoading(true);
     try {
       const vetId = getVetId();
       if (!vetId) throw new Error('Veterinarian ID not found');
@@ -184,7 +180,6 @@ export default function VetSchedule() {
 
       setSuccessMessage('Slot removed successfully!');
       
-      // Refresh schedule
       await fetchScheduleForDate(selectedDate);
       await fetchMonthSchedule();
 
@@ -193,7 +188,7 @@ export default function VetSchedule() {
       console.error('Error removing slot:', err);
       setError(err.response?.data?.message || 'Failed to remove slot. Please try again.');
     } finally {
-      setSaving(false);
+      setLoading(false);
     }
   };
 
@@ -201,7 +196,7 @@ export default function VetSchedule() {
   const handleClearDay = async () => {
     if (!window.confirm('Are you sure you want to clear all slots for this day?')) return;
 
-    setSaving(true);
+    setLoading(true);
     try {
       const vetId = getVetId();
       if (!vetId) throw new Error('Veterinarian ID not found');
@@ -211,7 +206,6 @@ export default function VetSchedule() {
 
       setSuccessMessage('All slots cleared successfully!');
       
-      // Refresh schedule
       await fetchScheduleForDate(selectedDate);
       await fetchMonthSchedule();
 
@@ -220,7 +214,7 @@ export default function VetSchedule() {
       console.error('Error clearing slots:', err);
       setError('Failed to clear slots. Please try again.');
     } finally {
-      setSaving(false);
+      setLoading(false);
     }
   };
 
@@ -233,7 +227,7 @@ export default function VetSchedule() {
     
     if (!window.confirm(`Copy slots from ${sourceDate} to ${targetDate}?`)) return;
 
-    setSaving(true);
+    setLoading(true);
     try {
       const vetId = getVetId();
       if (!vetId) throw new Error('Veterinarian ID not found');
@@ -245,7 +239,6 @@ export default function VetSchedule() {
 
       setSuccessMessage('Template applied successfully!');
       
-      // Refresh schedule
       await fetchScheduleForDate(selectedDate);
       await fetchMonthSchedule();
 
@@ -254,33 +247,7 @@ export default function VetSchedule() {
       console.error('Error applying template:', err);
       setError('Failed to apply template. Please try again.');
     } finally {
-      setSaving(false);
-    }
-  };
-
-  // Handle saving all changes
-  const handleSaveChanges = async () => {
-    setSaving(true);
-    try {
-      const vetId = getVetId();
-      if (!vetId) throw new Error('Veterinarian ID not found');
-
-      // Prepare slots data
-      const slots = availableSlots.map(slot => ({
-        slot_date: formatDateForAPI(selectedDate),
-        slot_time: formatTimeForAPI(slot.time),
-        consultation_type: slot.type
-      }));
-
-      await axios.put(`http://localhost:5000/api/schedule/vet/${vetId}/save`, { slots });
-
-      setSuccessMessage('Schedule saved successfully!');
-      setTimeout(() => setSuccessMessage(''), 3000);
-    } catch (err) {
-      console.error('Error saving schedule:', err);
-      setError('Failed to save schedule. Please try again.');
-    } finally {
-      setSaving(false);
+      setLoading(false);
     }
   };
 
@@ -319,11 +286,9 @@ export default function VetSchedule() {
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     
     const days = [];
-    // Empty cells for start of month
     for (let i = 0; i < firstDay; i++) {
       days.push(null);
     }
-    // Days of the month
     for (let i = 1; i <= daysInMonth; i++) {
       days.push(i);
     }
@@ -346,20 +311,13 @@ export default function VetSchedule() {
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-5xl mx-auto pb-12">
-      {/* Header */}
+      {/* Header - WITHOUT Save Changes button */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Manage Schedule</h2>
           <p className="text-slate-500">Set your availability for consultations and clinic visits</p>
         </div>
-        <Button 
-          className="bg-green-600 hover:bg-green-700 text-white"
-          onClick={handleSaveChanges}
-          disabled={saving}
-        >
-          {saving ? <Loader2 size={16} className="animate-spin mr-2" /> : <Check size={16} className="mr-2" />}
-          Save Changes
-        </Button>
+        {/* Save Changes button REMOVED */}
       </div>
 
       {/* Messages */}
@@ -453,7 +411,7 @@ export default function VetSchedule() {
                 variant="outline" 
                 className="w-full justify-start text-sm bg-white"
                 onClick={handleApplyTemplate}
-                disabled={saving}
+                disabled={loading}
               >
                 Apply "Standard Weekday" template
               </Button>
@@ -461,7 +419,7 @@ export default function VetSchedule() {
                 variant="outline" 
                 className="w-full justify-start text-sm bg-white"
                 onClick={handleApplyTemplate}
-                disabled={saving}
+                disabled={loading}
               >
                 Copy from previous week
               </Button>
@@ -469,7 +427,7 @@ export default function VetSchedule() {
                 variant="outline" 
                 className="w-full justify-start text-sm text-red-600 hover:text-red-700 hover:bg-red-50 bg-white border-red-200"
                 onClick={handleClearDay}
-                disabled={saving}
+                disabled={loading}
               >
                 Clear all slots for this day
               </Button>
@@ -495,7 +453,7 @@ export default function VetSchedule() {
               <Button 
                 onClick={() => setIsAdding(true)}
                 className="bg-slate-900 hover:bg-slate-800 text-white text-sm"
-                disabled={saving}
+                disabled={loading}
               >
                 <Plus size={16} className="mr-2" /> Add Slot
               </Button>
@@ -546,13 +504,13 @@ export default function VetSchedule() {
                     </select>
                   </div>
                   <div className="flex gap-2 ml-auto">
-                    <Button variant="outline" onClick={() => setIsAdding(false)} disabled={saving}>Cancel</Button>
+                    <Button variant="outline" onClick={() => setIsAdding(false)} disabled={loading}>Cancel</Button>
                     <Button 
                       className="bg-green-600 hover:bg-green-700 text-white" 
                       onClick={handleAddSlot}
-                      disabled={saving}
+                      disabled={loading}
                     >
-                      {saving ? <Loader2 size={16} className="animate-spin mr-2" /> : null}
+                      {loading ? <Loader2 size={16} className="animate-spin mr-2" /> : null}
                       Add
                     </Button>
                   </div>
@@ -609,7 +567,7 @@ export default function VetSchedule() {
                           size="icon" 
                           className="text-slate-400 hover:text-red-600 hover:bg-red-50 h-8 w-8"
                           onClick={() => handleRemoveSlot(slot.id, slot.time, slot.isBooked)}
-                          disabled={saving}
+                          disabled={loading}
                         >
                           <Trash2 size={16} />
                         </Button>
