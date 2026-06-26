@@ -9,8 +9,7 @@ import {
     updateSlotType,
     markSlotAsBooked,
     getAvailableSlotsForFarmers,
-    applyScheduleTemplate,
-    saveScheduleChanges
+    applyScheduleTemplate
 } from "../models/Schedule.js";
 
 // Get all schedule slots for a vet
@@ -193,27 +192,6 @@ export const applyScheduleTemplateHandler = (req, res) => {
         }
         res.json({
             message: "Template applied successfully",
-            data: result
-        });
-    });
-};
-
-// Save all schedule changes
-export const saveScheduleChangesHandler = (req, res) => {
-    const vetId = req.params.vetId;
-    const { slots } = req.body;
-    
-    if (!vetId) {
-        return res.status(400).json({ message: "Veterinarian ID is required" });
-    }
-    
-    saveScheduleChanges(vetId, slots || [], (err, result) => {
-        if (err) {
-            console.error('Error saving schedule:', err);
-            return res.status(500).json({ message: "Failed to save schedule" });
-        }
-        res.json({
-            message: "Schedule saved successfully",
             data: result
         });
     });
