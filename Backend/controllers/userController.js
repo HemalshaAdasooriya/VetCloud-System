@@ -143,12 +143,11 @@ export function registerUser(req, res) {
                             text: `Welcome to VetCloud, ${data.firstName}! Please verify your account.`
                         }).catch(console.error);
                         //---------
-                        // Automatically log in the user after creation
+                        // Do not automatically log in if they are inactive (which they are by default)
                         getUserByEmailAndRole(data.email, "doctor", (fetchErr, userResults) => {
-                            if (fetchErr || userResults.length === 0) {
-                                return res.status(201).json({ message: "Veterinarian registered successfully. Please log in manually." });
-                            }
-                            issueTokenAndSession(req, res, userResults[0], "doctor");
+                            return res.status(201).json({ 
+                                message: "Veterinarian registered successfully. Please wait for administrator approval to log in." 
+                            });
                         });
                     }
                 );
@@ -208,6 +207,9 @@ export async function loginUser(req, res) {
                     userId: user.id,
                     role: role
                 });
+            }
+            if (role === "doctor" && !user.is_Active) {
+                return res.status(403).json({ message: "Your account is currently inactive. Please wait for administrator approval." });
             }
 
     
@@ -357,6 +359,9 @@ function handleSocialLogin(req, res, email, name, image, role, provider) {
 
 // --- Standardized Function to Generate Token & Save Session ---
 function issueTokenAndSession(req, res, user, role) {
+    if (role === "doctor" && !user.is_Active) {
+        return res.status(403).json({ message: "Your account is currently inactive. Please wait for administrator approval." });
+    }
     // 1. Generate the JWT Token
     const token = jwt.sign(
         { id: user.id, email: user.email, role: role }, 
@@ -990,6 +995,7 @@ export const getAllVets = (req, res) => {
     const sql = `
         SELECT id, fullName, specialization, years_of_experience, consultation_fee, image
         FROM veterinarians
+        WHERE is_Active = 1
     `;
 
     db.query(sql, (err, results) => {

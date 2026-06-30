@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Activity, Users, Calendar, DollarSign, Clock, Check, X, ShieldAlert, ChevronRight, Stethoscope } from 'lucide-react';
+import { Activity, Users, Calendar, DollarSign, Clock, Check, X, ShieldAlert, ChevronRight, Stethoscope, AlertCircle } from 'lucide-react';
 import { Card, Badge, Button } from '../../components/Ui/ui';
 import toast from 'react-hot-toast';
 
 export default function Overview() {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [showConfirmRejectModal, setShowConfirmRejectModal] = useState(false);
+    const [vetToReject, setVetToReject] = useState(null);
 
     const fetchData = async () => {
         try {
@@ -42,21 +44,35 @@ export default function Overview() {
                 });
                 if (!res.ok) throw new Error("Failed to update status");
                 toast.success("Doctor approved successfully");
+                fetchData();
             } else {
-                if (!confirm("Are you sure you want to reject and delete this veterinarian registration request?")) return;
-                const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/admin/doctors/${id}`, {
-                    method: "DELETE",
-                    headers: {
-                        "Authorization": `Bearer ${localStorage.getItem("token")}`
-                    }
-                });
-                if (!res.ok) throw new Error("Failed to delete request");
-                toast.success("Doctor registration request rejected and deleted");
+                const vet = recentVets.find(v => v.id === id);
+                setVetToReject(vet);
+                setShowConfirmRejectModal(true);
             }
-            fetchData();
         } catch (error) {
             console.error("Doctor status error:", error);
             toast.error("Error updating doctor status");
+        }
+    };
+
+    const confirmRejectDoctor = async () => {
+        if (!vetToReject) return;
+        try {
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/admin/doctors/${vetToReject.id}`, {
+                method: "DELETE",
+                headers: {
+                    "Authorization": `Bearer ${localStorage.getItem("token")}`
+                }
+            });
+            if (!res.ok) throw new Error("Failed to delete request");
+            toast.success("Doctor registration request rejected and deleted");
+            setShowConfirmRejectModal(false);
+            setVetToReject(null);
+            fetchData();
+        } catch (error) {
+            console.error("Doctor reject error:", error);
+            toast.error("Error rejecting doctor request");
         }
     };
 
@@ -197,6 +213,47 @@ export default function Overview() {
                     </div>
                 </Card>
             </div>
+
+            {/* Custom Confirm Reject Modal */}
+            {showConfirmRejectModal && vetToReject && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+                    <div className="bg-white rounded-[2rem] shadow-xl w-full max-w-lg p-8 md:p-10 space-y-6 mx-4 text-center border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
+                        {/* Red Exclamation Mark Icon */}
+                        <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-red-50 text-red-500 border border-red-100/50">
+                            <AlertCircle size={28} />
+                        </div>
+                        
+                        {/* Content */}
+                        <div className="space-y-3">
+                            <h3 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">Reject Registration?</h3>
+                            <p className="text-sm md:text-base text-slate-500 leading-relaxed px-2">
+                                Are you sure you want to reject and delete <strong>Dr. {vetToReject.fullName}</strong>'s registration request? This action cannot be undone.
+                            </p>
+                        </div>
+
+                        {/* Buttons */}
+                        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
+                            <button 
+                                type="button" 
+                                onClick={() => {
+                                    setShowConfirmRejectModal(false);
+                                    setVetToReject(null);
+                                }}
+                                className="px-8 py-3 h-12 border-2 border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-800 hover:bg-slate-50 rounded-full font-bold text-sm tracking-wide transition-all duration-200 flex-1 w-full sm:w-auto cursor-pointer focus:outline-none"
+                            >
+                                No, Keep it
+                            </button>
+                            <button 
+                                type="button" 
+                                onClick={confirmRejectDoctor}
+                                className="px-8 py-3 h-12 bg-red-600 hover:bg-red-700 text-white rounded-full font-bold text-sm tracking-wide transition-all duration-200 flex-1 w-full sm:w-auto cursor-pointer focus:outline-none shadow-md shadow-red-200/50 hover:shadow-lg"
+                            >
+                                Yes, Reject
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
