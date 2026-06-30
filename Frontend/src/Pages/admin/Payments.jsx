@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CreditCard, DollarSign, ArrowUpRight, ArrowDownLeft, Landmark, Send, X, Calendar, Plus } from 'lucide-react';
+import { CreditCard, DollarSign, ArrowUpRight, ArrowDownLeft, Landmark, Send, X, Calendar, Plus, Trash2 } from 'lucide-react';
 import { Card, Badge, Button, Input } from '../../components/Ui/ui';
 import toast from 'react-hot-toast';
 
@@ -7,6 +7,8 @@ export default function Payments() {
     const [paymentsData, setPaymentsData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [txToDelete, setTxToDelete] = useState(null);
     
     // Payout Form States
     const [vets, setVets] = useState([]);
@@ -53,6 +55,26 @@ export default function Payments() {
         fetchPayments();
         fetchVets();
     }, []);
+
+    const confirmDeleteTx = async () => {
+        if (!txToDelete) return;
+        try {
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/appointments/${txToDelete.id}`, {
+                method: "DELETE",
+                headers: {
+                    "Authorization": `Bearer ${localStorage.getItem("token")}`
+                }
+            });
+            if (!res.ok) throw new Error("Failed to delete record");
+            toast.success("Consultation record deleted successfully");
+            setShowDeleteModal(false);
+            setTxToDelete(null);
+            fetchPayments();
+        } catch (error) {
+            console.error("Delete transaction error:", error);
+            toast.error("Failed to delete consultation record");
+        }
+    };
 
     const handleCreatePayout = async (e) => {
         e.preventDefault();
@@ -163,6 +185,7 @@ export default function Payments() {
                                     <th className="py-3 px-2">Type</th>
                                     <th className="py-3 px-2">Date</th>
                                     <th className="py-3 px-2 text-right">Fee (LKR)</th>
+                                    <th className="py-3 px-2 text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 text-sm text-slate-600">
@@ -183,11 +206,25 @@ export default function Payments() {
                                         <td className="py-3 px-2 text-right font-medium text-slate-800">
                                             {parseFloat(tx.fee).toLocaleString()}
                                         </td>
+                                        <td className="py-3 px-2 text-right">
+                                            <Button 
+                                                onClick={() => {
+                                                    setTxToDelete(tx);
+                                                    setShowDeleteModal(true);
+                                                }}
+                                                variant="ghost" 
+                                                size="sm" 
+                                                title="Delete Record"
+                                                className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg cursor-pointer"
+                                            >
+                                                <Trash2 size={14} />
+                                            </Button>
+                                        </td>
                                     </tr>
                                 ))}
                                 {transactions.length === 0 && (
                                     <tr>
-                                        <td colSpan="4" className="py-8 text-center text-slate-400">
+                                        <td colSpan="5" className="py-8 text-center text-slate-400">
                                             No transaction records found.
                                         </td>
                                     </tr>
@@ -339,6 +376,44 @@ export default function Payments() {
                                 </Button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+            {/* Custom Confirm Delete Transaction Modal */}
+            {showDeleteModal && txToDelete && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+                    <div className="bg-white w-full max-w-md rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                        <div className="p-6 text-center space-y-4">
+                            <div className="mx-auto flex items-center justify-center h-14 w-14 rounded-full bg-red-100 text-red-600">
+                                <Trash2 size={28} />
+                            </div>
+                            <div className="space-y-2">
+                                <h3 className="text-lg font-bold text-slate-800">Delete Consultation Record?</h3>
+                                <p className="text-sm text-slate-500 leading-relaxed text-center">
+                                    Are you sure you want to delete the consultation record of <strong>{txToDelete.ownerName}</strong> with <strong>Dr. {txToDelete.vetName}</strong>? This action is permanent and cannot be undone.
+                                </p>
+                            </div>
+                        </div>
+                        <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex gap-3">
+                            <Button 
+                                type="button" 
+                                variant="outline" 
+                                onClick={() => {
+                                    setShowDeleteModal(false);
+                                    setTxToDelete(null);
+                                }}
+                                className="flex-1 font-semibold"
+                            >
+                                Cancel
+                            </Button>
+                            <Button 
+                                type="button" 
+                                onClick={confirmDeleteTx}
+                                className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold"
+                            >
+                                Delete Record
+                            </Button>
+                        </div>
                     </div>
                 </div>
             )}
