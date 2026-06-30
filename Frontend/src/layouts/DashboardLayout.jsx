@@ -165,11 +165,11 @@ export function DashboardLayout() {
     if (diffDay === 1) return "Yesterday";
     return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   };
-//------------
-  const isUser = location.pathname.includes('/user') || location.pathname === '/dashboard/user';
-  const isVet = location.pathname.includes('/doctor') || location.pathname === '/dashboard/doctor';
-  const isAdmin = location.pathname.includes('/admin') || location.pathname === '/dashboard/admin';
 
+  const isUser = location.pathname.startsWith('/dashboard/user');
+  const isVet = location.pathname.startsWith('/dashboard/doctor');
+  const isAdmin = location.pathname.startsWith('/dashboard/admin');
+  
   // Dynamic sidebar links based on role
   const links = isUser ? [
     { name: 'Dashboard', path: '/dashboard/user', icon: LayoutDashboard },

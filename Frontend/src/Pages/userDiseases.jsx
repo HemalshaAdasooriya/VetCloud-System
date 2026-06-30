@@ -435,12 +435,28 @@ export default function DiseasesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [activeGuide, setActiveGuide] = useState(null);
+  const [diseases, setDiseases] = useState(DISEASES_DATA);
+
+  useEffect(() => {
+    const fetchDiseases = async () => {
+      try {
+        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/admin/public/diseases`);
+        if (res.ok) {
+          const data = await res.json();
+          setDiseases(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch public diseases:", error);
+      }
+    };
+    fetchDiseases();
+  }, []);
 
   const categories = ['All', 'Cattle', 'Poultry', 'Dogs', 'Cats', 'Swine'];
 
   // Filter diseases based on search query and category
   const filteredDiseases = useMemo(() => {
-    return DISEASES_DATA.filter((disease) => {
+    return diseases.filter((disease) => {
       const matchesSearch =
         disease.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         disease.symptoms.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -453,7 +469,7 @@ export default function DiseasesPage() {
 
       return matchesSearch && matchesCategory;
     });
-  }, [searchQuery, selectedCategory]);
+  }, [searchQuery, selectedCategory, diseases]);
 
 
 return (
