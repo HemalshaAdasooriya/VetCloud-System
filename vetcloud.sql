@@ -1,22 +1,3 @@
-/*
- Navicat Premium Dump SQL
-
- Source Server         : MySQL
- Source Server Type    : MySQL
- Source Server Version : 80407 (8.4.7)
- Source Host           : localhost:3306
- Source Schema         : vetcloud
-
- Target Server Type    : MySQL
- Target Server Version : 80407 (8.4.7)
- File Encoding         : 65001
-
- Date: 23/06/2026 11:27:17
-*/
-
-SET NAMES utf8mb4;
-SET FOREIGN_KEY_CHECKS = 0;
-
 -- ----------------------------
 -- Table structure for animal_medical_histories
 -- ----------------------------
@@ -52,46 +33,7 @@ CREATE TABLE `animals`  (
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `owner_id`(`owner_id` ASC) USING BTREE,
   CONSTRAINT `animals_ibfk_1` FOREIGN KEY (`owner_id`) REFERENCES `pet_owners` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT
-) ENGINE = InnoDB AUTO_INCREMENT = 10 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci ROW_FORMAT = DYNAMIC;
-
--- ----------------------------
--- Table structure for appointment_slots
--- ----------------------------
-DROP TABLE IF EXISTS `appointment_slots`;
-CREATE TABLE `appointment_slots`  (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `appointment_id` int NOT NULL,
-  `slot_date` date NOT NULL,
-  `slot_time` time NOT NULL,
-  `is_selected` tinyint(1) NULL DEFAULT 0,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`) USING BTREE,
-  INDEX `appointment_id`(`appointment_id` ASC) USING BTREE,
-  CONSTRAINT `appointment_slots_ibfk_1` FOREIGN KEY (`appointment_id`) REFERENCES `appointments` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT
-) ENGINE = InnoDB AUTO_INCREMENT = 28 CHARACTER SET = latin1 COLLATE = latin1_swedish_ci ROW_FORMAT = Dynamic;
-
--- ----------------------------
--- Table structure for appointments
--- ----------------------------
-DROP TABLE IF EXISTS `appointments`;
-CREATE TABLE `appointments`  (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `pet_owner_id` int NOT NULL,
-  `veterinarian_id` int NOT NULL,
-  `animal_id` int NOT NULL,
-  `consultation_type` enum('video','chat') CHARACTER SET latin1 COLLATE latin1_swedish_ci NULL DEFAULT 'video',
-  `reason` text CHARACTER SET latin1 COLLATE latin1_swedish_ci NULL,
-  `status` enum('Pending','Approved','Rejected','Completed','Cancelled') CHARACTER SET latin1 COLLATE latin1_swedish_ci NULL DEFAULT 'Pending',
-  `selected_slot_id` int NULL DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`) USING BTREE,
-  INDEX `pet_owner_id`(`pet_owner_id` ASC) USING BTREE,
-  INDEX `veterinarian_id`(`veterinarian_id` ASC) USING BTREE,
-  INDEX `animal_id`(`animal_id` ASC) USING BTREE,
-  CONSTRAINT `appointments_ibfk_1` FOREIGN KEY (`pet_owner_id`) REFERENCES `pet_owners` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
-  CONSTRAINT `appointments_ibfk_2` FOREIGN KEY (`veterinarian_id`) REFERENCES `veterinarians` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
-  CONSTRAINT `appointments_ibfk_3` FOREIGN KEY (`animal_id`) REFERENCES `animals` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB AUTO_INCREMENT = 10 CHARACTER SET = latin1 COLLATE = latin1_swedish_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for clinics
@@ -109,7 +51,7 @@ CREATE TABLE `clinics`  (
   `phone` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL,
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `veterinarian_id`(`veterinarian_id`) USING BTREE
-) ENGINE = MyISAM AUTO_INCREMENT = 3 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = DYNAMIC;
+) ENGINE = MyISAM AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for consultations
@@ -128,7 +70,7 @@ CREATE TABLE `consultations`  (
   `fee` decimal(10, 2) NOT NULL DEFAULT 0.00,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 7 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for password_resets
@@ -141,7 +83,7 @@ CREATE TABLE `password_resets`  (
   `expires_at` datetime NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 13 CHARACTER SET = latin1 COLLATE = latin1_swedish_ci ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = latin1 COLLATE = latin1_swedish_ci ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for pet_owner_profiles
@@ -162,7 +104,7 @@ CREATE TABLE `pet_owner_profiles`  (
   `country` varchar(100) CHARACTER SET latin1 COLLATE latin1_swedish_ci NULL DEFAULT NULL,
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `owner_id`(`owner_id` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 15 CHARACTER SET = latin1 COLLATE = latin1_swedish_ci ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = latin1 COLLATE = latin1_swedish_ci ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for pet_owners
@@ -184,7 +126,7 @@ CREATE TABLE `pet_owners`  (
   `is_two_factor_enabled` tinyint(1) NULL DEFAULT 0,
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `email`(`email` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 19 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for user_sessions
@@ -199,7 +141,7 @@ CREATE TABLE `user_sessions`  (
   `login_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `token` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = MyISAM AUTO_INCREMENT = 55 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = DYNAMIC;
+) ENGINE = MyISAM AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for veterinarian_bank_details
@@ -230,7 +172,7 @@ CREATE TABLE `veterinarian_payment_methods`  (
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `vet_id`(`vet_id`) USING BTREE
-) ENGINE = MyISAM AUTO_INCREMENT = 4 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = DYNAMIC;
+) ENGINE = MyISAM AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for veterinarian_profiles
@@ -245,7 +187,7 @@ CREATE TABLE `veterinarian_profiles`  (
   `professional_title` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL,
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `vet_id`(`vet_id`) USING BTREE
-) ENGINE = MyISAM AUTO_INCREMENT = 11 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = DYNAMIC;
+) ENGINE = MyISAM AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for veterinarians
@@ -270,6 +212,78 @@ CREATE TABLE `veterinarians`  (
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `email`(`email` ASC) USING BTREE,
   UNIQUE INDEX `license_number`(`license_number` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 11 CHARACTER SET = latin1 COLLATE = latin1_swedish_ci ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = latin1 COLLATE = latin1_swedish_ci ROW_FORMAT = DYNAMIC;
 
-SET FOREIGN_KEY_CHECKS = 1;
+
+-- ----------------------------
+-- Table structure for appointments
+-- ----------------------------
+DROP TABLE IF EXISTS `appointments`;
+CREATE TABLE `appointments` (
+	`id` INT (11) NOT NULL AUTO_INCREMENT,
+	`pet_owner_id` INT (11) NOT NULL,
+	`veterinarian_id` INT (11) NOT NULL,
+	`animal_id` INT (11) NOT NULL,
+	`consultation_type` enum ('video', 'chat') DEFAULT 'video',
+	`reason` text,
+	`status` enum (
+		'Pending',
+		'Approved',
+		'Rejected',
+		'Completed',
+		'Cancelled'
+	) DEFAULT 'Pending',
+	`selected_slot_id` INT (11) DEFAULT NULL,
+	`created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	PRIMARY KEY (`id`),
+	KEY `pet_owner_id` (`pet_owner_id`),
+	KEY `veterinarian_id` (`veterinarian_id`),
+	KEY `animal_id` (`animal_id`),
+	CONSTRAINT `appointments_ibfk_1` FOREIGN KEY (`pet_owner_id`) REFERENCES `pet_owners` (`id`),
+	CONSTRAINT `appointments_ibfk_2` FOREIGN KEY (`veterinarian_id`) REFERENCES `veterinarians` (`id`),
+	CONSTRAINT `appointments_ibfk_3` FOREIGN KEY (`animal_id`) REFERENCES `animals` (`id`)
+) ENGINE = INNODB AUTO_INCREMENT = 1 DEFAULT CHARSET = latin1
+
+
+-- ----------------------------
+-- Table structure for appointment_slots
+-- ----------------------------
+DROP TABLE IF EXISTS `appointment_slots`;
+CREATE TABLE `appointment_slots` (
+	`id` INT (11) NOT NULL AUTO_INCREMENT,
+	`appointment_id` INT (11) NOT NULL,
+	`slot_date` date NOT NULL,
+	`slot_time` time NOT NULL,
+	`is_selected` TINYINT (1) DEFAULT '0',
+	`created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	PRIMARY KEY (`id`),
+	KEY `appointment_id` (`appointment_id`),
+	CONSTRAINT `appointment_slots_ibfk_1` FOREIGN KEY (`appointment_id`) REFERENCES `appointments` (`id`) ON DELETE CASCADE
+) ENGINE = INNODB AUTO_INCREMENT = 1 DEFAULT CHARSET = latin1
+
+
+-- ----------------------------
+-- Table structure for vet_schedule
+-- ----------------------------
+DROP TABLE IF EXISTS `vet_schedule`;
+CREATE TABLE `vet_schedule` (
+	`id` INT (11) NOT NULL AUTO_INCREMENT,
+	`veterinarian_id` INT (11) NOT NULL,
+	`slot_date` date NOT NULL,
+	`slot_time` time NOT NULL,
+	`consultation_type` enum ('video', 'chat') DEFAULT 'video',
+	`is_booked` TINYINT (1) DEFAULT '0',
+	`appointment_id` INT (11) DEFAULT NULL,
+	`created_at` datetime DEFAULT NULL,
+	`updated_at` datetime DEFAULT NULL,
+	PRIMARY KEY (`id`),
+	UNIQUE KEY `unique_slot` (
+		`veterinarian_id`,
+		`slot_date`,
+		`slot_time`
+	),
+	KEY `appointment_id` (`appointment_id`),
+	CONSTRAINT `vet_schedule_ibfk_1` FOREIGN KEY (`veterinarian_id`) REFERENCES `veterinarians` (`id`) ON DELETE CASCADE,
+	CONSTRAINT `vet_schedule_ibfk_2` FOREIGN KEY (`appointment_id`) REFERENCES `appointments` (`id`) ON DELETE
+SET NULL
+) ENGINE = INNODB DEFAULT CHARSET = latin1

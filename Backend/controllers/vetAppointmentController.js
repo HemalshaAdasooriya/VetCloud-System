@@ -7,9 +7,11 @@ import {
     updateAppointmentStatus,
     completeAppointment as completeApp,
     cancelAppointment as cancelApp,
-    deleteAppointment
+    deleteAppointment,
+    rejectAppointmentWithReason
 } from "../models/Appointment.js";
-import { triggerAppointmentNotification } from "./notificationController.js";//isuri-notification
+import { triggerAppointmentNotification } from "./notificationController.js"; //isuri-notification
+import { markSlotAsBooked } from "../models/Schedule.js"; //Navindu 2026/06/26 ... markSlotAsBooked
 
 // Get all appointments for a veterinarian
 export const getVetAppointments = (req, res) => {
@@ -83,7 +85,7 @@ export const getAvailableSlots = (req, res) => {
     });
 };
 
-// Approve appointment with slot selection
+//Approve appointment with slot selection AND mark slot as booked
 export const approveAppointment = (req, res) => {
     const { id } = req.params;
     const { slotId } = req.body;
@@ -94,6 +96,7 @@ export const approveAppointment = (req, res) => {
         });
     }
 
+    // 1. Select the appointment slot
     selectAppointmentSlot(id, slotId, "Approved", (err, result) => {
         if (err) {
             console.error('Error approving appointment:', err);
@@ -102,25 +105,50 @@ export const approveAppointment = (req, res) => {
             });
         }
 
-         triggerAppointmentNotification(req.app, id, "appointment_confirmed");//isuri-notification
-        res.json({
-            message: "Appointment approved successfully",
-            data: result
+        // 2. Mark the schedule slot as booked
+        markSlotAsBooked(slotId, id, (scheduleErr, scheduleResult) => {
+            if (scheduleErr) {
+                console.error('Error marking schedule slot as booked:', scheduleErr);
+                // Don't fail the request - the appointment is already approved
+                // Just log the error and continue
+            }
+
+            // 3. Send notification
+            triggerAppointmentNotification(req.app, id, "appointment_confirmed");
+
+            // 4. Return success response
+            res.json({
+                message: "Appointment approved successfully and slot booked",
+                data: {
+                    appointment: result,
+                    schedule: scheduleResult || null
+                }
+            });
         });
     });
 };
 
-// Reject appointment
+// Reject appointment with reason
 export const rejectAppointment = (req, res) => {
     const { id } = req.params;
+    const { reason } = req.body;
 
-    updateAppointmentStatus(id, "Rejected", (err, result) => {
+    if (!reason || !reason.trim()) {
+        return res.status(400).json({ 
+            message: "Reason for rejection is required" 
+        });
+    }
+
+    rejectAppointmentWithReason(id, reason, (err, result) => {
         if (err) {
             console.error('Error rejecting appointment:', err);
             return res.status(500).json({
-                message: "Failed to reject appointment"
+                message: "Failed to reject appointment: " + err.message
             });
         }
+
+        // Send notification for rejection
+        triggerAppointmentNotification(req.app, id, "appointment_rejected");
 
         res.json({
             message: "Appointment rejected successfully",
@@ -141,7 +169,7 @@ export const completeAppointment = (req, res) => {
             });
         }
 
-        triggerAppointmentNotification(req.app, id, "appointment_completed");//isuri-notification
+        triggerAppointmentNotification(req.app, id, "appointment_completed");
         res.json({
             message: "Appointment completed successfully",
             data: result
@@ -161,32 +189,13 @@ export const cancelAppointment = (req, res) => {
             });
         }
 
-        triggerAppointmentNotification(req.app, id, "appointment_cancelled");//isuri-notification
+        triggerAppointmentNotification(req.app, id, "appointment_cancelled");
         res.json({
             message: "Appointment cancelled successfully",
             data: result
         });
     });
 };
-
-// Delete appointment
-// export const deleteAppointment = (req, res) => {
-//     const { id } = req.params;
-
-//     deleteAppointment(id, (err, result) => {
-//         if (err) {
-//             console.error('Error deleting appointment:', err);
-//             return res.status(500).json({
-//                 message: "Failed to delete appointment"
-//             });
-//         }
-
-//         res.json({
-//             message: "Appointment deleted successfully",
-//             data: result
-//         });
-//     });
-// };
 
 // Get appointment statistics for vet dashboard
 export const getVetAppointmentStats = (req, res) => {
