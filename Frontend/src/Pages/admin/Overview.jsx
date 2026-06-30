@@ -31,16 +31,28 @@ export default function Overview() {
 
     const handleApproveDoctor = async (id, approve) => {
         try {
-            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/admin/doctors/${id}/status`, {
-                method: "PUT",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${localStorage.getItem("token")}`
-                },
-                body: JSON.stringify({ is_Active: approve })
-            });
-            if (!res.ok) throw new Error("Failed to update status");
-            toast.success(approve ? "Doctor approved successfully" : "Doctor registration rejected");
+            if (approve) {
+                const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/admin/doctors/${id}/status`, {
+                    method: "PUT",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${localStorage.getItem("token")}`
+                    },
+                    body: JSON.stringify({ is_Active: true })
+                });
+                if (!res.ok) throw new Error("Failed to update status");
+                toast.success("Doctor approved successfully");
+            } else {
+                if (!confirm("Are you sure you want to reject and delete this veterinarian registration request?")) return;
+                const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/admin/doctors/${id}`, {
+                    method: "DELETE",
+                    headers: {
+                        "Authorization": `Bearer ${localStorage.getItem("token")}`
+                    }
+                });
+                if (!res.ok) throw new Error("Failed to delete request");
+                toast.success("Doctor registration request rejected and deleted");
+            }
             fetchData();
         } catch (error) {
             console.error("Doctor status error:", error);
