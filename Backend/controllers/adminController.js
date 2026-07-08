@@ -270,8 +270,8 @@ export const deleteDisease = async (req, res) => {
 export const getFeedback = async (req, res) => {
     try {
         const feedback = await queryPromise(`
-            SELECT f.id, f.rating, f.comment, f.created_at, 
-                   p.fullName AS ownerName, v.fullName AS vetName 
+            SELECT f.id, f.rating, f.comment, f.status, f.consultation_type, f.helpful_count, f.created_at, 
+                   p.fullName AS ownerName, p.image AS ownerImage, v.fullName AS vetName, v.image AS vetImage 
             FROM feedbacks f 
             JOIN pet_owners p ON f.pet_owner_id = p.id 
             LEFT JOIN veterinarians v ON f.veterinarian_id = v.id 
@@ -281,6 +281,23 @@ export const getFeedback = async (req, res) => {
     } catch (error) {
         console.error("Error in getFeedback:", error);
         res.status(500).json({ message: "Failed to fetch feedback" });
+    }
+};
+
+export const updateFeedbackStatus = async (req, res) => {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!status) {
+        return res.status(400).json({ message: "Status is required." });
+    }
+
+    try {
+        await queryPromise("UPDATE feedbacks SET status = ? WHERE id = ?", [status, id]);
+        res.status(200).json({ message: `Feedback status updated to ${status} successfully` });
+    } catch (error) {
+        console.error("Error in updateFeedbackStatus:", error);
+        res.status(500).json({ message: "Failed to update feedback status" });
     }
 };
 
