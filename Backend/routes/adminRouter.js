@@ -16,6 +16,7 @@ import {
     updateDisease,
     deleteDisease,
     getFeedback,
+    updateFeedbackStatus,
     deleteFeedback,
     getReports,
     updateAdminProfile
@@ -69,6 +70,7 @@ adminRouter.delete("/diseases/:id", authenticateAdmin, deleteDisease);
 
 // Feedback Management
 adminRouter.get("/feedback", authenticateAdmin, getFeedback);
+adminRouter.put("/feedback/:id/status", authenticateAdmin, updateFeedbackStatus);
 adminRouter.delete("/feedback/:id", authenticateAdmin, deleteFeedback);
 
 // Reports & Analytics

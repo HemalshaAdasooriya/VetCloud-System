@@ -12,7 +12,7 @@ const DISEASES_DATA = [
     species: ['Cattle', 'Swine', 'Sheep', 'Goats'],
     category: 'Cattle',
     risk: 'High Risk',
-    image: '/Cows.jpg',
+    image: '/cows.jpg',
     symptoms: 'Fever, Blisters in mouth, Lameness, Drop in milk production',
     prevention: 'Vaccination, strict biosecurity, quarantine of new stock',
     treatment: 'No specific treatment. Affected animals are isolated; supportive care can manage discomfort.',
@@ -113,7 +113,7 @@ const DISEASES_DATA = [
     species: ['Cattle'],
     category: 'Cattle',
     risk: 'Medium Risk',
-    image: '/Cows.jpg',
+    image: '/cows.jpg',
     symptoms: 'Fever, Nasal discharge, Coughing, Rapid breathing',
     prevention: 'Vaccination, minimizing stress during transport',
     treatment: 'Antibiotics, anti-inflammatory drugs, supportive care',
@@ -207,6 +207,38 @@ const getRiskStyles = (risk) => {
       };
   }
 };
+
+const getDiseaseImage = (disease) => {
+  if (disease.image && disease.image !== '/default.jpg') {
+    if (disease.image.startsWith('http') || disease.image.startsWith('/') || disease.image.startsWith('data:')) {
+      return disease.image;
+    }
+    return `${import.meta.env.VITE_BACKEND_URL}${disease.image}`;
+  }
+  
+  const name = disease.name ? disease.name.toLowerCase() : '';
+  const category = disease.category ? disease.category.toLowerCase() : '';
+  const species = disease.species ? disease.species.map(s => s.toLowerCase()) : [];
+
+  if (name.includes('foot') || name.includes('mouth') || name.includes('mastitis') || species.includes('cattle') || category.includes('cattle')) {
+    return '/cows.jpg';
+  }
+  if (name.includes('avian') || name.includes('influenza') || species.includes('poultry') || species.includes('birds') || category.includes('poultry')) {
+    return '/poultry.jpg';
+  }
+  if (name.includes('parvovirus') || species.includes('dogs') || category.includes('dogs')) {
+    return '/dog.jpg';
+  }
+  if (name.includes('swine') || species.includes('pigs') || category.includes('pigs') || category.includes('swine')) {
+    return '/pig.jpg';
+  }
+  if (name.includes('feline') || name.includes('panleukopenia') || species.includes('cats') || category.includes('cats')) {
+    return '/vetcat.jpg';
+  }
+  
+  return '/cows.jpg';
+};
+
 function DiseaseGuideModal({ disease, onClose }) {
   const [activeTab, setActiveTab] = useState('overview');
   const riskStyles = getRiskStyles(disease.risk);
@@ -239,7 +271,7 @@ function DiseaseGuideModal({ disease, onClose }) {
         {/* Banner Image with Overlay */}
         <div className="relative h-48 sm:h-64 bg-slate-100 shrink-0">
           <img
-            src={disease.image}
+            src={getDiseaseImage(disease)}
             alt={disease.name}
             className="w-full h-full object-cover"
           />
@@ -542,7 +574,7 @@ export default function DiseasesPage() {
                 {/* Left: Image Side */}
                 <div className="w-full md:w-48 xl:w-52 h-52 md:h-auto shrink-0 relative bg-slate-100">
                   <img
-                    src={disease.image}
+                    src={getDiseaseImage(disease)}
                     alt={disease.name}
                     className="w-full h-full object-cover"
                   />
