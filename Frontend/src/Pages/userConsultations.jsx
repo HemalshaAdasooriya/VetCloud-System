@@ -7,6 +7,7 @@ import {
   MoreVertical, FileText, AlertCircle, XCircle, HourglassIcon
 } from 'lucide-react';
 import { Button, Card, Badge } from '../components/ui/ui';
+import JitsiVideoCall from '../components/consultation/JitsiVideoCall';
 
 const TAB_STYLES = {
   pending: { text: 'text-amber-600', underline: 'bg-amber-600' },
@@ -21,7 +22,22 @@ export default function ConsultationPage() {
   const [error, setError] = useState('');
   const [activeMenuId, setActiveMenuId] = useState(null);
   const [cancelModalId, setCancelModalId] = useState(null);
+  const [showVideoRoom, setShowVideoRoom] = useState(false);
+  const [selectedRequestDetails, setSelectedRequestDetails] = useState(null);
   const navigate = useNavigate();
+
+  const getFarmerName = () => {
+    try {
+      const savedUser = localStorage.getItem("user");
+      if (savedUser) {
+        const u = JSON.parse(savedUser);
+        return u.fullName || 'Farmer';
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    return 'Farmer';
+  };
 
   const fetchAppointments = async () => {
     const ownerId = localStorage.getItem('userId');
@@ -397,6 +413,10 @@ export default function ConsultationPage() {
                         <Button 
                           className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
                           disabled={!hasSlot}
+                          onClick={() => {
+                            setSelectedRequestDetails(consult);
+                            setShowVideoRoom(true);
+                          }}
                         >
                           <Video size={18} className="mr-2" />
                           Join Call
@@ -544,6 +564,50 @@ export default function ConsultationPage() {
               </div>
             </div>
           </Card>
+        </div>
+      )}
+
+      {/* Video Consultation Room Overlay */}
+      {showVideoRoom && selectedRequestDetails && (
+        <div className="fixed inset-0 bg-slate-950 text-white z-50 flex flex-col animate-in fade-in duration-300">
+          {/* Top Bar Header */}
+          <div className="bg-slate-900 border-b border-slate-800 px-6 py-4 flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 bg-red-500/20 text-red-400 border border-red-500/30 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider animate-pulse">
+                <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
+                Live Call
+              </div>
+              <h3 className="font-extrabold text-slate-100 text-lg">
+                Consultation with {selectedRequestDetails.veterinarian_name}
+              </h3>
+            </div>
+            
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => {
+                  if (window.confirm("Are you sure you want to leave this call?")) {
+                    setShowVideoRoom(false);
+                    setSelectedRequestDetails(null);
+                  }
+                }}
+                className="bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-xl flex items-center gap-2 font-bold text-sm shadow-md transition-all cursor-pointer border-0"
+              >
+                Exit Call
+              </button>
+            </div>
+          </div>
+
+          {/* Video Iframe Container */}
+          <div className="flex-1 p-6 bg-slate-950 flex flex-col h-full">
+            <JitsiVideoCall
+              roomName={`vetcloud-appointment-${selectedRequestDetails.id}`}
+              displayName={getFarmerName()}
+              onClose={() => {
+                setShowVideoRoom(false);
+                setSelectedRequestDetails(null);
+              }}
+            />
+          </div>
         </div>
       )}
     </div>

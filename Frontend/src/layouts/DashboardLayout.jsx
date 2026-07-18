@@ -181,6 +181,7 @@ export function DashboardLayout() {
     { name: 'Settings', path: '/dashboard/user/settings', icon: Settings },
   ] : isVet ? [
     { name: 'Doctor Dashboard', path: '/dashboard/doctor', icon: LayoutDashboard },
+    { name: 'Upcoming Consultations', path: '/dashboard/doctor/consultations', icon: Stethoscope },
     { name: 'Consultation Requests', path: '/dashboard/doctor/requests', icon: ClipboardList }, //Navindu 2026/06/19 ... vet consultation requests
     { name: 'Schedule', path: '/dashboard/doctor/schedule', icon: Calendar },
     { name: 'Settings', path: '/dashboard/doctor/settings', icon: Settings },

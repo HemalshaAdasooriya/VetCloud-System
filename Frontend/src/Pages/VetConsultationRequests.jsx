@@ -3,14 +3,14 @@ import { useNavigate } from 'react-router';
 import axios from 'axios';
 import { 
   Clock, CheckCircle2, XCircle, AlertCircle, FileText, 
-  User, Video, Phone, MapPin, Calendar, ChevronRight, 
-  Loader2, MessageCircle, ArrowLeft, Stethoscope, 
-  MessageSquare, Paperclip, X, Send, VideoOff, 
-  HourglassIcon
+  User, Video, Phone, MapPin, Calendar, ChevronRight,
+  HourglassIcon, Stethoscope, ArrowLeft, Paperclip, MessageSquare,
+  Mic, MicOff, VideoOff, Monitor, Send, X, MessageCircle, Loader2
 } from 'lucide-react';
 import { Button, Card, Badge, Textarea } from '../components/ui/ui';
-// import ChatConsultationRoom from '../components/consultation/ChatConsultationRoom';
-// import ClientChatDrawer from '../components/consultation/ClientChatDrawer';
+import ChatConsultationRoom from '../components/consultation/ChatConsultationRoom';
+import ClientChatDrawer from '../components/consultation/ClientChatDrawer';
+import JitsiVideoCall from '../components/consultation/JitsiVideoCall';
 
 export default function VetConsultationRequests() {
   const navigate = useNavigate();
@@ -27,27 +27,74 @@ export default function VetConsultationRequests() {
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [selectedSlot, setSelectedSlot] = useState('');
   const [availableSlots, setAvailableSlots] = useState([]);
-  const [showApproveModal, setShowApproveModal] = useState(false);
-  const [showChatRoom, setShowChatRoom] = useState(false);
+  
+  // Calling & Chat State hooks
   const [showVideoRoom, setShowVideoRoom] = useState(false);
+  const [showChatRoom, setShowChatRoom] = useState(false);
+  const [showClientChatDrawer, setShowClientChatDrawer] = useState(false);
+  const [isVideoMuted, setIsVideoMuted] = useState(false);
+  const [isVideoPaused, setIsVideoPaused] = useState(false);
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [callDuration, setCallDuration] = useState(0);
+  const [showChatSidebar, setShowChatSidebar] = useState(false);
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
-  const [showClientChatDrawer, setShowClientChatDrawer] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
-  const [isVideoPaused, setIsVideoPaused] = useState(false);
-  const [showChatSidebar, setShowChatSidebar] = useState(false);
-  const [isScreenSharing, setIsScreenSharing] = useState(false);
+
+  const [showApproveModal, setShowApproveModal] = useState(false);
+  const [vetScheduleSlots, setVetScheduleSlots] = useState([]);
   
   // State for data from backend
   const [pendingRequests, setPendingRequests] = useState([]);
   const [reviewedRequests, setReviewedRequests] = useState([]);
+
+  // Helper to select a request and auto-select its first slot
+  const handleSelectRequest = (request) => {
+    setSelectedRequestDetails(request);
+    if (request && request.availability_slots && request.availability_slots.length > 0) {
+      setSelectedSlot(request.availability_slots[0].id);
+    } else {
+      setSelectedSlot('');
+    }
+  };
+
+  // Fetch vet's schedule slots as fallbacks if request has no slots
+  useEffect(() => {
+    if (selectedRequestDetails && (!selectedRequestDetails.availability_slots || selectedRequestDetails.availability_slots.length === 0)) {
+      const vetIdVal = getVetId();
+      if (vetIdVal) {
+        axios.get(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/schedule/vet/${vetIdVal}`)
+          .then(res => {
+            const openSlots = res.data.filter(slot => slot.status === 'Available' || !slot.is_booked);
+            setVetScheduleSlots(openSlots);
+            if (openSlots.length > 0) {
+              setSelectedSlot(openSlots[0].id);
+            }
+          })
+          .catch(err => console.error("Failed to fetch vet schedule slots:", err));
+      }
+    }
+  }, [selectedRequestDetails]);
 
   // Get vet ID from localStorage
   const getVetId = () => {
     return localStorage.getItem('userId');
   };
 
-  // Fetch appointments on component mount
+  const vetId = getVetId();
+
+  const getDoctorName = () => {
+    try {
+      const savedUser = localStorage.getItem("user");
+      if (savedUser) {
+        const u = JSON.parse(savedUser);
+        return u.fullName || 'Doctor';
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    return 'Doctor';
+  };
   useEffect(() => {
     fetchAppointments();
   }, []);
@@ -171,21 +218,6 @@ export default function VetConsultationRequests() {
     };
   };
 
-  // Helper: Format date
-  const formatDate = (dateStr) => {
-    if (!dateStr) return 'Date pending';
-    try {
-      const date = new Date(dateStr);
-      return date.toLocaleDateString('en-US', { 
-        month: 'short', 
-        day: 'numeric', 
-        year: 'numeric' 
-      });
-    } catch {
-      return dateStr;
-    }
-  };
-
   // Helper: Format time
   const formatTime = (timeStr) => {
     if (!timeStr) return 'Time pending';
@@ -198,6 +230,129 @@ export default function VetConsultationRequests() {
     } catch {
       return timeStr;
     }
+  };
+
+  // Helper: Format date
+  const formatDate = (dateStr, timeStr) => {
+    if (!dateStr) return 'Date pending';
+    try {
+      const date = new Date(dateStr);
+      const formattedDate = date.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric' 
+      });
+      return timeStr ? `${formattedDate} at ${formatTime(timeStr)}` : formattedDate;
+    } catch {
+      return dateStr;
+    }
+  };
+  
+  // Live call duration timer
+  useEffect(() => {
+    let interval = null;
+    if (showVideoRoom) {
+      interval = setInterval(() => {
+        setCallDuration((prev) => prev + 1);
+      }, 1000);
+    } else {
+      setCallDuration(0);
+    }
+    return () => clearInterval(interval);
+  }, [showVideoRoom]);
+
+  // Simulated farmer messages during call
+  useEffect(() => {
+    if (!showVideoRoom || !selectedRequestDetails) return;
+    
+    const ownerName = selectedRequestDetails.owner_name || 'Farmer';
+    const animalName = selectedRequestDetails.animal_name || 'Bessie';
+
+    const timers = [];
+    
+    // Message 1 (5 seconds)
+    timers.push(setTimeout(() => {
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now() + 1,
+          sender: 'client',
+          senderName: ownerName,
+          text: `Hi doctor! Thanks for joining. Can you see ${animalName} clearly?`,
+          time: new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+        }
+      ]);
+    }, 5000));
+
+    // Message 2 (15 seconds)
+    timers.push(setTimeout(() => {
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now() + 2,
+          sender: 'client',
+          senderName: ownerName,
+          text: `I've got her right here in the paddock. Her appetite is still a bit low, but she seems slightly more active than yesterday.`,
+          time: new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+        }
+      ]);
+    }, 15000));
+
+    // Message 3 (30 seconds)
+    timers.push(setTimeout(() => {
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now() + 3,
+          sender: 'client',
+          senderName: ownerName,
+          text: `Should I continue administering the supplement we discussed, or do we need to try something else?`,
+          time: new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+        }
+      ]);
+    }, 30000));
+
+    return () => timers.forEach(clearTimeout);
+  }, [showVideoRoom, selectedRequestDetails]);
+
+  // Handle send message in call
+  const handleSendMessageInCall = () => {
+    if (!chatInput.trim()) return;
+    const msgText = chatInput;
+    const newMsg = {
+      id: Date.now(),
+      sender: 'doctor',
+      senderName: 'You',
+      text: msgText,
+      time: new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+    };
+    
+    setChatMessages((prev) => [...prev, newMsg]);
+    setChatInput('');
+    setIsTyping(true);
+
+    // Auto-reply timer
+    setTimeout(() => {
+      setIsTyping(false);
+      const ownerName = selectedRequestDetails?.owner_name || 'Farmer';
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now() + 5,
+          sender: 'client',
+          senderName: ownerName,
+          text: `Got it doctor. Thank you, I'll follow those instructions.`,
+          time: new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+        }
+      ]);
+    }, 2000);
+  };
+
+  // Helper for duration strings
+  const formatDuration = (sec) => {
+    const m = Math.floor(sec / 60).toString().padStart(2, '0');
+    const s = (sec % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
   };
 
   // Helper: Time ago
@@ -265,6 +420,85 @@ export default function VetConsultationRequests() {
     } finally {
       setLoading(false);
     }
+  }  // Get urgency badge based on symptoms or reason
+  const getUrgencyBadge = (reasonStr) => {
+    const lower = (reasonStr || '').toLowerCase();
+    if (lower.includes('emergency') || lower.includes('urgent') || lower.includes('severe') || lower.includes('dying') || lower.includes('bleeding') || lower.includes('breathing')) {
+      return (
+        <Badge className="bg-red-100 text-red-700 border-red-200">
+          High Priority
+        </Badge>
+      );
+    }
+    if (lower.includes('mild') || lower.includes('checkup') || lower.includes('routine') || lower.includes('vaccin')) {
+      return (
+        <Badge className="bg-blue-100 text-blue-700 border-blue-200">
+          Low Priority
+        </Badge>
+      );
+    }
+    return (
+      <Badge className="bg-amber-100 text-amber-700 border-amber-200">
+        Medium Priority
+      </Badge>
+    );
+  };
+  // Helper to extract symptoms from notes
+  const extractSymptoms = (notes) => {
+    if (!notes) return [];
+    const lower = notes.toLowerCase();
+    const symptomsList = [];
+    if (lower.includes('lethargy') || lower.includes('tired') || lower.includes('weak') || lower.includes('sluggish')) symptomsList.push('Lethargy');
+    if (lower.includes('appetite') || lower.includes('eating') || lower.includes('feed')) symptomsList.push('Reduced Appetite');
+    if (lower.includes('milk') || lower.includes('yield') || lower.includes('production')) symptomsList.push('Drop in Milk Production');
+    if (lower.includes('cough') || lower.includes('sneeze') || lower.includes('respirat')) symptomsList.push('Coughing');
+    if (lower.includes('fever') || lower.includes('temp') || lower.includes('hot')) symptomsList.push('Fever');
+    if (lower.includes('injury') || lower.includes('wound') || lower.includes('hurt') || lower.includes('cut')) symptomsList.push('Physical Injury');
+    
+    // Fallback if none matched but there are notes
+    if (symptomsList.length === 0 && notes.length > 0) {
+      const parts = notes.split(/[,.]+/).map(w => w.trim()).filter(w => w.length > 0 && w.length < 20);
+      if (parts.length > 0) {
+        return parts.slice(0, 3);
+      }
+      return ['General Symptoms'];
+    }
+    return symptomsList;
+  };
+  // Helper to get mock files based on animal name
+  const getMockFiles = (animalName, species) => {
+    const cleanName = animalName || 'Patient';
+    const cleanSpecies = (species || 'Animal').charAt(0).toUpperCase() + (species || 'Animal').slice(1).toLowerCase();
+    return [
+      { name: `${cleanName}_Health_Record.pdf`, size: '2.4 MB' },
+      { name: `${cleanSpecies}_Vaccination_Log.xlsx`, size: '1.1 MB' }
+    ];
+  };
+  // Separate date formatting helpers
+  const formatDateOnly = (dateStr) => {
+    if (!dateStr) return 'TBD';
+    try {
+      const d = new Date(dateStr);
+      return isNaN(d.getTime()) ? 'TBD' : d.toLocaleDateString(undefined, {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric'
+      });
+    } catch {
+      return 'TBD';
+    }
+  };
+  const formatTimeOnly = (timeStr) => {
+    if (!timeStr) return 'TBD';
+    try {
+      const dummyDate = new Date(`2000-01-01T${timeStr}`);
+      return isNaN(dummyDate.getTime()) ? timeStr : dummyDate.toLocaleTimeString(undefined, {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch {
+      return timeStr;
+    }
   };
 
   // Handle decline
@@ -279,7 +513,7 @@ export default function VetConsultationRequests() {
     setSuccessMessage('');
 
     try {
-      await axios.patch(`http://localhost:5000/api/vet-appointments/${requestId}/reject`, {
+      await axios.patch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/vet-appointments/${requestId}/reject`, {
         reason: declineReason
       });
       
@@ -304,7 +538,7 @@ export default function VetConsultationRequests() {
     if (!window.confirm('Mark this appointment as completed?')) return;
     setActionLoading(true);
     try {
-      await axios.patch(`http://localhost:5000/api/vet-appointments/${appointmentId}/complete`);
+      await axios.patch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/vet-appointments/${appointmentId}/complete`);
       await fetchAppointments();
       alert('Appointment marked as completed successfully!');
     } catch (err) {
@@ -320,7 +554,7 @@ export default function VetConsultationRequests() {
     if (!window.confirm('Are you sure you want to cancel this appointment?')) return;
     setActionLoading(true);
     try {
-      await axios.patch(`http://localhost:5000/api/vet-appointments/${appointmentId}/cancel`);
+      await axios.patch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/vet-appointments/${appointmentId}/cancel`);
       await fetchAppointments();
       alert('Appointment cancelled successfully!');
     } catch (err) {
@@ -330,7 +564,6 @@ export default function VetConsultationRequests() {
       setActionLoading(false);
     }
   };
-
   // Get type icon
   const getTypeIcon = (type) => {
     switch(type) {
@@ -408,35 +641,6 @@ export default function VetConsultationRequests() {
     }
   };
 
-  // Format date only
-  const formatDateOnly = (dateStr) => {
-    if (!dateStr) return 'TBD';
-    try {
-      const d = new Date(dateStr);
-      return isNaN(d.getTime()) ? 'TBD' : d.toLocaleDateString(undefined, {
-        month: 'long',
-        day: 'numeric',
-        year: 'numeric'
-      });
-    } catch {
-      return 'TBD';
-    }
-  };
-
-  // Format time only
-  const formatTimeOnly = (timeStr) => {
-    if (!timeStr) return 'TBD';
-    try {
-      const dummyDate = new Date(`2000-01-01T${timeStr}`);
-      return isNaN(dummyDate.getTime()) ? timeStr : dummyDate.toLocaleTimeString(undefined, {
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-    } catch {
-      return timeStr;
-    }
-  };
-
   // Loading state
   if (loading && pendingRequests.length === 0 && reviewedRequests.length === 0) {
     return (
@@ -448,9 +652,438 @@ export default function VetConsultationRequests() {
       </div>
     );
   }
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-red-500">
+        <AlertCircle size={48} className="mb-4" />
+        <p>{error}</p>
+        <Button 
+          onClick={() => window.location.reload()} 
+          className="mt-4 bg-red-600 hover:bg-red-700 text-white"
+        >
+          Try Again
+        </Button>
+      </div>
+    );
+  }
+
+  const request = selectedRequestDetails;
+  const availability = request?.availability_slots || [];
+  const notes = request?.reason_notes || request?.reason || '';
+  const symptoms = request ? extractSymptoms(notes) : [];
+  const mockFiles = request ? getMockFiles(request.animal_name, request.animal_species) : [];
 
   return (
     <div className="space-y-6">
+      {selectedRequestDetails ? (
+        <div className="space-y-6 animate-in fade-in duration-300">
+        {/* Back Button */}
+        <button
+          onClick={() => {
+            setSelectedRequestDetails(null);
+            setSelectedSlot('');
+            setDeclineReason('');
+          }}
+          className="flex items-center gap-2 text-slate-500 hover:text-slate-700 transition-colors group"
+        >
+          <ArrowLeft size={18} className="group-hover:-translate-x-0.5 transition-transform" />
+          <span>Back to Consultation Requests</span>
+        </button>
+
+        {/* Header Title & Status Badge */}
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-3">
+              <h2 className="text-3xl font-bold text-slate-800">
+                Request for {request.animal_name || 'Patient'}
+              </h2>
+              {getStatusBadge(request.status)}
+            </div>
+            <p className="text-slate-500 mt-1">
+              Submitted by <span className="font-semibold text-slate-700">{request.owner_name || 'Client'}</span> &bull; Review details and manage schedule.
+            </p>
+          </div>
+
+          {/* Accept / Reject actions in the header */}
+          {request.status === 'Pending' && (
+            <div className="flex items-center gap-3">
+              <Button
+                onClick={async () => {
+                  if (!selectedSlot) {
+                    alert('Please select a time slot from the schedule details on the right.');
+                    return;
+                  }
+                  setActionLoading(true);
+                  try {
+                    await axios.patch(`${import.meta.env.VITE_BACKEND_URL}/api/vet-appointments/${request.id}/approve`, {
+                      slotId: selectedSlot
+                    });
+                    await fetchAppointments();
+                    setSelectedRequestDetails(null);
+                    setSelectedSlot('');
+                    setDeclineReason('');
+                    alert('Appointment approved successfully!');
+                  } catch (err) {
+                    console.error('Failed to approve appointment:', err);
+                    alert('Failed to approve appointment. Please try again.');
+                  } finally {
+                    setActionLoading(false);
+                  }
+                }}
+                className="bg-green-600 hover:bg-green-700 text-white font-medium flex items-center gap-2 px-6 py-2.5 rounded-xl shadow-md cursor-pointer"
+                disabled={actionLoading || !selectedSlot}
+              >
+                <CheckCircle2 size={18} />
+                Accept Request
+              </Button>
+
+              <Button
+                onClick={async () => {
+                  const reason = prompt('Please enter the reason for declining this request:');
+                  if (reason === null) return;
+                  if (!reason.trim()) {
+                    alert('A reason is required to decline.');
+                    return;
+                  }
+                  setActionLoading(true);
+                  try {
+                    await axios.patch(`${import.meta.env.VITE_BACKEND_URL}/api/vet-appointments/${request.id}/reject`);
+                    await fetchAppointments();
+                    setSelectedRequestDetails(null);
+                    setSelectedSlot('');
+                    setDeclineReason('');
+                    alert('Request declined. Client has been notified.');
+                  } catch (err) {
+                    console.error('Failed to reject:', err);
+                    alert('Failed to decline. Please try again.');
+                  } finally {
+                    setActionLoading(false);
+                  }
+                }}
+                variant="outline"
+                className="border-red-200 text-red-600 hover:bg-red-50 font-medium flex items-center gap-2 px-6 py-2.5 rounded-xl cursor-pointer"
+                disabled={actionLoading}
+              >
+                <XCircle size={18} />
+                Reject
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {/* Main Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Columns (Clinical Information & Actions) */}
+          <div className="lg:col-span-2 space-y-6">
+            
+            {/* Clinical Information Card */}
+            <Card className="p-6 border-slate-200 shadow-sm space-y-6 bg-white">
+              <div className="flex items-center gap-2 text-slate-800 font-semibold border-b border-slate-100 pb-3">
+                <Stethoscope size={18} className="text-slate-400" />
+                <span>Clinical Information</span>
+              </div>
+
+              {/* Patient Details Grid */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
+                  <p className="text-xs text-slate-400 font-medium uppercase tracking-wider mb-1">Species</p>
+                  <p className="text-base font-bold text-slate-800 capitalize">{request.animal_species || 'Cattle'}</p>
+                </div>
+                <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
+                  <p className="text-xs text-slate-400 font-medium uppercase tracking-wider mb-1">Breed</p>
+                  <p className="text-base font-bold text-slate-800">{request.animal_breed || 'Holstein-Friesian'}</p>
+                </div>
+                <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
+                  <p className="text-xs text-slate-400 font-medium uppercase tracking-wider mb-1">Age</p>
+                  <p className="text-base font-bold text-slate-800">{request.animal_age || '4 Years'}</p>
+                </div>
+                <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
+                  <p className="text-xs text-slate-400 font-medium uppercase tracking-wider mb-1">Weight</p>
+                  <p className="text-base font-bold text-slate-800">{request.animal_weight || '1,400 lbs'}</p>
+                </div>
+              </div>
+
+              {/* Primary Reason for Visit */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-semibold text-slate-700">Primary Reason for Visit</h4>
+                <div className="bg-red-50/50 border border-red-100 rounded-lg p-4 flex gap-3">
+                  <AlertCircle className="text-red-500 flex-shrink-0 mt-0.5" size={18} />
+                  <p className="text-sm text-red-900 leading-relaxed font-medium">
+                    {notes || 'No description provided.'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Reported Symptoms */}
+              {symptoms.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-sm font-semibold text-slate-700">Reported Symptoms</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {symptoms.map((symptom, i) => (
+                      <Badge key={i} className="bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200 font-medium px-3 py-1 text-xs">
+                        {symptom}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </Card>
+
+            {request.status === 'Approved' ? (
+              request.consultation_type === 'chat' ? (
+                /* Ready for Chat Consultation Card */
+                <Card className="p-8 border-blue-200 bg-blue-50/10 shadow-sm flex flex-col items-center justify-center text-center space-y-4 bg-white relative overflow-hidden">
+                  <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center shadow-inner">
+                    <MessageSquare size={32} />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-xl font-bold text-slate-800">Ready for Chat Consultation</h3>
+                    <p className="text-sm text-slate-500 max-w-md">
+                      The appointment is confirmed. The chat room is ready for your live text consultation.
+                    </p>
+                  </div>
+                  <Button
+                    onClick={() => {
+                      setShowChatRoom(true);
+                      setChatRoomMessages([]);
+                    }}
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all flex items-center gap-2 cursor-pointer mt-2"
+                  >
+                    <MessageSquare size={18} />
+                    Join Chat Room
+                  </Button>
+                </Card>
+              ) : (
+                /* Ready for Video Consultation Card */
+                <Card className="p-8 border-blue-200 bg-blue-50/10 shadow-sm flex flex-col items-center justify-center text-center space-y-4 bg-white relative overflow-hidden">
+                  <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center shadow-inner">
+                    <Video size={32} />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-xl font-bold text-slate-800">Ready for Consultation</h3>
+                    <p className="text-sm text-slate-500 max-w-md">
+                      The appointment is confirmed. The video room will open 10 minutes before the scheduled start time.
+                    </p>
+                  </div>
+                  <Button
+                    onClick={() => {
+                      setShowVideoRoom(true);
+                      setChatMessages([]);
+                    }}
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all flex items-center gap-2 cursor-pointer mt-2"
+                  >
+                    <Video size={18} />
+                    Join Video Room
+                  </Button>
+                </Card>
+              )
+            ) : request.status !== 'Pending' ? (
+              /* Review message for already reviewed cases */
+              <Card className="p-6 border-slate-200 bg-slate-50/50 shadow-sm bg-white">
+                <div className="flex items-center gap-3 text-slate-600">
+                  <CheckCircle2 className="text-green-500" size={20} />
+                  <div>
+                    <h3 className="font-semibold text-slate-800 font-bold">Review Completed</h3>
+                    <p className="text-sm text-slate-500 mt-0.5">
+                      This request has been reviewed. Current status is <span className="font-semibold text-slate-700">{request.status}</span>.
+                    </p>
+                  </div>
+                </div>
+                {request.status === 'Completed' && (
+                  <div className="mt-4 pt-4 border-t border-slate-100 text-sm text-blue-600 flex items-center gap-1.5">
+                    <CheckCircle2 size={16} />
+                    Consultation completed successfully!
+                  </div>
+                )}
+              </Card>
+            ) : null}
+          </div>
+
+          {/* Right/Sidebar Columns (Schedule, Client, Files) */}
+          <div className="lg:col-span-1 space-y-6">
+            
+            {/* Schedule Details Card */}
+            <Card className="p-6 border-slate-200 shadow-sm space-y-4 bg-white">
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Schedule Details</h3>
+              
+              {request.status === 'Pending' ? (
+                <div className="space-y-3">
+                  <p className="text-xs text-slate-500 font-medium">Select one of the requested slots:</p>
+                  {availability.length > 0 ? (
+                    <div className="grid gap-2">
+                      {availability.map((slot) => {
+                        const isSelected = selectedSlot === slot.id;
+                        return (
+                          <button
+                            key={slot.id}
+                            onClick={() => setSelectedSlot(slot.id)}
+                            className={`w-full p-3 border rounded-lg text-left transition-all flex items-center justify-between ${
+                              isSelected
+                                ? 'border-green-600 bg-green-50/50 text-green-700 font-medium'
+                                : 'border-slate-200 hover:border-slate-300 text-slate-700'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <Calendar size={16} className={isSelected ? 'text-green-600' : 'text-slate-400'} />
+                              <div className="text-xs">
+                                <p className="font-semibold text-slate-800">{formatDate(slot.date, slot.time)}</p>
+                                <p className="text-slate-400 mt-0.5">{getTypeLabel(request.consultation_type)}</p>
+                              </div>
+                            </div>
+                            <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${isSelected ? 'border-green-600 bg-green-600' : 'border-slate-300'}`}>
+                              {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : vetScheduleSlots.length > 0 ? (
+                    <div className="space-y-2">
+                      <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 p-2.5 rounded-lg mb-2">
+                        No client-selected slots. Please assign one of your available schedule slots:
+                      </p>
+                      <div className="grid gap-2">
+                        {vetScheduleSlots.map((slot) => {
+                          const isSelected = selectedSlot === slot.id;
+                          return (
+                            <button
+                              key={slot.id}
+                              onClick={() => setSelectedSlot(slot.id)}
+                              className={`w-full p-3 border rounded-lg text-left transition-all flex items-center justify-between ${
+                                isSelected
+                                  ? 'border-green-600 bg-green-50/50 text-green-700 font-medium'
+                                  : 'border-slate-200 hover:border-slate-300 text-slate-700'
+                              }`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <Calendar size={16} className={isSelected ? 'text-green-600' : 'text-slate-400'} />
+                                <div className="text-xs">
+                                  <p className="font-semibold text-slate-800">{formatDate(slot.slot_date || slot.date, slot.slot_time || slot.time)}</p>
+                                  <p className="text-slate-400 mt-0.5">Your Schedule Slot</p>
+                                </div>
+                              </div>
+                              <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${isSelected ? 'border-green-600 bg-green-600' : 'border-slate-300'}`}>
+                                {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-400">
+                      No availability slots requested. Please configure your availability in the Schedule tab to assign slots.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
+                      <Calendar size={18} />
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-400 font-medium">Date</p>
+                      <p className="font-semibold text-slate-800">
+                        {formatDateOnly(request.appointment_date)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
+                      <Clock size={18} />
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-400 font-medium">Time</p>
+                      <p className="font-semibold text-slate-800">
+                        {formatTimeOnly(request.appointment_time)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-purple-50 flex items-center justify-center text-purple-600">
+                      {getTypeIcon(request.consultation_type)}
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-400 font-medium">Method</p>
+                      <p className="font-semibold text-slate-800">
+                        {getTypeLabel(request.consultation_type)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </Card>
+
+            {/* Client Details Card */}
+            <Card className="p-6 border-slate-200 shadow-sm space-y-4 bg-white">
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Client Details</h3>
+              
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-full overflow-hidden border border-slate-200 bg-slate-50 flex items-center justify-center">
+                  {request.owner_image && request.owner_image !== '/default.jpg' ? (
+                    <img src={`${import.meta.env.VITE_BACKEND_URL}${request.owner_image}`} alt={request.owner_name} className="w-full h-full object-cover" onError={(e) => { e.target.src = ''; }} />
+                  ) : (
+                    <User size={20} className="text-slate-400" />
+                  )}
+                </div>
+                <div>
+                  <h4 className="font-bold text-slate-800">{request.owner_name}</h4>
+                  <p className="text-xs text-slate-400 font-medium">Dairy Farmer</p>
+                </div>
+              </div>
+
+              {(request.owner_email || request.owner_phone) && (
+                <div className="text-xs space-y-1.5 border-t border-slate-100 pt-3 text-slate-500">
+                  {request.owner_email && (
+                    <p className="truncate"><span className="font-medium text-slate-400">Email:</span> {request.owner_email}</p>
+                  )}
+                  {request.owner_phone && (
+                    <p><span className="font-medium text-slate-400">Phone:</span> {request.owner_phone}</p>
+                  )}
+                </div>
+              )}
+
+              <Button
+                variant="outline"
+                className="w-full border-slate-200 text-slate-700 hover:bg-slate-50 font-medium flex items-center justify-center gap-2 bg-white"
+                onClick={() => {
+                  setChatInput('');
+                  setShowClientChatDrawer(true);
+                }}
+              >
+                <MessageSquare size={16} />
+                Message Client
+              </Button>
+            </Card>
+
+            {/* Attached Files Card */}
+            <Card className="p-6 border-slate-200 shadow-sm space-y-4 bg-white">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Attached Files</h3>
+                <Badge className="bg-slate-100 text-slate-600 border border-slate-200 text-[10px] px-2 py-0.5">
+                  {mockFiles.length}
+                </Badge>
+              </div>
+
+              <div className="space-y-2">
+                {mockFiles.map((file, i) => (
+                  <div key={i} className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-100 rounded-lg">
+                    <Paperclip size={16} className="text-slate-400 flex-shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold text-slate-800 truncate">{file.name}</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">{file.size}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+          </div>
+        </div>
+      </div>
+      ) : (
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
@@ -507,183 +1140,63 @@ export default function VetConsultationRequests() {
 
       {/* Pending Requests Tab */}
       {activeTab === 'pending' && (
-        <div className="grid gap-6">
-          {pendingRequests.map((request) => (
-            <Card key={request.id} className="p-0 border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-              {/* Header */}
-              <div className="bg-gradient-to-r from-amber-50 to-orange-50 p-4 border-b border-amber-100 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm">
-                    {getTypeIcon(request.type)}
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-slate-900">{request.patientName}</h3>
-                    <p className="text-sm text-slate-600">Owned by {request.ownerName}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-500">{request.requestedAt}</span>
-                </div>
-              </div>
-
-              {/* Content */}
-              <div className="p-6">
-                <div className="grid md:grid-cols-3 gap-6 mb-6">
-                  {/* Animal Image and Details */}
-                  <div className="md:col-span-1">
-                    <img 
-                      src={request.image} 
-                      alt={request.patientName} 
-                      className="w-full h-48 object-cover rounded-lg border border-slate-200 mb-4"
-                    />
-                    <div className="space-y-2">
-                      <div className="flex items-center text-sm">
-                        <span className="text-slate-500 w-20">Breed:</span>
-                        <span className="text-slate-900 font-medium">{request.animalBreed}</span>
-                      </div>
-                      <div className="flex items-center text-sm">
-                        <span className="text-slate-500 w-20">Age:</span>
-                        <span className="text-slate-900 font-medium">{request.animalAge}</span>
-                      </div>
-                      {request.ownerContact && (
-                        <div className="flex items-center text-sm">
-                          <span className="text-slate-500 w-20">Contact:</span>
-                          <span className="text-slate-900 font-medium">{request.ownerContact}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Consultation Details */}
-                  <div className="md:col-span-2 space-y-4">
-                    <div>
-                      <h4 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-2">
-                        Requested Appointment
-                      </h4>
-                      <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-2">
-                        <div className="flex items-center gap-3">
-                          <Calendar size={18} className="text-slate-400" />
-                          <span className="font-medium text-slate-900">{request.date} at {request.time}</span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          {getTypeIcon(request.type)}
-                          <span className="text-slate-700">{request.type}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <h4 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-2">
-                        Reported Symptoms / Reason
-                      </h4>
-                      <div className="bg-amber-50 p-4 rounded-lg border border-amber-200">
-                        <p className="text-slate-800 leading-relaxed">{request.symptoms}</p>
-                      </div>
-                    </div>
-
-                    {/* Available Slots Selection */}
-                    {request.slots && request.slots.length > 0 ? (
-                      <div>
-                        <h4 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-2">
-                          Available Time Slots (Select One to Approve)
-                        </h4>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                          {request.slots.map((slot, index) => (
-                            <button
-                              key={index}
-                              onClick={() => setSelectedSlotId(prev => ({
-                                ...prev,
-                                [request.id]: slot.id
-                              }))}
-                              className={`p-2 rounded-lg border text-xs font-medium transition-colors ${
-                                selectedSlotId[request.id] === slot.id
-                                  ? 'bg-green-600 border-green-600 text-white'
-                                  : 'border-slate-200 text-slate-700 hover:border-green-300 hover:bg-slate-50'
-                              }`}
-                            >
-                              {formatDate(slot.date)} {formatTime(slot.time)}
-                            </button>
-                          ))}
-                        </div>
-                        {selectedSlotId[request.id] && (
-                          <p className="text-xs text-green-600 mt-2">
-                            Slot selected for approval
-                          </p>
+        <div className="grid gap-4">
+          {pendingRequests.length > 0 ? (
+            pendingRequests.map((request) => {
+              return (
+                <Card key={request.id} className="p-4 border-slate-200 hover:shadow-md transition-all bg-white">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-full overflow-hidden bg-slate-50 border border-slate-200 flex-shrink-0 flex items-center justify-center">
+                        {request.animal_image && request.animal_image !== '/default.jpg' ? (
+                          <img src={`${import.meta.env.VITE_BACKEND_URL}${request.animal_image}`} alt={request.animal_name} className="w-full h-full object-cover" onError={(e) => { e.target.src = ''; }} />
+                        ) : (
+                          <div className="p-2 bg-slate-100 rounded-full">{getTypeIcon(request.consultation_type)}</div>
                         )}
                       </div>
-                    ) : (
-                      <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-                        <p className="text-sm text-yellow-700">
-                          No available time slots found for this appointment. The client needs to resubmit with available slots.
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="font-semibold text-slate-900 text-lg">{request.animal_name}</h3>
+                          {getUrgencyBadge(request.reason_notes || request.reason)}
+                        </div>
+                        <p className="text-sm text-slate-600 mt-0.5">
+                          Owned by <span className="font-medium text-slate-800">{request.owner_name}</span>
+                        </p>
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-xs text-slate-500">
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5" />
+                            Submitted {formatSubmittedDate(request.created_at)}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            {getTypeIcon(request.consultation_type)}
+                            {getTypeLabel(request.consultation_type)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-4 justify-between md:justify-end w-full md:w-auto border-t md:border-t-0 pt-3 md:pt-0">
+                      <div className="text-left md:text-right">
+                        <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Availability</p>
+                        <p className="text-sm text-slate-700 font-semibold">
+                          {request.availability_slots?.length || 0} slots requested
                         </p>
                       </div>
-                    )}
-
-                    {/* Action Buttons */}
-                    <div className="pt-4 border-t border-slate-200">
-                      {selectedRequest === request.id ? (
-                        <div className="space-y-3">
-                          <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-2">
-                              Reason for Declining (will be sent to client)
-                            </label>
-                            <Textarea
-                              value={declineReason}
-                              onChange={(e) => setDeclineReason(e.target.value)}
-                              placeholder="e.g., Requested time slot is unavailable. Please book another slot or contact us for alternative times."
-                              className="min-h-[100px]"
-                            />
-                          </div>
-                          <div className="flex gap-3">
-                            <Button
-                              onClick={() => handleDecline(request.id)}
-                              className="flex-1 bg-red-600 hover:bg-red-700 text-white"
-                              disabled={loading}
-                            >
-                              {loading ? <Loader2 size={18} className="animate-spin mr-2" /> : <XCircle size={18} className="mr-2" />}
-                              Confirm Decline
-                            </Button>
-                            <Button
-                              onClick={() => {
-                                setSelectedRequest(null);
-                                setDeclineReason('');
-                              }}
-                              variant="outline"
-                              className="flex-1"
-                            >
-                              Cancel
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex gap-3 flex-wrap">
-                          <Button
-                            onClick={() => handleApprove(request.id)}
-                            className="flex-1 bg-green-600 hover:bg-green-700 text-white"
-                            disabled={loading || !selectedSlotId[request.id] || !request.slots || request.slots.length === 0}
-                          >
-                            {loading ? <Loader2 size={18} className="animate-spin mr-2" /> : <CheckCircle2 size={18} className="mr-2" />}
-                            {selectedSlotId[request.id] ? 'Approve Consultation' : 'Select a Slot First'}
-                          </Button>
-                          <Button
-                            onClick={() => setSelectedRequest(request.id)}
-                            variant="outline"
-                            className="flex-1 border-red-300 text-red-600 hover:bg-red-50"
-                          >
-                            <XCircle size={18} className="mr-2" />
-                            Decline Request
-                          </Button>
-                        </div>
-                      )}
+                      
+                      <Button 
+                        onClick={() => handleSelectRequest(request)}
+                        className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-1.5 cursor-pointer"
+                      >
+                        View Details
+                        <ChevronRight size={16} />
+                      </Button>
                     </div>
                   </div>
-                </div>
-              </div>
-            </Card>
-          ))}
-
-          {pendingRequests.length === 0 && (
-            <Card className="p-12 border-slate-200 border-dashed flex flex-col items-center justify-center text-center bg-slate-50/50">
+                </Card>
+              );
+            })
+          ) : (
+            <Card className="p-12 border-slate-200 border-dashed flex flex-col items-center justify-center text-center bg-slate-50/50 bg-white">
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4 text-green-600">
                 <CheckCircle2 size={24} />
               </div>
@@ -699,57 +1212,76 @@ export default function VetConsultationRequests() {
       {/* Reviewed Tab */}
       {activeTab === 'reviewed' && (
         <div className="grid gap-4">
-          {reviewedRequests.map((request) => (
-            <Card key={request.id} className="p-4 border-slate-200">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                    request.status === 'approved' ? 'bg-green-100 text-green-600' : 
-                    request.status === 'declined' ? 'bg-red-100 text-red-600' : 
-                    'bg-blue-100 text-blue-600'
-                  }`}>
-                    {request.status === 'approved' ? <CheckCircle2 size={20} /> : 
-                     request.status === 'declined' ? <XCircle size={20} /> : 
-                     <Clock size={20} />}
+          {reviewedRequests.length > 0 ? (
+            reviewedRequests.map((request) => (
+              <Card key={request.id} className="p-4 border-slate-200 hover:shadow-md transition-all bg-white">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full overflow-hidden bg-slate-50 border border-slate-200 flex-shrink-0 flex items-center justify-center">
+                      {request.animal_image && request.animal_image !== '/default.jpg' ? (
+                        <img src={`${import.meta.env.VITE_BACKEND_URL}${request.animal_image}`} alt={request.animal_name} className="w-full h-full object-cover" onError={(e) => { e.target.src = ''; }} />
+                      ) : (
+                        <div className="p-2 bg-slate-100 rounded-full">{getTypeIcon(request.consultation_type)}</div>
+                      )}
+                    </div>
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="font-semibold text-slate-900 text-lg">{request.animal_name}</h3>
+                        {getStatusBadge(request.status)}
+                      </div>
+                      <p className="text-sm text-slate-600 mt-0.5">
+                        Owned by <span className="font-medium text-slate-800">{request.owner_name}</span>
+                      </p>
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-xs text-slate-500">
+                        {request.appointment_date && (
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5" />
+                            Confirmed: {formatDate(request.appointment_date, request.appointment_time)}
+                          </span>
+                        )}
+                        <span className="flex items-center gap-1">
+                          {getTypeIcon(request.consultation_type)}
+                          {getTypeLabel(request.consultation_type)}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="font-semibold text-slate-900">{request.patientName}</h4>
-                    <p className="text-sm text-slate-500">Owner: {request.ownerName} • {request.type}</p>
+                  
+                  <div className="flex items-center gap-3 justify-between md:justify-end w-full md:w-auto border-t md:border-t-0 pt-3 md:pt-0">
+                    {request.status === 'Approved' && (
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => handleComplete(request.id)}
+                          size="sm"
+                          className="bg-blue-600 hover:bg-blue-700 text-white"
+                        >
+                          Complete
+                        </Button>
+                        <Button
+                          onClick={() => handleCancel(request.id)}
+                          size="sm"
+                          variant="outline"
+                          className="border-red-300 text-red-600 hover:bg-red-50"
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    )}
+                    
+                    <Button 
+                      onClick={() => handleSelectRequest(request)}
+                      variant="ghost" 
+                      size="sm"
+                      className="text-slate-600 hover:text-green-600 flex items-center gap-1"
+                    >
+                      Details
+                      <ChevronRight size={18} />
+                    </Button>
                   </div>
                 </div>
-                <div className="flex items-center gap-4">
-                  <div className="text-right">
-                    <Badge className={request.status === 'approved' 
-                      ? 'bg-green-100 text-green-700 border-green-200' 
-                      : request.status === 'declined'
-                      ? 'bg-red-100 text-red-700 border-red-200'
-                      : 'bg-blue-100 text-blue-700 border-blue-200'
-                    }>
-                      {request.status === 'approved' ? 'Approved' : 
-                       request.status === 'declined' ? 'Declined' : 'Completed'}
-                    </Badge>
-                    <p className="text-xs text-slate-500 mt-1">{request.reviewedAt}</p>
-                  </div>
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    onClick={() => navigate(`/dashboard/doctor/consultations/${request.id}`)}
-                  >
-                    <ChevronRight size={20} />
-                  </Button>
-                </div>
-              </div>
-              {request.status === 'declined' && request.reason && (
-                <div className="mt-3 pt-3 border-t border-slate-100">
-                  <p className="text-sm text-slate-600">
-                    <span className="font-medium">Reason:</span> {request.reason}
-                  </p>
-                </div>
-              )}
-            </Card>
-          ))}
-
-          {reviewedRequests.length === 0 && (
+              </Card>
+            ))
+          ) : (
             <Card className="p-12 border-slate-200 border-dashed flex flex-col items-center justify-center text-center bg-slate-50/50">
               <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4 text-slate-400">
                 <Clock size={24} />
@@ -762,6 +1294,127 @@ export default function VetConsultationRequests() {
           )}
         </div>
       )}
+        </div>
+      )}
+
+      {/* Video Consultation Room Overlay */}
+      {showVideoRoom && selectedRequestDetails && (
+        <div className="fixed inset-0 bg-slate-950 text-white z-50 flex flex-col animate-in fade-in duration-300">
+          
+          {/* Top Bar Header */}
+          <div className="bg-slate-900 border-b border-slate-800 px-6 py-4 flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 bg-red-500/20 text-red-400 border border-red-500/30 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider animate-pulse">
+                <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
+                Live Call
+              </div>
+              <h3 className="font-extrabold text-slate-100 text-lg">
+                Consultation: {selectedRequestDetails.animal_name} ({selectedRequestDetails.animal_species})
+              </h3>
+            </div>
+            
+            <div className="flex items-center gap-4">
+              <button
+                onClick={async () => {
+                  if (window.confirm("Are you sure you want to end this consultation call?")) {
+                    setShowVideoRoom(false);
+                  }
+                }}
+                className="bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-xl flex items-center gap-2 font-bold text-sm shadow-md transition-all cursor-pointer border-0"
+              >
+                Exit Call
+              </button>
+            </div>
+          </div>
+
+          {/* Main Layout Area */}
+          <div className="flex-1 flex overflow-hidden">
+            {/* Left: Jitsi Meet Iframe */}
+            <div className="flex-1 p-6 bg-slate-950 flex flex-col h-full">
+              <JitsiVideoCall
+                roomName={`vetcloud-appointment-${selectedRequestDetails.id}`}
+                displayName={getDoctorName()}
+                onClose={async () => {
+                  setShowVideoRoom(false);
+                  const markDone = window.confirm("Would you like to mark this consultation as completed?");
+                  if (markDone) {
+                    try {
+                      await axios.patch(`${import.meta.env.VITE_BACKEND_URL}/api/vet-appointments/${selectedRequestDetails.id}/complete`);
+                      await fetchAppointments();
+                      setSelectedRequestDetails(null);
+                      alert("Consultation marked as completed successfully!");
+                    } catch (err) {
+                      console.error("Failed to complete appointment:", err);
+                    }
+                  }
+                }}
+              />
+            </div>
+
+            {/* Right: Clinical History Sidebar */}
+            <div className="w-80 bg-slate-900 border-l border-slate-800 p-6 flex flex-col overflow-y-auto space-y-6 shrink-0">
+              <div className="border-b border-slate-800 pb-4">
+                <h4 className="font-extrabold text-white text-md flex items-center gap-2">
+                  <Stethoscope size={18} className="text-green-500" />
+                  Clinical Profile
+                </h4>
+                <p className="text-xs text-slate-400 mt-1">Review live details and records</p>
+              </div>
+
+              <div className="space-y-4 text-sm text-slate-300">
+                <div>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider font-semibold">Patient Name</p>
+                  <p className="text-base font-bold text-white mt-0.5">{selectedRequestDetails.animal_name || 'Patient'}</p>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider font-semibold">Species</p>
+                    <p className="font-semibold text-white capitalize">{selectedRequestDetails.animal_species || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider font-semibold">Breed</p>
+                    <p className="font-semibold text-white truncate">{selectedRequestDetails.animal_breed || 'N/A'}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider font-semibold">Age</p>
+                    <p className="font-semibold text-white">{selectedRequestDetails.animal_age || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider font-semibold">Owner</p>
+                    <p className="font-semibold text-white truncate">{selectedRequestDetails.owner_name || 'Client'}</p>
+                  </div>
+                </div>
+
+                <div className="border-t border-slate-800 pt-4">
+                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider font-semibold">Reason / Symptoms</p>
+                  <p className="text-xs text-slate-400 leading-relaxed mt-1.5 p-3 bg-slate-950 border border-slate-800 rounded-lg">
+                    "{selectedRequestDetails.reason_notes || selectedRequestDetails.reason || 'No description notes provided.'}"
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Live Chat Consultation Room Overlay */}
+      <ChatConsultationRoom
+        isOpen={showChatRoom}
+        onClose={() => setShowChatRoom(false)}
+        onComplete={fetchAppointments}
+        requestDetails={selectedRequestDetails}
+      />
+
+      {/* Standalone Client Chat Drawer */}
+      <ClientChatDrawer
+        isOpen={showClientChatDrawer}
+        onClose={() => setShowClientChatDrawer(false)}
+        requestDetails={selectedRequestDetails}
+      />
     </div>
   );
 }
