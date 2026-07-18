@@ -1,10 +1,10 @@
 import { Activity, Calendar, CheckCircle, Clock, DollarSign, MoreVertical, Search, Video } from "lucide-react";
 import { Badge, Button, Card, Input } from "../components/Ui/ui";
+import { useNavigate } from "react-router-dom";
 
 
 export default function DoctorDashboard() {
-
-    // const navigate = useNavigate();
+    const navigate = useNavigate();
 
     const schedule = [
         { id: 1, patient: 'Bessie (Cow)', owner: 'John Davis', time: '10:00 AM', type: 'Video Consult', status: 'Next' },
@@ -99,11 +99,16 @@ export default function DoctorDashboard() {
                                         </div>
                                     </div>
                                     <div className="flex sm:flex-col gap-2 w-full sm:w-auto mt-4 sm:mt-0">
-                                        <Button variant={apt.status === 'Next' ? 'primary' : 'outline'} size="sm" className="flex-1 sm:w-32">
-                                        {apt.type.includes('Video') ? 'Join Call' : 'View Details'}
+                                        <Button 
+                                            variant={apt.status === 'Next' ? 'primary' : 'outline'} 
+                                            size="sm" 
+                                            className="flex-1 sm:w-32 cursor-pointer"
+                                            onClick={() => navigate('/dashboard/doctor/consultations')}
+                                        >
+                                            {apt.type.includes('Video') ? 'Join Call' : 'View Details'}
                                         </Button>
                                         <Button variant="ghost" size="sm" className="px-2 text-slate-400">
-                                        <MoreVertical size={16} />
+                                            <MoreVertical size={16} />
                                         </Button>
                                     </div>
                                 </div>
@@ -135,17 +140,30 @@ export default function DoctorDashboard() {
                                         "{req.issue}"
                                     </p>
                                     <div className="flex gap-2">
-                                        <Button size="sm" className="flex-1 bg-green-600 hover:bg-green-700 text-white border-0">Accept</Button>
-                                        <Button variant="outline" size="sm" className="flex-1 text-slate-600 border-slate-200">Decline</Button>
+                                        <Button 
+                                            size="sm" 
+                                            className="flex-1 bg-green-600 hover:bg-green-700 text-white border-0 cursor-pointer"
+                                            onClick={() => navigate('/dashboard/doctor/requests')}
+                                        >
+                                            Accept
+                                        </Button>
+                                        <Button 
+                                            variant="outline" 
+                                            size="sm" 
+                                            className="flex-1 text-slate-600 border-slate-200 cursor-pointer"
+                                            onClick={() => navigate('/dashboard/doctor/requests')}
+                                        >
+                                            Decline
+                                        </Button>
                                     </div>
                                 </div>
                             ))}
                         </div>
                         <Button 
                             variant="ghost" 
-                            className="w-full mt-4 text-sm text-amber-600 hover:text-amber-700 hover:bg-amber-50"
-                            onClick={"#"}
-                            >
+                            className="w-full mt-4 text-sm text-amber-600 hover:text-amber-700 hover:bg-amber-50 cursor-pointer"
+                            onClick={() => navigate('/dashboard/doctor/requests')}
+                        >
                             View all requests ({requests.length + 2} total)
                         </Button>
                     </Card>

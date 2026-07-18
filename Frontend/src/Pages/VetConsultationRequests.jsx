@@ -51,8 +51,8 @@ export default function VetConsultationRequests() {
   // Helper to select a request and auto-select its first slot
   const handleSelectRequest = (request) => {
     setSelectedRequestDetails(request);
-    if (request && request.availability_slots && request.availability_slots.length > 0) {
-      setSelectedSlot(request.availability_slots[0].id);
+    if (request && request.slots && request.slots.length > 0) {
+      setSelectedSlot(request.slots[0].id);
     } else {
       setSelectedSlot('');
     }
@@ -60,7 +60,7 @@ export default function VetConsultationRequests() {
 
   // Fetch vet's schedule slots as fallbacks if request has no slots
   useEffect(() => {
-    if (selectedRequestDetails && (!selectedRequestDetails.availability_slots || selectedRequestDetails.availability_slots.length === 0)) {
+    if (selectedRequestDetails && (!selectedRequestDetails.slots || selectedRequestDetails.slots.length === 0)) {
       const vetIdVal = getVetId();
       if (vetIdVal) {
         axios.get(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/schedule/vet/${vetIdVal}`)
@@ -190,8 +190,10 @@ export default function VetConsultationRequests() {
       image: app.animal_image || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=1974&auto=format&fit=crop',
       requestedAt: app.created_at ? timeAgo(app.created_at) : 'Recently',
       ownerContact: app.owner_contact || '',
-      animalAge: app.animal_age || 'N/A',
+       animalAge: app.animal_age || 'N/A',
       animalBreed: app.animal_breed || 'Unknown',
+      animalSpecies: app.animal_species || 'Unknown Species',
+      animalWeight: app.animal_weight || 'Unknown Weight',
       animalId: app.animal_id,
       slots: slots.map(slot => ({
         id: slot.id,
@@ -199,6 +201,7 @@ export default function VetConsultationRequests() {
         time: slot.slot_time || slot.time,
         is_selected: slot.is_selected || 0
       })),
+      status: app.status || 'Pending',
       originalData: app
     };
   };
@@ -214,7 +217,8 @@ export default function VetConsultationRequests() {
               app.status === 'Rejected' ? 'declined' : 
               app.status === 'Completed' ? 'completed' : 'pending',
       reviewedAt: app.updated_at ? timeAgo(app.updated_at) : 'Recently',
-      reason: app.rejection_reason || ''
+      reason: app.rejection_reason || '',
+      originalData: app
     };
   };
 
@@ -619,7 +623,8 @@ export default function VetConsultationRequests() {
         label: 'Rejected'
       }
     };
-    const config = statusConfig[status];
+    const normalizedKey = status ? status.charAt(0).toUpperCase() + status.slice(1).toLowerCase() : 'Pending';
+    const config = statusConfig[normalizedKey];
     if (!config) return null;
     return (
       <Badge className={`${config.bg} ${config.text} border ${config.border} flex items-center gap-1 px-3 py-1`}>
@@ -668,8 +673,8 @@ export default function VetConsultationRequests() {
   }
 
   const request = selectedRequestDetails;
-  const availability = request?.availability_slots || [];
-  const notes = request?.reason_notes || request?.reason || '';
+  const availability = request?.slots || [];
+  const notes = request?.symptoms || request?.originalData?.reason_notes || request?.originalData?.reason || '';
   const symptoms = request ? extractSymptoms(notes) : [];
   const mockFiles = request ? getMockFiles(request.animal_name, request.animal_species) : [];
 
@@ -700,12 +705,12 @@ export default function VetConsultationRequests() {
               {getStatusBadge(request.status)}
             </div>
             <p className="text-slate-500 mt-1">
-              Submitted by <span className="font-semibold text-slate-700">{request.owner_name || 'Client'}</span> &bull; Review details and manage schedule.
+              Submitted by <span className="font-semibold text-slate-700">{request.ownerName || request.originalData?.owner_name || 'Client'}</span> &bull; Review details and manage schedule.
             </p>
           </div>
 
           {/* Accept / Reject actions in the header */}
-          {request.status === 'Pending' && (
+          {request.status?.toLowerCase() === 'pending' && (
             <div className="flex items-center gap-3">
               <Button
                 onClick={async () => {
@@ -715,13 +720,16 @@ export default function VetConsultationRequests() {
                   }
                   setActionLoading(true);
                   try {
-                    await axios.patch(`${import.meta.env.VITE_BACKEND_URL}/api/vet-appointments/${request.id}/approve`, {
+                    await axios.patch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/vet-appointments/${request.id}/approve`, {
                       slotId: selectedSlot
                     });
                     await fetchAppointments();
-                    setSelectedRequestDetails(null);
-                    setSelectedSlot('');
-                    setDeclineReason('');
+                    setSelectedRequestDetails(prev => ({
+                      ...prev,
+                      status: 'Approved',
+                      appointment_date: prev.slots?.find(s => s.id === selectedSlot)?.date || prev.appointment_date,
+                      appointment_time: prev.slots?.find(s => s.id === selectedSlot)?.time || prev.appointment_time
+                    }));
                     alert('Appointment approved successfully!');
                   } catch (err) {
                     console.error('Failed to approve appointment:', err);
@@ -747,11 +755,12 @@ export default function VetConsultationRequests() {
                   }
                   setActionLoading(true);
                   try {
-                    await axios.patch(`${import.meta.env.VITE_BACKEND_URL}/api/vet-appointments/${request.id}/reject`);
+                    await axios.patch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/vet-appointments/${request.id}/reject`);
                     await fetchAppointments();
-                    setSelectedRequestDetails(null);
-                    setSelectedSlot('');
-                    setDeclineReason('');
+                    setSelectedRequestDetails(prev => ({
+                      ...prev,
+                      status: 'Rejected'
+                    }));
                     alert('Request declined. Client has been notified.');
                   } catch (err) {
                     console.error('Failed to reject:', err);
@@ -787,19 +796,19 @@ export default function VetConsultationRequests() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
                   <p className="text-xs text-slate-400 font-medium uppercase tracking-wider mb-1">Species</p>
-                  <p className="text-base font-bold text-slate-800 capitalize">{request.animal_species || 'Cattle'}</p>
+                  <p className="text-base font-bold text-slate-800 capitalize">{request.animalSpecies || request.originalData?.animal_species || 'Cattle'}</p>
                 </div>
                 <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
                   <p className="text-xs text-slate-400 font-medium uppercase tracking-wider mb-1">Breed</p>
-                  <p className="text-base font-bold text-slate-800">{request.animal_breed || 'Holstein-Friesian'}</p>
+                  <p className="text-base font-bold text-slate-800">{request.animalBreed || request.originalData?.animal_breed || 'Holstein-Friesian'}</p>
                 </div>
                 <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
                   <p className="text-xs text-slate-400 font-medium uppercase tracking-wider mb-1">Age</p>
-                  <p className="text-base font-bold text-slate-800">{request.animal_age || '4 Years'}</p>
+                  <p className="text-base font-bold text-slate-800">{request.animalAge || request.originalData?.animal_age || '4 Years'}</p>
                 </div>
                 <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
                   <p className="text-xs text-slate-400 font-medium uppercase tracking-wider mb-1">Weight</p>
-                  <p className="text-base font-bold text-slate-800">{request.animal_weight || '1,400 lbs'}</p>
+                  <p className="text-base font-bold text-slate-800">{request.animalWeight || request.originalData?.animal_weight || '1,400 lbs'}</p>
                 </div>
               </div>
 
@@ -829,7 +838,7 @@ export default function VetConsultationRequests() {
               )}
             </Card>
 
-            {request.status === 'Approved' ? (
+            {request.status?.toLowerCase() === 'approved' ? (
               request.consultation_type === 'chat' ? (
                 /* Ready for Chat Consultation Card */
                 <Card className="p-8 border-blue-200 bg-blue-50/10 shadow-sm flex flex-col items-center justify-center text-center space-y-4 bg-white relative overflow-hidden">
@@ -877,7 +886,7 @@ export default function VetConsultationRequests() {
                   </Button>
                 </Card>
               )
-            ) : request.status !== 'Pending' ? (
+            ) : request.status?.toLowerCase() !== 'pending' ? (
               /* Review message for already reviewed cases */
               <Card className="p-6 border-slate-200 bg-slate-50/50 shadow-sm bg-white">
                 <div className="flex items-center gap-3 text-slate-600">
@@ -1021,25 +1030,25 @@ export default function VetConsultationRequests() {
               
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-full overflow-hidden border border-slate-200 bg-slate-50 flex items-center justify-center">
-                  {request.owner_image && request.owner_image !== '/default.jpg' ? (
-                    <img src={`${import.meta.env.VITE_BACKEND_URL}${request.owner_image}`} alt={request.owner_name} className="w-full h-full object-cover" onError={(e) => { e.target.src = ''; }} />
+                  {request.originalData?.owner_image && request.originalData?.owner_image !== '/default.jpg' ? (
+                    <img src={`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}${request.originalData?.owner_image}`} alt={request.originalData?.owner_name || request.ownerName} className="w-full h-full object-cover" onError={(e) => { e.target.src = ''; }} />
                   ) : (
                     <User size={20} className="text-slate-400" />
                   )}
                 </div>
                 <div>
-                  <h4 className="font-bold text-slate-800">{request.owner_name}</h4>
+                  <h4 className="font-bold text-slate-800">{request.originalData?.owner_name || request.ownerName}</h4>
                   <p className="text-xs text-slate-400 font-medium">Dairy Farmer</p>
                 </div>
               </div>
 
-              {(request.owner_email || request.owner_phone) && (
+              {(request.originalData?.owner_email || request.originalData?.owner_phone) && (
                 <div className="text-xs space-y-1.5 border-t border-slate-100 pt-3 text-slate-500">
-                  {request.owner_email && (
-                    <p className="truncate"><span className="font-medium text-slate-400">Email:</span> {request.owner_email}</p>
+                  {request.originalData?.owner_email && (
+                    <p className="truncate"><span className="font-medium text-slate-400">Email:</span> {request.originalData?.owner_email}</p>
                   )}
-                  {request.owner_phone && (
-                    <p><span className="font-medium text-slate-400">Phone:</span> {request.owner_phone}</p>
+                  {request.originalData?.owner_phone && (
+                    <p><span className="font-medium text-slate-400">Phone:</span> {request.originalData?.owner_phone}</p>
                   )}
                 </div>
               )}
@@ -1148,19 +1157,19 @@ export default function VetConsultationRequests() {
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 rounded-full overflow-hidden bg-slate-50 border border-slate-200 flex-shrink-0 flex items-center justify-center">
-                        {request.animal_image && request.animal_image !== '/default.jpg' ? (
-                          <img src={`${import.meta.env.VITE_BACKEND_URL}${request.animal_image}`} alt={request.animal_name} className="w-full h-full object-cover" onError={(e) => { e.target.src = ''; }} />
+                        {request.originalData?.animal_image && request.originalData?.animal_image !== '/default.jpg' ? (
+                          <img src={`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}${request.originalData?.animal_image}`} alt={request.originalData?.animal_name || request.patientName} className="w-full h-full object-cover" onError={(e) => { e.target.src = ''; }} />
                         ) : (
-                          <div className="p-2 bg-slate-100 rounded-full">{getTypeIcon(request.consultation_type)}</div>
+                          <div className="p-2 bg-slate-100 rounded-full">{getTypeIcon(request.originalData?.consultation_type)}</div>
                         )}
                       </div>
                       <div>
                         <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="font-semibold text-slate-900 text-lg">{request.animal_name}</h3>
-                          {getUrgencyBadge(request.reason_notes || request.reason)}
+                          <h3 className="font-semibold text-slate-900 text-lg">{request.originalData?.animal_name || request.patientName}</h3>
+                          {getUrgencyBadge(request.originalData?.reason_notes || request.originalData?.reason || request.symptoms)}
                         </div>
                         <p className="text-sm text-slate-600 mt-0.5">
-                          Owned by <span className="font-medium text-slate-800">{request.owner_name}</span>
+                          Owned by <span className="font-medium text-slate-800">{request.originalData?.owner_name || request.ownerName}</span>
                         </p>
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-xs text-slate-500">
                           <span className="flex items-center gap-1">
@@ -1179,7 +1188,7 @@ export default function VetConsultationRequests() {
                       <div className="text-left md:text-right">
                         <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Availability</p>
                         <p className="text-sm text-slate-700 font-semibold">
-                          {request.availability_slots?.length || 0} slots requested
+                          {request.slots?.length || 0} slots requested
                         </p>
                       </div>
                       
@@ -1218,15 +1227,15 @@ export default function VetConsultationRequests() {
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-full overflow-hidden bg-slate-50 border border-slate-200 flex-shrink-0 flex items-center justify-center">
-                      {request.animal_image && request.animal_image !== '/default.jpg' ? (
-                        <img src={`${import.meta.env.VITE_BACKEND_URL}${request.animal_image}`} alt={request.animal_name} className="w-full h-full object-cover" onError={(e) => { e.target.src = ''; }} />
+                      {request.originalData?.animal_image && request.originalData?.animal_image !== '/default.jpg' ? (
+                        <img src={`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}${request.originalData?.animal_image}`} alt={request.originalData?.animal_name || request.patientName} className="w-full h-full object-cover" onError={(e) => { e.target.src = ''; }} />
                       ) : (
-                        <div className="p-2 bg-slate-100 rounded-full">{getTypeIcon(request.consultation_type)}</div>
+                        <div className="p-2 bg-slate-100 rounded-full">{getTypeIcon(request.originalData?.consultation_type)}</div>
                       )}
                     </div>
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="font-semibold text-slate-900 text-lg">{request.animal_name}</h3>
+                        <h3 className="font-semibold text-slate-900 text-lg">{request.originalData?.animal_name || request.patientName}</h3>
                         {getStatusBadge(request.status)}
                       </div>
                       <p className="text-sm text-slate-600 mt-0.5">
@@ -1339,7 +1348,7 @@ export default function VetConsultationRequests() {
                   const markDone = window.confirm("Would you like to mark this consultation as completed?");
                   if (markDone) {
                     try {
-                      await axios.patch(`${import.meta.env.VITE_BACKEND_URL}/api/vet-appointments/${selectedRequestDetails.id}/complete`);
+                      await axios.patch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/vet-appointments/${selectedRequestDetails.id}/complete`);
                       await fetchAppointments();
                       setSelectedRequestDetails(null);
                       alert("Consultation marked as completed successfully!");
