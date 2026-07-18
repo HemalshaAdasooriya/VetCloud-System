@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { 
   Clock, CheckCircle2, XCircle, AlertCircle, FileText, 
@@ -14,6 +14,7 @@ import JitsiVideoCall from '../components/consultation/JitsiVideoCall';
 
 export default function VetConsultationRequests() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState('pending');
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -98,6 +99,16 @@ export default function VetConsultationRequests() {
   useEffect(() => {
     fetchAppointments();
   }, []);
+
+  // Pre-select a request if navigated with a specific requestId state
+  useEffect(() => {
+    if (location.state?.requestId && pendingRequests.length > 0) {
+      const matched = pendingRequests.find(r => r.id === location.state.requestId);
+      if (matched) {
+        handleSelectRequest(matched);
+      }
+    }
+  }, [location.state, pendingRequests]);
 
   const fetchAppointments = async () => {
     setLoading(true);
@@ -755,7 +766,7 @@ export default function VetConsultationRequests() {
                   }
                   setActionLoading(true);
                   try {
-                    await axios.patch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/vet-appointments/${request.id}/reject`);
+                    await axios.patch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/vet-appointments/${request.id}/reject`, { reason });
                     await fetchAppointments();
                     setSelectedRequestDetails(prev => ({
                       ...prev,

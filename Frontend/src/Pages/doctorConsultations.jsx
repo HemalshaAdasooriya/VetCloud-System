@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { 
   Clock, CheckCircle2, XCircle, AlertCircle, FileText, 
@@ -14,6 +14,7 @@ import JitsiVideoCall from '../components/consultation/JitsiVideoCall';
 
 export default function DoctorConsultations() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -59,6 +60,21 @@ export default function DoctorConsultations() {
   useEffect(() => {
     fetchAppointments();
   }, []);
+
+  // Auto-select and join call/chat from navigation state (e.g. from Dashboard)
+  useEffect(() => {
+    if (location.state?.appointmentId && appointments.length > 0) {
+      const matched = appointments.find(a => a.id === location.state.appointmentId);
+      if (matched) {
+        setSelectedRequestDetails(matched);
+        if (location.state?.startCall) {
+          setShowVideoRoom(true);
+        } else if (location.state?.startChat) {
+          setShowChatRoom(true);
+        }
+      }
+    }
+  }, [location.state, appointments]);
 
   const fetchAppointments = async () => {
     setLoading(true);
