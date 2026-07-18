@@ -1087,5 +1087,46 @@ export const saveClinicDetails = (req, res) => {
         return res.status(401).json({ message: "Invalid or expired token" });
     }
 };
+
+export const submitFeedback = (req, res) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ message: "Unauthorized: No token provided" });
+    }
+
+    const token = authHeader.split(" ")[1];
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        
+        // Ensure user is farmer/pet owner
+        if (decoded.role !== 'farmer' && decoded.role !== 'Farmer/PetOwner') {
+            return res.status(403).json({ message: "Forbidden: Only pet owners can submit feedback." });
+        }
+
+        const pet_owner_id = decoded.id;
+        const { veterinarian_id, rating, comment, consultation_type } = req.body;
+
+        if (!veterinarian_id || !rating) {
+            return res.status(400).json({ message: "Veterinarian ID and rating are required." });
+        }
+
+        const sql = `
+            INSERT INTO feedbacks (pet_owner_id, veterinarian_id, rating, comment, status, consultation_type, helpful_count)
+            VALUES (?, ?, ?, ?, 'Under Review', ?, 0)
+        `;
+
+        db.query(sql, [pet_owner_id, veterinarian_id, rating, comment || "", consultation_type || "Video Consultation"], (err, result) => {
+            if (err) {
+                console.error("DB error inserting feedback:", err.sqlMessage || err);
+                return res.status(500).json({ message: "Database error saving feedback", error: err.sqlMessage || err });
+            }
+            return res.status(201).json({ message: "Feedback submitted successfully, awaiting approval!" });
+        });
+
+    } catch (error) {
+        return res.status(401).json({ message: "Invalid or expired token" });
+    }
+};
 //... Navindu
 
