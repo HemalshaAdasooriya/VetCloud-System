@@ -10,6 +10,7 @@ import appointmentRouter from "./routes/appointmentRouter.js";
 import paymentRouter from "./routes/paymentRouter.js";
 import vetAppointmentRouter from "./routes/vetAppointmentRouter.js";
 import { initializeNotificationTables } from "./models/Notification.js";
+import { initializePaymentSettingsTable } from "./models/Setting.js";
 import notificationRouter from "./routes/notificationRouter.js";
 import { startReminderScheduler } from "./config/scheduler.js";
 import adminRouter from "./routes/adminRouter.js";
@@ -19,6 +20,7 @@ dotenv.config();
 
 // Create notifications table on startup
 initializeNotificationTables();
+initializePaymentSettingsTable();
 
 const app = express();
 const server = http.createServer(app);

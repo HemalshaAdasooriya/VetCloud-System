@@ -16,10 +16,11 @@ import {
     updateDisease,
     deleteDisease,
     getFeedback,
-    updateFeedbackStatus,
     deleteFeedback,
     getReports,
-    updateAdminProfile
+    updateAdminProfile,
+    getSystemSettings,
+    updateSystemSettings
 } from "../controllers/adminController.js";
 
 const adminRouter = express.Router();
@@ -70,7 +71,6 @@ adminRouter.delete("/diseases/:id", authenticateAdmin, deleteDisease);
 
 // Feedback Management
 adminRouter.get("/feedback", authenticateAdmin, getFeedback);
-adminRouter.put("/feedback/:id/status", authenticateAdmin, updateFeedbackStatus);
 adminRouter.delete("/feedback/:id", authenticateAdmin, deleteFeedback);
 
 // Reports & Analytics
@@ -78,5 +78,9 @@ adminRouter.get("/reports", authenticateAdmin, getReports);
 
 // Settings Profile
 adminRouter.put("/profile", authenticateAdmin, updateAdminProfile);
+
+// System Settings (Commission, etc.)
+adminRouter.get("/settings", authenticateAdmin, getSystemSettings);
+adminRouter.put("/settings", authenticateAdmin, updateSystemSettings);
 
 export default adminRouter;
