@@ -16,6 +16,7 @@ import Scheduling from './Pages/Scheduling' //Navindu 2026/06/04 ... scheduling
 import VetSchedule from './Pages/VetSchedule' //Navindu 2026/06/26 ... vet schedule
 import DoctorSchedule from './Pages/doctorSchedule'
 import DoctorSettings from './Pages/doctorSettings'
+import DoctorConsultations from './Pages/doctorConsultations'
 import ForgotPassword from './Pages/ForgotPassword'
 import UserAnimals from './Pages/userClinics'
 import UserAppoinment from './Pages/userAppoinment'
@@ -51,7 +52,7 @@ function App() {
 
             <Route path='/dashboard/doctor/*' element={<DashboardLayout />}>
               <Route path='requests' element={<VetConsultationRequests />} />
-              <Route path='consultations' element={<ConsultationPage />} />
+              <Route path='consultations' element={<DoctorConsultations />} />
               <Route path='schedule' element={<VetSchedule />} />
               <Route path='settings' element={<DoctorSettings />} />
             </Route>
