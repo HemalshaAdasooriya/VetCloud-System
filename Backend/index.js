@@ -70,6 +70,29 @@ app.use("/api/notifications", notificationRouter);
 app.use("/api/admin", adminRouter);
 app.use("/uploads", express.static("uploads"));
 
+// Express Global Error Handler Middleware
+app.use((err, req, res, next) => {
+    console.error("Express Uncaught Crash Intercepted:", err);
+    import("./models/Notification.js").then(({ createSystemError, createAdminNotification }) => {
+        const io = app.get("io");
+        createSystemError({
+            errorCode: err.code || err.name || "ROUTE_CRASH",
+            message: `Unhandled Error on ${req.method} ${req.url}: ${err.message}. Stack: ${err.stack}`,
+            severity: "Critical"
+        }, (errLog, resultLog) => {
+            if (!errLog) {
+                createAdminNotification(io, {
+                    type: "system_error",
+                    title: "System Route Crash",
+                    message: `Route crash [${err.code || err.name || "ROUTE_CRASH"}] on ${req.method} ${req.url}: ${err.message}`
+                });
+            }
+        });
+    }).catch(console.error);
+
+    res.status(500).json({ message: "Internal server error occurred." });
+});
+
 server.listen(5000, () => {
     console.log("Server running on port 5000");
 });

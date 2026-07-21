@@ -21,6 +21,12 @@ import {
     getReports,
     updateAdminProfile
 } from "../controllers/adminController.js";
+import {
+    getSystemData,
+    resolveComplaintAction,
+    scheduleMaintenanceAction,
+    simulateAction
+} from "../controllers/adminNotificationController.js";
 
 const adminRouter = express.Router();
 
@@ -78,5 +84,11 @@ adminRouter.get("/reports", authenticateAdmin, getReports);
 
 // Settings Profile
 adminRouter.put("/profile", authenticateAdmin, updateAdminProfile);
+
+// Admin Notification System Endpoints
+adminRouter.get("/notifications/system-data", authenticateAdmin, getSystemData);
+adminRouter.post("/notifications/simulate/:type", authenticateAdmin, simulateAction);
+adminRouter.put("/notifications/complaints/:id/resolve", authenticateAdmin, resolveComplaintAction);
+adminRouter.post("/notifications/maintenance", authenticateAdmin, scheduleMaintenanceAction);
 
 export default adminRouter;
