@@ -130,6 +130,33 @@ export const approveAppointment = (req, res) => {
                 // The slot might not exist in the schedule table yet
             }
 
+            // Conflict Check
+            db.query(
+                `SELECT a.id, s.slot_date, s.slot_time, v.fullName AS vet_name
+                 FROM appointments a 
+                 JOIN appointment_slots s ON a.selected_slot_id = s.id 
+                 JOIN veterinarians v ON a.veterinarian_id = v.id
+                 WHERE a.status = 'Approved' 
+                   AND a.veterinarian_id = (SELECT veterinarian_id FROM appointments WHERE id = ?)
+                   AND a.id != ?
+                   AND s.slot_date = (SELECT slot_date FROM appointment_slots WHERE id = ?)
+                   AND s.slot_time = (SELECT slot_time FROM appointment_slots WHERE id = ?)`,
+                [id, id, slotId, slotId],
+                (errConflict, conflictResults) => {
+                    if (!errConflict && conflictResults && conflictResults.length > 0) {
+                        const conflict = conflictResults[0];
+                        const io = req.app.get("io");
+                        import("../models/Notification.js").then(({ createAdminNotification }) => {
+                            createAdminNotification(io, {
+                                type: "appointment_conflict",
+                                title: "Appointment Conflict Detected",
+                                message: `Conflict detected for Dr. ${conflict.vet_name}: overlapping approved appointments (#${id} and #${conflict.id}) on ${new Date(conflict.slot_date).toLocaleDateString()} at ${conflict.slot_time}.`
+                            });
+                        }).catch(console.error);
+                    }
+                }
+            );
+
             //Send notification
             triggerAppointmentNotification(req.app, id, "appointment_confirmed");
 

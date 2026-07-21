@@ -58,6 +58,21 @@ export const updateUserStatus = async (req, res) => {
     const { is_Active } = req.body;
     try {
         await queryPromise("UPDATE pet_owners SET is_Active = ? WHERE id = ?", [is_Active ? 1 : 0, id]);
+        
+        // Fetch user email to send update
+        const userResults = await queryPromise("SELECT email, fullName FROM pet_owners WHERE id = ?", [id]);
+        if (userResults && userResults.length > 0) {
+            const user = userResults[0];
+            import("../config/email.js").then(({ sendEmail }) => {
+                sendEmail({
+                    to: user.email,
+                    subject: "Account Status Update - VetCloud",
+                    html: `<h3>Account Status Updated</h3><p>Dear ${user.fullName},</p><p>Your VetCloud account has been marked as <strong>${is_Active ? "Active" : "Inactive"}</strong> by the administrator.</p>`,
+                    text: `Dear ${user.fullName}, your VetCloud account status has been updated to ${is_Active ? "Active" : "Inactive"}.`
+                }).catch(console.error);
+            });
+        }
+
         res.status(200).json({ message: "User status updated successfully" });
     } catch (error) {
         console.error("Error in updateUserStatus:", error);
@@ -99,6 +114,21 @@ export const updateDoctorStatus = async (req, res) => {
     const { is_Active } = req.body;
     try {
         await queryPromise("UPDATE veterinarians SET is_Active = ? WHERE id = ?", [is_Active ? 1 : 0, id]);
+        
+        // Fetch doctor email to send update
+        const doctorResults = await queryPromise("SELECT email, fullName FROM veterinarians WHERE id = ?", [id]);
+        if (doctorResults && doctorResults.length > 0) {
+            const vet = doctorResults[0];
+            import("../config/email.js").then(({ sendEmail }) => {
+                sendEmail({
+                    to: vet.email,
+                    subject: "Account Approval Status Update - VetCloud",
+                    html: `<h3>Account Approval Status Updated</h3><p>Dear Dr. ${vet.fullName},</p><p>Your veterinarian account status has been updated to <strong>${is_Active ? "Active / Approved" : "Inactive / Under Review"}</strong> by the administrator.</p>`,
+                    text: `Dear Dr. ${vet.fullName}, your veterinarian account approval status has been updated to ${is_Active ? "Active" : "Inactive"}.`
+                }).catch(console.error);
+            });
+        }
+
         res.status(200).json({ message: "Doctor status updated successfully" });
     } catch (error) {
         console.error("Error in updateDoctorStatus:", error);
