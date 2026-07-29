@@ -58,6 +58,7 @@ export default function DoctorSettings() {
   const [fees, setFees] = useState({
     consultation_fee: '', videoFee: '', farmFee: '', emergencyFee: ''
   });
+  const [commissionPct, setCommissionPct] = useState(10);
 
   // ── Loading / Toast ─────────────────────────────────────────────────────
   const [isLoading, setIsLoading] = useState(true);
@@ -144,6 +145,15 @@ export default function DoctorSettings() {
           });
           setPayoutSchedule(data.payout_schedule || 'weekly');
           setFees(prev => ({ ...prev, consultation_fee: data.consultation_fee || '' }));
+        }
+
+        // Fetch dynamic platform commission
+        const commissionRes = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/payments/commission`);
+        if (commissionRes.ok) {
+          const commissionData = await commissionRes.json();
+          if (commissionData.commission_percentage) {
+            setCommissionPct(parseFloat(commissionData.commission_percentage));
+          }
         }
       } catch (error) {
         console.error("Error fetching doctor profile:", error);
@@ -879,15 +889,15 @@ export default function DoctorSettings() {
                   <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
                     <AlertCircle size={16} className="text-amber-600 mt-0.5 shrink-0" />
                     <p className="text-xs text-amber-800">
-                      <strong>Platform Fee:</strong> VetCloud charges a <strong>10% platform fee</strong> on all consultations.
-                      Farmers are charged the amounts above; you receive 90% after the platform fee is deducted.
+                      <strong>Platform Fee:</strong> VetCloud charges a <strong>{commissionPct}% platform fee</strong> on all consultations.
+                      Farmers are charged the amounts above; you receive {100 - commissionPct}% after the platform fee is deducted.
                     </p>
                   </div>
 
                   {/* Fee preview */}
                   {fees.consultation_fee && (
                     <div className="p-4 bg-green-50 border border-green-100 rounded-xl">
-                      <p className="text-xs font-semibold text-green-800 mb-2">Earnings Preview (after 10% fee)</p>
+                      <p className="text-xs font-semibold text-green-800 mb-2">Earnings Preview (after {commissionPct}% fee)</p>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         {[
                           { label: "Online", val: fees.consultation_fee },
@@ -899,7 +909,7 @@ export default function DoctorSettings() {
                             <div key={label} className="bg-white rounded-lg p-2.5 border border-green-100 text-center">
                               <p className="text-xs text-slate-500">{label}</p>
                               <p className="text-sm font-bold text-green-700 mt-1">
-                                ${(parseFloat(val) * 0.9).toFixed(2)}
+                                LKR {(parseFloat(val) * (1 - commissionPct / 100)).toFixed(2)}
                               </p>
                             </div>
                           ) : null

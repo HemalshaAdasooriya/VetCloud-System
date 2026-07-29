@@ -94,6 +94,8 @@ userRouter.post("/complaints", submitComplaint);
 
 //Navindu 2026/06/10 ... Get All Vets Functionality
 userRouter.get("/vets", getAllVets);
+userRouter.post("/feedback", submitFeedback);
+userRouter.get("/feedback/vet/:id", getVetFeedback);
 //... Navindu
 
 //... Hemalsha

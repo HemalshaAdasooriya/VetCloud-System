@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, Shield, Key, Bell, Smartphone, LogOut } from 'lucide-react';
+import { User, Shield, Key, Bell, Smartphone, LogOut, CreditCard } from 'lucide-react';
 import { Card, Badge, Button, Input } from '../../components/Ui/ui';
 import toast from 'react-hot-toast';
 
@@ -22,13 +22,35 @@ export default function Settings() {
     const [newPassword, setNewPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
 
-    // Load user data
+    // Commission/Payment Settings fields
+    const [commissionPercentage, setCommissionPercentage] = useState("10");
+
+    // Load user data & system settings
     useEffect(() => {
         if (user) {
             setFullName(user.fullName || "");
             setEmail(user.email || "");
             setContactNo(user.contact_No || "");
         }
+        
+        const fetchSystemSettings = async () => {
+            try {
+                const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/admin/settings`, {
+                    headers: {
+                        "Authorization": `Bearer ${localStorage.getItem("token")}`
+                    }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.commission_percentage) {
+                        setCommissionPercentage(data.commission_percentage);
+                    }
+                }
+            } catch (err) {
+                console.error("Error fetching system settings:", err);
+            }
+        };
+        fetchSystemSettings();
     }, [user]);
 
     const handleUpdateProfile = async (e) => {
@@ -109,6 +131,35 @@ export default function Settings() {
         }
     };
 
+    const handleUpdateSettings = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/admin/settings`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${localStorage.getItem("token")}`
+                },
+                body: JSON.stringify({
+                    commission_percentage: parseFloat(commissionPercentage)
+                })
+            });
+
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.message || "Failed to update settings");
+            }
+
+            toast.success("Platform settings updated successfully!");
+        } catch (error) {
+            console.error("Update settings error:", error);
+            toast.error(error.message || "Error updating payment settings");
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-start">
             
@@ -128,11 +179,18 @@ export default function Settings() {
                     <Shield size={18} />
                     Security Settings
                 </button>
+                <button 
+                    onClick={() => setActiveTab("payment")}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${activeTab === 'payment' ? 'bg-green-50 text-green-700' : 'text-slate-600 hover:bg-slate-50'}`}
+                >
+                    <CreditCard size={18} />
+                    Payment Settings
+                </button>
             </Card>
 
             {/* Sub-form panels */}
             <Card className="p-6 md:col-span-3">
-                {activeTab === "profile" ? (
+                {activeTab === "profile" && (
                     <div className="space-y-6">
                         <div>
                             <h3 className="text-lg font-bold text-slate-800">Profile Details</h3>
@@ -184,7 +242,9 @@ export default function Settings() {
                             </div>
                         </form>
                     </div>
-                ) : (
+                )}
+
+                {activeTab === "security" && (
                     <div className="space-y-6">
                         <div>
                             <h3 className="text-lg font-bold text-slate-800">Security Credentials</h3>
@@ -251,6 +311,51 @@ export default function Settings() {
                                 Managed by OTP Service
                             </Badge>
                         </div>
+                    </div>
+                )}
+
+                {activeTab === "payment" && (
+                    <div className="space-y-6 animate-in fade-in duration-200">
+                        <div>
+                            <h3 className="text-lg font-bold text-slate-800">Payment & Commission Settings</h3>
+                            <p className="text-sm text-slate-500">Configure platform-wide transaction fees and commission percentages.</p>
+                        </div>
+                        <hr className="border-slate-100" />
+                        
+                        <form onSubmit={handleUpdateSettings} className="space-y-4 max-w-xl">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Platform Commission Fee (%)</label>
+                                <div className="relative max-w-xs">
+                                    <Input 
+                                        type="number" 
+                                        required 
+                                        min="0"
+                                        max="100"
+                                        step="0.1"
+                                        value={commissionPercentage}
+                                        onChange={(e) => setCommissionPercentage(e.target.value)}
+                                        placeholder="10"
+                                        className="pr-10 bg-white"
+                                    />
+                                    <span className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400 font-semibold text-sm">
+                                        %
+                                    </span>
+                                </div>
+                                <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+                                    This percentage is added on top of a doctor's base consultation fee. For example, if a veterinarian charges LKR 1,000 and the commission is 10%, the client will pay a total of LKR 1,100, and VetCloud retains LKR 100 as the platform fee.
+                                </p>
+                            </div>
+
+                            <div className="pt-2">
+                                <Button 
+                                    type="submit" 
+                                    disabled={loading}
+                                    className="bg-green-600 hover:bg-green-700 text-white rounded-xl px-6"
+                                >
+                                    {loading ? "Saving Settings..." : "Save Settings"}
+                                </Button>
+                            </div>
+                        </form>
                     </div>
                 )}
             </Card>

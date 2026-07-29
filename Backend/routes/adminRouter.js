@@ -16,10 +16,12 @@ import {
     updateDisease,
     deleteDisease,
     getFeedback,
-    updateFeedbackStatus,
     deleteFeedback,
+    addFeedback,
     getReports,
-    updateAdminProfile
+    updateAdminProfile,
+    getSystemSettings,
+    updateSystemSettings
 } from "../controllers/adminController.js";
 import {
     getSystemData,
@@ -76,7 +78,7 @@ adminRouter.delete("/diseases/:id", authenticateAdmin, deleteDisease);
 
 // Feedback Management
 adminRouter.get("/feedback", authenticateAdmin, getFeedback);
-adminRouter.put("/feedback/:id/status", authenticateAdmin, updateFeedbackStatus);
+adminRouter.post("/feedback", authenticateAdmin, addFeedback);
 adminRouter.delete("/feedback/:id", authenticateAdmin, deleteFeedback);
 
 // Reports & Analytics
