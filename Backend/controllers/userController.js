@@ -55,6 +55,8 @@ export function registerUser(req, res) {
         });
     }
 
+    const imagePath = req.file ? `/uploads/${req.file.filename}` : "/default.jpg";
+
     // 2. Check if email already exists in either table
     checkEmailExists(data.email, (err, results) => {
         if (err) {
@@ -86,6 +88,7 @@ export function registerUser(req, res) {
                         zip: data.zip,             
                         country: data.country,
                         numberOfAnimals: data.numberOfAnimals, // Matched to frontend payload exactly
+                        image: imagePath,
                         provider: 'local'
                     },
                     (err, result) => {
@@ -132,6 +135,7 @@ export function registerUser(req, res) {
                         specialization: data.specialization,
                         years_of_experience: data.years_of_experience,
                         consultation_fee: data.consultation_fee,
+                        image: imagePath,
                         provider: 'local'
                     },
                     (err, result) => {
@@ -1199,7 +1203,7 @@ export const submitFeedback = (req, res) => {
                 createAdminNotification(io, {
                     type: "new_feedback_received",
                     title: "New Feedback Received",
-                    message: `New feedback received (Rating: ${rating}/5) for Vet ID: ${veterinarian_id}.`
+                    message: `New feedback received (Rating: ${rating}/5) for Vet ID: ${veterinarianId}.`
                 });
             }).catch(console.error);
 
@@ -1255,6 +1259,30 @@ export const submitComplaint = (req, res) => {
     } catch (error) {
         return res.status(401).json({ message: "Invalid or expired token" });
     }
+};
+
+export const getVetFeedback = (req, res) => {
+    const { id } = req.params;
+
+    if (!id) {
+        return res.status(400).json({ message: "Veterinarian ID is required" });
+    }
+
+    const sql = `
+        SELECT f.id, f.rating, f.comment, f.created_at, p.fullName AS ownerName
+        FROM feedbacks f
+        LEFT JOIN pet_owners p ON f.pet_owner_id = p.id
+        WHERE f.veterinarian_id = ?
+        ORDER BY f.created_at DESC
+    `;
+
+    db.query(sql, [id], (err, results) => {
+        if (err) {
+            console.error("Error fetching veterinarian feedback:", err);
+            return res.status(500).json({ message: "Failed to fetch feedback", error: err });
+        }
+        res.status(200).json(results);
+    });
 };
 //... Navindu
 

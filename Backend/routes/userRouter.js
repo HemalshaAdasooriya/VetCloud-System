@@ -27,7 +27,8 @@ import {
     getAllVets,
     saveClinicDetails,
     submitFeedback,
-    submitComplaint
+    submitComplaint,
+    getVetFeedback
 } from "../controllers/userController.js";
 
 //... Navindu
@@ -38,19 +39,6 @@ import fs from "fs";
 
 
 
-
-const userRouter = express.Router();
-
-userRouter.post("/", registerUser);
-userRouter.post("/google-login", googleLogin);
-userRouter.post("/facebook-login", facebookLogin);
-userRouter.post("/login", loginUser);
-
-//Navindu 2026/05/27 ... Forgot Password Functionality
-userRouter.post("/forgot-password", sendForgotPasswordOTP);
-userRouter.post("/verify-otp", verifyForgotPasswordOTP);
-userRouter.post("/reset-password", resetPassword);
-//... Navindu
 
 //Hemalsha 2026/05/30 ... Profile Picture Upload Functionality
 
@@ -69,6 +57,19 @@ const storage = multer.diskStorage({
     }
 });
 const upload = multer({ storage: storage });
+
+const userRouter = express.Router();
+
+userRouter.post("/", upload.single('profileImage'), registerUser);
+userRouter.post("/google-login", googleLogin);
+userRouter.post("/facebook-login", facebookLogin);
+userRouter.post("/login", loginUser);
+
+//Navindu 2026/05/27 ... Forgot Password Functionality
+userRouter.post("/forgot-password", sendForgotPasswordOTP);
+userRouter.post("/verify-otp", verifyForgotPasswordOTP);
+userRouter.post("/reset-password", resetPassword);
+//... Navindu
 
 userRouter.post("/upload-photo", upload.single('profileImage'), updateProfilePhoto);
 userRouter.delete("/remove-photo", removeProfilePhoto);

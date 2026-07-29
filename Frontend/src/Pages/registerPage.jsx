@@ -138,7 +138,7 @@ export default function RegisterPage() {
         setIsLoading(true);
 
         // 2. Format the role to match what your MySQL database expects
-        const backendRole = role === 'farmer' ? "Farmer/PetOwner" : role === 'doctor' ? "Veterinary Doctor" : "Admin";
+        const backendRole = role === 'user' ? "Farmer/PetOwner" : "Veterinary Doctor";
 
         try {
             // 3. Send the request
@@ -161,11 +161,14 @@ export default function RegisterPage() {
                 // 4. Save the Session (Print the digital ID Badge)
                 if (data.token) localStorage.setItem("token", data.token); 
                 if (data.user) localStorage.setItem("user", JSON.stringify(data.user));
+                if (data.user && data.user.id) localStorage.setItem("userId", data.user.id);
                 
                 // 5. Navigate (Escort the user to their specific dashboard)
-                if (role === "farmer") navigate("/dashboard/user");
-                if (role === "doctor") navigate("/dashboard/doctor");
-                if (role === "admin") navigate("/dashboard/admin");
+                if (role === 'user') {
+                    navigate("/dashboard/user");
+                } else if (role === 'vet') {
+                    navigate("/dashboard/doctor");
+                }
                 
             } else {
                 toast.error(data.message || "Facebook login failed");
@@ -193,37 +196,39 @@ export default function RegisterPage() {
         setSubmitMessage({ text: "", isError: false }); 
 
         const backendRole = role === 'user' ? "Farmer/PetOwner" : "Veterinary Doctor";
-        const payload = {
-            firstName,
-            lastName,
-            email,
-            password,
-            contact_No: phone,
-            role: backendRole,
-            };
+        const formData = new FormData();
+        formData.append("firstName", firstName);
+        formData.append("lastName", lastName);
+        formData.append("email", email);
+        formData.append("password", password);
+        formData.append("contact_No", phone);
+        formData.append("role", backendRole);
 
         if (role === 'user') {
-            payload.numberOfAnimals = numberOfAnimals || 0;
-            payload.street = street;
-            payload.city = city;
-            payload.state = state;
-            payload.zip = zip;
-            payload.country = country;
+            formData.append("numberOfAnimals", numberOfAnimals || 0);
+            formData.append("street", street);
+            formData.append("city", city);
+            formData.append("state", state);
+            formData.append("zip", zip);
+            formData.append("country", country);
         } else {
-            payload.license_number = license;
-            payload.specialization = specialization;
-            payload.years_of_experience = experience || 0;
-            payload.consultation_fee = fee || 0;
+            formData.append("license_number", license);
+            formData.append("specialization", specialization);
+            formData.append("years_of_experience", experience || 0);
+            formData.append("consultation_fee", fee || 0);
+        }
+
+        if (profileImage) {
+            formData.append("profileImage", profileImage);
         }
 
         try {
-                const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payload)
-                });
+            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/`, {
+                method: "POST",
+                body: formData
+            });
 
-            const result = await response.json()
+            const result = await response.json();
             if (response.status === 201 || response.status === 200) {
                 toast.success("Account created successfully!");
                 if (result.token) localStorage.setItem("token", result.token);

@@ -374,43 +374,46 @@ export default function LoginPage({ defaultRole = null }) {
 
                         </div>
 
-                        <div className="flex items-center my-3">
-                        <div className="flex-grow border-t border-gray-300"></div>
-                        <span className="mx-3 text-gray-500 font-[Inter] font-normal text-[12px]">or continue with</span>
-                        <div className="flex-grow border-t border-gray-300"></div>
-                        </div>
-                        
-                        {/* google and facebook login buttons */}
-                        <div className="w-full flex flex-wrap justify-between mb-[10px]">
-                        
-                        <div className="w-[48%]">
-                            <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
-                                <InlineGoogleButton 
-                                    onSuccess={handleGoogleSuccess} 
-                                    disabled={isLoading} 
-                                />
-                            </GoogleOAuthProvider>
-                        </div>
+                        {defaultRole !== "admin" && (
+                            <>
+                                <div className="flex items-center my-3">
+                                    <div className="flex-grow border-t border-gray-300"></div>
+                                    <span className="mx-3 text-gray-500 font-[Inter] font-normal text-[12px]">or continue with</span>
+                                    <div className="flex-grow border-t border-gray-300"></div>
+                                </div>
+                                
+                                {/* google and facebook login buttons */}
+                                <div className="w-full flex flex-wrap justify-between mb-[10px]">
+                                    <div className="w-[48%]">
+                                        <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
+                                            <InlineGoogleButton 
+                                                onSuccess={handleGoogleSuccess} 
+                                                disabled={isLoading} 
+                                            />
+                                        </GoogleOAuthProvider>
+                                    </div>
 
-                        {/* FACEBOOK INLINE BUTTON */}
-                        <div className="w-[48%]">
-                            <FacebookLogin.default
-                                appId={import.meta.env.VITE_FACEBOOK_APP_ID}
-                                onSuccess={handleFacebookResponse}
-                                onFail={() => toast.error("Facebook Login Failed")}
-                                render={({ onClick }) => (
-                                    <button
-                                        type="button"
-                                        onClick={onClick}
-                                        disabled={isLoading}
-                                        className="w-full h-[40px] border border-[#E2E8F0] text-[#314158] font-Inter font-normal text-[14px] rounded-[14px] flex justify-center items-center hover:bg-slate-50 active:scale-95 transition-all shadow-sm disabled:opacity-70"
-                                    >
-                                        <FaFacebook className="w-[18px] h-[18px] mr-[9px] text-[#1877F2]" />Facebook
-                                    </button>
-                                )}
-                            />
-                        </div>
-                        </div>
+                                    {/* FACEBOOK INLINE BUTTON */}
+                                    <div className="w-[48%]">
+                                        <FacebookLogin.default
+                                            appId={import.meta.env.VITE_FACEBOOK_APP_ID}
+                                            onSuccess={handleFacebookResponse}
+                                            onFail={() => toast.error("Facebook Login Failed")}
+                                            render={({ onClick }) => (
+                                                <button
+                                                    type="button"
+                                                    onClick={onClick}
+                                                    disabled={isLoading}
+                                                    className="w-full h-[40px] border border-[#E2E8F0] text-[#314158] font-Inter font-normal text-[14px] rounded-[14px] flex justify-center items-center hover:bg-slate-50 active:scale-95 transition-all shadow-sm disabled:opacity-70"
+                                                >
+                                                    <FaFacebook className="w-[18px] h-[18px] mr-[9px] text-[#1877F2]" />Facebook
+                                                </button>
+                                            )}
+                                        />
+                                    </div>
+                                </div>
+                            </>
+                        )}
 
 
                         <button type="submit" className="w-full h-[40px] bg-accent hover:bg-green-700 text-[16px] font-Inter font-medium text-white rounded-[25px] cursor-pointer transition-all duration-200 active:scale-95">

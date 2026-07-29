@@ -156,14 +156,35 @@ export default function ForgotPassword() {
     }
   };
 
-  const handleResendOtp = () => {
-    setSuccess('A new verification code has been sent to your email.');
-    setError('');
-    setOtp(['', '', '', '', '', '']);
+  const handleResendOtp = async () => {
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_BACKEND_URL}/api/users/forgot-password`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ email })
+        }
+      );
 
-    setTimeout(() => {
-      setSuccess('');
-    }, 3000);
+      const data = await response.json();
+
+      if (!response.ok) {
+        return setError(data.message);
+      }
+
+      setSuccess('A new verification code has been sent to your email.');
+      setError('');
+      setOtp(['', '', '', '', '', '']);
+
+      setTimeout(() => {
+        setSuccess('');
+      }, 3000);
+    } catch {
+      setError("Server connection failed");
+    }
   };
 
   return (
