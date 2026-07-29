@@ -212,7 +212,6 @@ export async function loginUser(req, res) {
                 return res.status(403).json({ message: "Your account is currently inactive. Please wait for administrator approval." });
             }
 
-    
             // 1. Generate the JWT Token
             console.log("STEP 1: Generating Token...");
             const token = jwt.sign(
@@ -993,9 +992,12 @@ export const revokeOtherSessions = (req, res) => {
 //Navindu 2026/06/10 ... get vet details for scheduling appointments
 export const getAllVets = (req, res) => {
     const sql = `
-        SELECT id, fullName, specialization, years_of_experience, consultation_fee, image
-        FROM veterinarians
-        WHERE is_Active = 1
+        SELECT v.id, v.fullName, v.specialization, v.years_of_experience, v.consultation_fee, v.image,
+               COALESCE(ROUND(AVG(f.rating), 1), 5.0) AS rating
+        FROM veterinarians v
+        LEFT JOIN feedbacks f ON v.id = f.veterinarian_id
+        WHERE v.is_Active = 1
+        GROUP BY v.id
     `;
 
     db.query(sql, (err, results) => {
@@ -1008,7 +1010,7 @@ export const getAllVets = (req, res) => {
             name: `Dr. ${v.fullName}`,
             spec: v.specialization,
             exp: `${v.years_of_experience} Years`,
-            rating: 4.8,
+            rating: parseFloat(v.rating),
             available: true,
             image: v.image || "/default.jpg"
         }));
@@ -1098,35 +1100,55 @@ export const submitFeedback = (req, res) => {
 
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        
-        // Ensure user is farmer/pet owner
-        if (decoded.role !== 'farmer' && decoded.role !== 'Farmer/PetOwner') {
-            return res.status(403).json({ message: "Forbidden: Only pet owners can submit feedback." });
+        const userId = decoded.id;
+        const userRole = decoded.role;
+
+        // Check if role is pet owner
+        if (userRole !== "Farmer/PetOwner" && userRole !== "farmer") {
+            return res.status(403).json({ message: "Only pet owners can submit feedback" });
         }
 
-        const pet_owner_id = decoded.id;
-        const { veterinarian_id, rating, comment, consultation_type } = req.body;
+        const { veterinarianId, rating, comment } = req.body;
 
-        if (!veterinarian_id || !rating) {
-            return res.status(400).json({ message: "Veterinarian ID and rating are required." });
+        if (!rating) {
+            return res.status(400).json({ message: "Rating is required" });
         }
 
-        const sql = `
-            INSERT INTO feedbacks (pet_owner_id, veterinarian_id, rating, comment, status, consultation_type, helpful_count)
-            VALUES (?, ?, ?, ?, 'Under Review', ?, 0)
+        const insertSql = `
+            INSERT INTO feedbacks (pet_owner_id, veterinarian_id, rating, comment)
+            VALUES (?, ?, ?, ?)
         `;
 
-        db.query(sql, [pet_owner_id, veterinarian_id, rating, comment || "", consultation_type || "Video Consultation"], (err, result) => {
+        db.query(insertSql, [userId, veterinarianId || null, rating, comment || null], (err, result) => {
             if (err) {
-                console.error("DB error inserting feedback:", err.sqlMessage || err);
-                return res.status(500).json({ message: "Database error saving feedback", error: err.sqlMessage || err });
+                console.error("Error inserting feedback:", err);
+                return res.status(500).json({ message: "Database error submitting feedback", err });
             }
-            return res.status(201).json({ message: "Feedback submitted successfully, awaiting approval!" });
+            res.status(201).json({ message: "Feedback submitted successfully", feedbackId: result.insertId });
         });
-
     } catch (error) {
-        return res.status(401).json({ message: "Invalid or expired token" });
+        console.error("Token verification error in submitFeedback:", error);
+        return res.status(401).json({ message: "Unauthorized: Invalid token" });
     }
+};
+
+export const getVetFeedback = (req, res) => {
+    const { id } = req.params;
+    const sql = `
+        SELECT f.id, f.rating, f.comment, f.created_at, 
+               p.fullName AS ownerName
+        FROM feedbacks f 
+        JOIN pet_owners p ON f.pet_owner_id = p.id 
+        WHERE f.veterinarian_id = ?
+        ORDER BY f.id DESC
+    `;
+    db.query(sql, [id], (err, results) => {
+        if (err) {
+            console.error("Error in getVetFeedback:", err);
+            return res.status(500).json({ message: "Database error fetching doctor feedback" });
+        }
+        res.status(200).json(results);
+    });
 };
 //... Navindu
 

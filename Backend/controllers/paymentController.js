@@ -2,6 +2,9 @@ import crypto from 'crypto';
 import { addPaymentMethod, getPaymentMethods, deletePaymentMethod, updatePayoutSettings } from "../models/Payment.js";
 import jwt from "jsonwebtoken";
 import db from "../config/db.js";
+import Stripe from 'stripe';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_mock_dummy_key_if_not_provided');
 
 // ── Helper: extract and verify token ──────────────────────────────────────────
 const verifyToken = (req) => {
@@ -16,14 +19,12 @@ const verifyToken = (req) => {
     }
 };
 
-// Secure PayHere hash generator
-export const generatePaymentHash = async (req, res) => {
-    const merchantId = process.env.PAYHERE_MERCHANT_ID || process.env.MERCHANT_ID || "1236188";
-    const merchantSecret = process.env.PAYHERE_SECRET || "MjMxOTc5MjIxNDI4NTYyMTMyMTAzODgyNjk4MTcyMjA2NDM3MjA3NQ==";
-    const { orderId, currency } = req.body; // orderId is appointmentId
+// Get detailed payment info (doctor fee, platform commission, total)
+export const getPaymentInfo = async (req, res) => {
+    const { appointmentId } = req.body;
 
-    if (!orderId) {
-        return res.status(400).json({ message: "orderId (appointmentId) is required" });
+    if (!appointmentId) {
+        return res.status(400).json({ message: "appointmentId is required" });
     }
 
     try {
@@ -32,7 +33,7 @@ export const generatePaymentHash = async (req, res) => {
             FROM appointments a
             JOIN veterinarians v ON a.veterinarian_id = v.id
             WHERE a.id = ?
-        `, [orderId], (err, results) => {
+        `, [appointmentId], (err, results) => {
             if (err || results.length === 0) {
                 console.error("DB error or appointment not found:", err);
                 return res.status(404).json({ message: "Appointment or veterinarian not found" });
@@ -50,23 +51,114 @@ export const generatePaymentHash = async (req, res) => {
                 const commissionFee = doctorFee * (commissionPct / 100);
                 const totalAmount = doctorFee + commissionFee;
 
-                const hashedSecret = crypto.createHash('md5').update(merchantSecret).digest('hex').toUpperCase();
-                const amountFormatted = parseFloat(totalAmount).toLocaleString('en-us', { minimumFractionDigits: 2 }).replaceAll(',', '');
-                const hashString = merchantId + orderId + amountFormatted + (currency || "LKR") + hashedSecret;
-                const finalHash = crypto.createHash('md5').update(hashString).digest('hex').toUpperCase();
-
                 res.status(200).json({ 
-                    hash: finalHash, 
                     amount: totalAmount,
                     doctorFee,
-                    commissionFee,
-                    merchantId
+                    commissionFee
                 });
             });
         });
     } catch (error) {
-        console.error("Error generating payment hash:", error);
-        res.status(500).json({ message: "Failed to generate payment hash" });
+        console.error("Error fetching payment details:", error);
+        res.status(500).json({ message: "Failed to fetch payment details" });
+    }
+};
+
+// Create a Stripe Checkout Session
+export const createStripeCheckoutSession = async (req, res) => {
+    const { appointmentId } = req.body;
+    if (!appointmentId) {
+        return res.status(400).json({ message: "appointmentId is required" });
+    }
+
+    try {
+        db.query(`
+            SELECT a.*, v.consultation_fee, v.fullName AS vetName, an.name AS animalName, an.breed AS animalBreed
+            FROM appointments a
+            JOIN veterinarians v ON a.veterinarian_id = v.id
+            LEFT JOIN animals an ON a.animal_id = an.id
+            WHERE a.id = ?
+        `, [appointmentId], (err, results) => {
+            if (err || results.length === 0) {
+                console.error("DB error or appointment not found:", err);
+                return res.status(404).json({ message: "Appointment or veterinarian not found" });
+            }
+
+            const appointment = results[0];
+            const doctorFee = parseFloat(appointment.consultation_fee || 0);
+
+            db.query("SELECT setting_value FROM system_settings WHERE setting_key = 'commission_percentage'", async (err, settingResults) => {
+                let commissionPct = 10;
+                if (!err && settingResults.length > 0) {
+                    commissionPct = parseFloat(settingResults[0].setting_value);
+                }
+
+                const commissionFee = doctorFee * (commissionPct / 100);
+                const totalAmount = doctorFee + commissionFee;
+                const clientUrl = process.env.CLIENT_URL || "http://localhost:5173";
+
+                // Fallback / Mock Checkout if Stripe is not configured
+                if (!process.env.STRIPE_SECRET_KEY) {
+                    console.warn("STRIPE_SECRET_KEY is not defined. Using mock redirect checkout URL.");
+                    const mockSessionId = `mock_session_${Date.now()}`;
+                    const mockUrl = `${clientUrl}/dashboard/user/consultations?payment_success=true&session_id=${mockSessionId}&appointment_id=${appointmentId}`;
+                    return res.status(200).json({
+                        url: mockUrl,
+                        sessionId: mockSessionId,
+                        amount: totalAmount,
+                        doctorFee,
+                        commissionFee
+                    });
+                }
+
+                try {
+                    const session = await stripe.checkout.sessions.create({
+                        payment_method_types: ['card'],
+                        line_items: [
+                            {
+                                price_data: {
+                                    currency: 'lkr',
+                                    product_data: {
+                                        name: `Online Consultation Fee (Dr. ${appointment.vetName})`,
+                                        description: `Appointment for ${appointment.animalName || 'Pet'} (${appointment.animalBreed || 'Unknown Breed'})`,
+                                    },
+                                    unit_amount: Math.round(doctorFee * 100),
+                                },
+                                quantity: 1,
+                            },
+                            {
+                                price_data: {
+                                    currency: 'lkr',
+                                    product_data: {
+                                        name: 'Platform Commission Fee',
+                                        description: 'VetCloud service charge',
+                                    },
+                                    unit_amount: Math.round(commissionFee * 100),
+                                },
+                                quantity: 1,
+                            }
+                        ],
+                        mode: 'payment',
+                        success_url: `${clientUrl}/dashboard/user/consultations?payment_success=true&session_id={CHECKOUT_SESSION_ID}&appointment_id=${appointmentId}`,
+                        cancel_url: `${clientUrl}/dashboard/user/consultations?payment_cancel=true`,
+                    });
+
+                    res.status(200).json({
+                        url: session.url,
+                        sessionId: session.id,
+                        amount: totalAmount,
+                        doctorFee,
+                        commissionFee
+                    });
+                } catch (stripeErr) {
+                    console.error("Stripe Checkout Session error:", stripeErr);
+                    res.status(500).json({ message: "Failed to create Stripe Checkout session", error: stripeErr.message });
+                }
+            });
+        });
+    } catch (error) {
+        console.error("Error creating stripe session:", error);
+        res.status(500).json({ message: "Failed to initiate payment" });
     }
 };
 
@@ -157,43 +249,45 @@ export const getCommissionRate = (req, res) => {
     });
 };
 
-// ── PayHere Notification Webhook ─────────────────────────────────────────────
-export const payhereNotify = (req, res) => {
-    const {
-        merchant_id,
-        order_id,
-        payment_id,
-        payhere_amount,
-        payhere_currency,
-        status_code,
-        md5sig
-    } = req.body;
-
-    console.log("Received PayHere notification:", req.body);
-
-    const merchantSecret = process.env.PAYHERE_SECRET || "MjMxOTc5MjIxNDI4NTYyMTMyMTAzODgyNjk4MTcyMjA2NDM3MjA3NQ==";
-    const hashedSecret = crypto.createHash('md5').update(merchantSecret).digest('hex').toUpperCase();
-    
-    const localSigString = merchant_id + order_id + payhere_amount + payhere_currency + status_code + hashedSecret;
-    const localSig = crypto.createHash('md5').update(localSigString).digest('hex').toUpperCase();
-
-    if (localSig !== md5sig) {
-        console.error("PayHere signature verification failed!");
-        return res.status(400).send("Invalid signature");
+// Verify Stripe Checkout Session
+export const verifyStripeSession = async (req, res) => {
+    const { sessionId, appointmentId } = req.body;
+    if (!sessionId || !appointmentId) {
+        return res.status(400).json({ message: "sessionId and appointmentId are required" });
     }
 
-    if (status_code === "2") {
-        console.log(`PayHere Payment Successful for Appointment ID: ${order_id}, Transaction ID: ${payment_id}`);
-        processSuccessfulPayment(order_id, (err) => {
-            if (err) {
-                console.error("Failed to process payment:", err);
-                return res.status(500).send("Database error");
+    try {
+        if (sessionId.startsWith("mock_session_")) {
+            console.log(`Mock verification successful for appointment ${appointmentId}`);
+            processSuccessfulPayment(appointmentId, (err) => {
+                if (err) {
+                    console.error("Failed to process payment:", err);
+                    return res.status(500).json({ message: "Database error" });
+                }
+                return res.status(200).json({ success: true, message: "Payment verified successfully (Mock)!" });
+            });
+        } else {
+            if (!process.env.STRIPE_SECRET_KEY) {
+                return res.status(400).json({ message: "Stripe key not configured, cannot verify real session" });
             }
-            return res.status(200).send("OK");
-        });
-    } else {
-        console.log(`PayHere notification with status code: ${status_code}`);
-        return res.status(200).send("Status is not successful");
+
+            const session = await stripe.checkout.sessions.retrieve(sessionId);
+            if (session.payment_status === 'paid') {
+                console.log(`Stripe payment verified for appointment ${appointmentId}`);
+                processSuccessfulPayment(appointmentId, (err) => {
+                    if (err) {
+                        console.error("Failed to process payment:", err);
+                        return res.status(500).json({ message: "Database error" });
+                    }
+                    return res.status(200).json({ success: true, message: "Payment verified successfully!" });
+                });
+            } else {
+                res.status(400).json({ message: "Stripe session payment not completed" });
+            }
+        }
+    } catch (error) {
+        console.error("Error verifying stripe session:", error);
+        res.status(500).json({ message: "Failed to verify payment session", error: error.message });
     }
 };
 

@@ -1,4 +1,5 @@
 import dotenv from "dotenv";
+dotenv.config();
 import express from "express";
 import userRouter from "./routes/userRouter.js";
 import cors from "cors";
@@ -15,8 +16,6 @@ import notificationRouter from "./routes/notificationRouter.js";
 import { startReminderScheduler } from "./config/scheduler.js";
 import adminRouter from "./routes/adminRouter.js";
 import scheduleRouter from "./routes/scheduleRouter.js";
-
-dotenv.config();
 
 // Create notifications table on startup
 initializeNotificationTables();

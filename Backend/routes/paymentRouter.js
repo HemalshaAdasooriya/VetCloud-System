@@ -1,20 +1,25 @@
 // routes/paymentRouter.js
 import express from "express";
 import { 
-    generatePaymentHash, 
+    getPaymentInfo, 
+    createStripeCheckoutSession,
+    verifyStripeSession,
     savePayoutSettings, 
     saveNewPaymentMethod, 
     fetchPaymentMethods, 
     removePaymentMethod,
     getCommissionRate,
-    payhereNotify,
     testPayment
 } from "../controllers/paymentController.js";
 
 const paymentRouter = express.Router();
 
-// Route for generating the PayHere hash
-paymentRouter.post("/hash", generatePaymentHash);
+// Route for getting payment information
+paymentRouter.post("/info", getPaymentInfo);
+
+// Route for Stripe checkout
+paymentRouter.post("/create-checkout-session", createStripeCheckoutSession);
+paymentRouter.post("/verify-session", verifyStripeSession);
 
 // Route for saving the veterinarian bank details
 paymentRouter.post("/payout-settings", savePayoutSettings);
@@ -26,7 +31,6 @@ paymentRouter.delete("/payment-methods/:id", removePaymentMethod);
 
 // Commission & Payment Gateway hooks
 paymentRouter.get("/commission", getCommissionRate);
-paymentRouter.post("/notify", payhereNotify);
 paymentRouter.post("/test-payment", testPayment);
 
 export default paymentRouter;

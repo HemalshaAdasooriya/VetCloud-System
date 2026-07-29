@@ -403,3 +403,21 @@ export const updateSystemSettings = async (req, res) => {
         res.status(500).json({ message: "Failed to update system settings" });
     }
 };
+
+export const addFeedback = async (req, res) => {
+    const { petOwnerId, veterinarianId, rating, comment } = req.body;
+    if (!petOwnerId || !rating) {
+        return res.status(400).json({ message: "Pet Owner ID and Rating are required" });
+    }
+    try {
+        const result = await queryPromise(`
+            INSERT INTO feedbacks (pet_owner_id, veterinarian_id, rating, comment)
+            VALUES (?, ?, ?, ?)
+        `, [petOwnerId, veterinarianId || null, rating, comment || null]);
+        
+        res.status(201).json({ message: "Feedback added successfully", feedbackId: result.insertId });
+    } catch (error) {
+        console.error("Error in addFeedback:", error);
+        res.status(500).json({ message: "Failed to add feedback" });
+    }
+};

@@ -184,6 +184,7 @@ export function DashboardLayout() {
     { name: 'Upcoming Consultations', path: '/dashboard/doctor/consultations', icon: Stethoscope },
     { name: 'Consultation Requests', path: '/dashboard/doctor/requests', icon: ClipboardList }, //Navindu 2026/06/19 ... vet consultation requests
     { name: 'Schedule', path: '/dashboard/doctor/schedule', icon: Calendar },
+    { name: 'Ratings & Reviews', path: '/dashboard/doctor/ratings', icon: Star },
     { name: 'Settings', path: '/dashboard/doctor/settings', icon: Settings },
   ] : [
     { name: 'Dashboard Overview', path: '/dashboard/admin', icon: LayoutDashboard },

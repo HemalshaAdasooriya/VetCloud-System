@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import {
   Video, Calendar as CalendarIcon, Clock, CheckCircle2,
-  MoreVertical, FileText, AlertCircle, XCircle, HourglassIcon, CreditCard, ShieldAlert
+  MoreVertical, FileText, AlertCircle, XCircle, HourglassIcon, CreditCard, ShieldAlert,
+  Star
 } from 'lucide-react';
 import { Button, Card, Badge } from '../components/ui/ui';
 import JitsiVideoCall from '../components/consultation/JitsiVideoCall';
@@ -24,15 +25,22 @@ export default function ConsultationPage() {
   const [cancelModalId, setCancelModalId] = useState(null);
   const [showVideoRoom, setShowVideoRoom] = useState(false);
   const [selectedRequestDetails, setSelectedRequestDetails] = useState(null);
+
+  // Feedback states
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [feedbackConsultation, setFeedbackConsultation] = useState(null);
+  const [feedbackRating, setFeedbackRating] = useState(5);
+  const [feedbackComment, setFeedbackComment] = useState("");
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [verifyingPayment, setVerifyingPayment] = useState(false);
 
   // Payment Gateway States
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentAppointment, setPaymentAppointment] = useState(null);
   const [paymentBreakdown, setPaymentBreakdown] = useState(null);
   const [paymentLoading, setPaymentLoading] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState('payhere'); // 'payhere' or 'stripe'
-  const [stripeCard, setStripeCard] = useState({ number: '', expiry: '', cvc: '', name: '' });
   const [processingStripe, setProcessingStripe] = useState(false);
 
   const handleInitiatePayment = async (appointment) => {
@@ -41,9 +49,8 @@ export default function ConsultationPage() {
     setPaymentLoading(true);
     setPaymentBreakdown(null);
     try {
-      const res = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/payments/hash`, {
-        orderId: appointment.id,
-        currency: 'LKR'
+      const res = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/payments/info`, {
+        appointmentId: appointment.id
       });
       setPaymentBreakdown(res.data);
     } catch (err) {
@@ -55,75 +62,24 @@ export default function ConsultationPage() {
     }
   };
 
-  const handleConfirmPayHere = () => {
-    if (!paymentBreakdown || !paymentAppointment) return;
-
-    const savedUser = JSON.parse(localStorage.getItem("user") || "{}");
-    const nameParts = (savedUser.fullName || "Farmer").split(" ");
-    
-    // Configure PayHere JS SDK listeners
-    window.payhere.onCompleted = function onCompleted(orderId) {
-      toast.success("Payment completed via PayHere!");
-      setShowPaymentModal(false);
-      fetchAppointments();
-    };
-
-    window.payhere.onDismissed = function onDismissed() {
-      toast.error("Payment dismissed.");
-    };
-
-    window.payhere.onError = function onError(error) {
-      toast.error("PayHere Error: " + error);
-    };
-
-    const payment = {
-      sandbox: true,
-      merchant_id: paymentBreakdown.merchantId,
-      return_url: `${window.location.origin}/consultations`,
-      cancel_url: `${window.location.origin}/consultations`,
-      notify_url: `${import.meta.env.VITE_BACKEND_URL}/api/payments/notify`,
-      order_id: String(paymentAppointment.id),
-      items: `Consultation with Dr. ${paymentAppointment.veterinarian_name}`,
-      amount: paymentBreakdown.amount,
-      currency: "LKR",
-      hash: paymentBreakdown.hash,
-      first_name: nameParts[0] || "Farmer",
-      last_name: nameParts[1] || "Client",
-      email: savedUser.email || "client@vetcloud.com",
-      phone: savedUser.contact_No || "0771234567",
-      address: savedUser.address || "No Address",
-      city: "Colombo",
-      country: "Sri Lanka"
-    };
-
-    window.payhere.startPayment(payment);
-  };
-
   const handleConfirmStripe = async (e) => {
     if (e) e.preventDefault();
-    if (!stripeCard.number || !stripeCard.expiry || !stripeCard.cvc || !stripeCard.name) {
-      toast.error("Please fill in all card details.");
-      return;
-    }
+    if (!paymentAppointment) return;
 
     setProcessingStripe(true);
     try {
-      // Simulate API call to Stripe
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Complete payment in our DB via bypass endpoint
-      await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/payments/test-payment`, {
+      const res = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/payments/create-checkout-session`, {
         appointmentId: paymentAppointment.id
       });
-
-      toast.success("Payment completed via Stripe!");
-      setShowPaymentModal(false);
-      setStripeCard({ number: '', expiry: '', cvc: '', name: '' });
-      fetchAppointments();
+      if (res.data && res.data.url) {
+        toast.loading("Redirecting to secure Stripe Checkout...");
+        window.location.href = res.data.url;
+      } else {
+        throw new Error("Invalid session response");
+      }
     } catch (err) {
-      console.error("Stripe payment simulation error:", err);
-      toast.error("Failed to complete Stripe payment.");
-    } finally {
+      console.error("Stripe session error:", err);
+      toast.error("Failed to initiate Stripe payment checkout.");
       setProcessingStripe(false);
     }
   };
@@ -180,6 +136,84 @@ export default function ConsultationPage() {
   useEffect(() => {
     fetchAppointments();
   }, []);
+
+  useEffect(() => {
+    const success = searchParams.get('payment_success');
+    const cancel = searchParams.get('payment_cancel');
+    const sessionId = searchParams.get('session_id');
+    const appointmentId = searchParams.get('appointment_id');
+
+    if (success === 'true' && sessionId && appointmentId) {
+      const verifyStripePayment = async () => {
+        setVerifyingPayment(true);
+        const loadingToast = toast.loading("Verifying your Stripe payment...");
+        try {
+          await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/payments/verify-session`, {
+            sessionId,
+            appointmentId
+          });
+          toast.success("Payment completed via Stripe!", { id: loadingToast });
+          fetchAppointments();
+        } catch (err) {
+          console.error("Verification error:", err);
+          toast.error("Failed to verify Stripe payment.", { id: loadingToast });
+        } finally {
+          setVerifyingPayment(false);
+          setSearchParams({});
+        }
+      };
+      verifyStripePayment();
+    } else if (cancel === 'true') {
+      toast.error("Payment cancelled.");
+      setSearchParams({});
+    }
+  }, [searchParams, setSearchParams]);
+
+  const isAppointmentRated = (apptId) => {
+    const userId = localStorage.getItem('userId') || 'guest';
+    const rated = JSON.parse(localStorage.getItem(`vetcloud_rated_appts_${userId}`) || '[]');
+    return rated.includes(apptId);
+  };
+
+  const markAppointmentAsRated = (apptId) => {
+    const userId = localStorage.getItem('userId') || 'guest';
+    const key = `vetcloud_rated_appts_${userId}`;
+    const rated = JSON.parse(localStorage.getItem(key) || '[]');
+    if (!rated.includes(apptId)) {
+      rated.push(apptId);
+      localStorage.setItem(key, JSON.stringify(rated));
+    }
+  };
+
+  const handleSubmitFeedback = async () => {
+    if (!feedbackConsultation) return;
+    setSubmittingFeedback(true);
+    try {
+      const token = localStorage.getItem("token");
+      await axios.post(
+        `${import.meta.env.VITE_BACKEND_URL}/api/users/feedback`,
+        {
+          veterinarianId: feedbackConsultation.veterinarian_id,
+          rating: feedbackRating,
+          comment: feedbackComment
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+      toast.success("Thank you! Your feedback has been submitted.");
+      markAppointmentAsRated(feedbackConsultation.id);
+      setShowFeedbackModal(false);
+      setFeedbackConsultation(null);
+    } catch (err) {
+      console.error("Failed to submit feedback:", err);
+      toast.error(err.response?.data?.message || "Failed to submit feedback. Please try again.");
+    } finally {
+      setSubmittingFeedback(false);
+    }
+  };
 
   const confirmCancelAppointment = async (appointmentId) => {
     try {
@@ -643,11 +677,25 @@ export default function ConsultationPage() {
                         </div>
                       </div>
                     </div>
-                    <div className="flex flex-col justify-end md:border-l md:border-slate-100 md:pl-6">
-                      <Button variant="outline" className="border-slate-300 text-slate-700 hover:bg-slate-50">
+                    <div className="flex flex-col justify-end md:border-l md:border-slate-100 md:pl-6 gap-2">
+                      <Button variant="outline" className="border-slate-300 text-slate-700 hover:bg-slate-50 w-full">
                         <FileText size={18} className="mr-2" />
                         View Report
                       </Button>
+                      {consult.status === 'Completed' && !isAppointmentRated(consult.id) && (
+                        <Button 
+                          className="bg-green-600 hover:bg-green-700 text-white w-full flex items-center justify-center cursor-pointer font-semibold text-sm"
+                          onClick={() => {
+                            setFeedbackConsultation(consult);
+                            setFeedbackRating(5);
+                            setFeedbackComment("");
+                            setShowFeedbackModal(true);
+                          }}
+                        >
+                          <Star size={18} className="mr-2" />
+                          Rate Doctor
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </Card>
@@ -801,128 +849,33 @@ export default function ConsultationPage() {
                   </div>
                 </div>
 
-                {/* Payment Methods Tab */}
-                <div className="space-y-3">
-                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Select Payment Gateway</h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <button 
-                      onClick={() => setPaymentMethod('payhere')}
-                      className={`p-4 rounded-xl border-2 text-left transition-all flex flex-col justify-between h-24 cursor-pointer hover:border-green-300 ${paymentMethod === 'payhere' ? 'border-green-600 bg-green-50/20' : 'border-slate-200 bg-white'}`}
+                {/* Specific Checkout Fields */}
+                <div className="space-y-4 animate-in fade-in duration-200">
+                  <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl flex items-start gap-3">
+                    <CreditCard size={18} className="text-blue-600 mt-0.5 shrink-0" />
+                    <p className="text-xs text-blue-800 leading-normal">
+                      You will be securely redirected to the **Stripe Hosted Checkout** page to finalize your payment.
+                    </p>
+                  </div>
+                  <div className="flex gap-3 pt-2">
+                    <Button 
+                      variant="outline" 
+                      onClick={handleSimulateTestPayment}
+                      className="flex-1 border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold cursor-pointer"
+                      type="button"
                     >
-                      <span className={`text-[10px] font-bold uppercase tracking-wider ${paymentMethod === 'payhere' ? 'text-green-700' : 'text-slate-400'}`}>PayHere Gateway</span>
-                      <span className="text-xs text-slate-500 leading-normal">Pay with LKR via local bank cards, wallets, or Genie</span>
-                      <span className="self-end text-xs font-extrabold text-green-600 mt-2">LKR</span>
-                    </button>
-                    <button 
-                      onClick={() => setPaymentMethod('stripe')}
-                      className={`p-4 rounded-xl border-2 text-left transition-all flex flex-col justify-between h-24 cursor-pointer hover:border-green-300 ${paymentMethod === 'stripe' ? 'border-green-600 bg-green-50/20' : 'border-slate-200 bg-white'}`}
+                      Simulate Success (Bypass)
+                    </Button>
+                    <Button 
+                      onClick={handleConfirmStripe}
+                      disabled={processingStripe}
+                      className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold cursor-pointer"
+                      type="button"
                     >
-                      <span className={`text-[10px] font-bold uppercase tracking-wider ${paymentMethod === 'stripe' ? 'text-green-700' : 'text-slate-400'}`}>Stripe Cards</span>
-                      <span className="text-xs text-slate-500 leading-normal">International card processing, Visa, Mastercard, AMEX</span>
-                      <span className="self-end text-xs font-extrabold text-blue-600 mt-2">VISA/MC</span>
-                    </button>
+                      {processingStripe ? "Processing..." : `Pay LKR ${parseFloat(paymentBreakdown.amount).toLocaleString()}`}
+                    </Button>
                   </div>
                 </div>
-
-                {/* Specific Checkout Fields */}
-                {paymentMethod === 'payhere' ? (
-                  <div className="space-y-4 animate-in fade-in duration-200">
-                    <div className="p-4 bg-green-50 border border-green-100 rounded-xl flex items-start gap-3">
-                      <CreditCard size={18} className="text-green-600 mt-0.5 shrink-0" />
-                      <p className="text-xs text-green-800 leading-normal">
-                        You will be securely redirected to the **PayHere Sandbox** checkout overlay to finalize payment.
-                      </p>
-                    </div>
-                    <div className="flex gap-3 pt-2">
-                      <Button 
-                        variant="outline" 
-                        onClick={handleSimulateTestPayment}
-                        className="flex-1 border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold cursor-pointer"
-                      >
-                        Simulate Success (Bypass)
-                      </Button>
-                      <Button 
-                        onClick={handleConfirmPayHere}
-                        className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold cursor-pointer"
-                      >
-                        Pay LKR {parseFloat(paymentBreakdown.amount).toLocaleString()}
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <form onSubmit={handleConfirmStripe} className="space-y-4 animate-in slide-in-from-bottom-2 duration-200">
-                    {/* Simulated Card input */}
-                    <div className="bg-slate-50 border border-slate-100 p-4 rounded-xl space-y-3">
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Cardholder Name</label>
-                        <Input 
-                          type="text" 
-                          required 
-                          value={stripeCard.name}
-                          onChange={(e) => setStripeCard({ ...stripeCard, name: e.target.value })}
-                          placeholder="John Doe"
-                          className="bg-white"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Card Number</label>
-                        <Input 
-                          type="text" 
-                          required 
-                          maxLength="19"
-                          value={stripeCard.number}
-                          onChange={(e) => setStripeCard({ ...stripeCard, number: e.target.value.replace(/\s?/g, '').replace(/(\d{4})/g, '$1 ').trim() })}
-                          placeholder="4242 4242 4242 4242"
-                          className="bg-white"
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Expiry Date</label>
-                          <Input 
-                            type="text" 
-                            required 
-                            maxLength="5"
-                            value={stripeCard.expiry}
-                            onChange={(e) => setStripeCard({ ...stripeCard, expiry: e.target.value })}
-                            placeholder="MM/YY"
-                            className="bg-white"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">CVC / CVV</label>
-                          <Input 
-                            type="password" 
-                            required 
-                            maxLength="3"
-                            value={stripeCard.cvc}
-                            onChange={(e) => setStripeCard({ ...stripeCard, cvc: e.target.value })}
-                            placeholder="•••"
-                            className="bg-white"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-3 pt-2">
-                      <Button 
-                        variant="outline" 
-                        onClick={() => setShowPaymentModal(false)}
-                        className="flex-1 border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold cursor-pointer"
-                        type="button"
-                      >
-                        Cancel
-                      </Button>
-                      <Button 
-                        type="submit"
-                        disabled={processingStripe}
-                        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold cursor-pointer"
-                      >
-                        {processingStripe ? "Processing..." : `Pay LKR ${parseFloat(paymentBreakdown.amount).toLocaleString()}`}
-                      </Button>
-                    </div>
-                  </form>
-                )}
               </div>
             ) : (
               <div className="p-8 text-center space-y-4">
@@ -932,6 +885,78 @@ export default function ConsultationPage() {
                 <p className="text-sm text-slate-500 font-medium">Failed to calculate fees. Please close and try again.</p>
               </div>
             )}
+          </Card>
+        </div>
+      )}
+
+      {showFeedbackModal && feedbackConsultation && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <Card className="w-full max-w-md bg-white p-6 rounded-2xl shadow-xl border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex flex-col items-center space-y-4 w-full">
+              <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center text-amber-600">
+                <Star size={24} className="fill-amber-600 text-amber-600" />
+              </div>
+              
+              <div className="text-center w-full">
+                <h3 className="text-lg font-bold text-slate-900">Rate Your Consultation</h3>
+                <p className="text-sm text-slate-500 mt-1">
+                  How was your experience with <span className="font-semibold text-slate-700">{feedbackConsultation.veterinarian_name || 'the doctor'}</span>?
+                </p>
+              </div>
+
+              {/* Star Rating Selector */}
+              <div className="flex gap-2 py-2">
+                {[1, 2, 3, 4, 5].map((starValue) => (
+                  <button
+                    key={starValue}
+                    type="button"
+                    onClick={() => setFeedbackRating(starValue)}
+                    className="transform transition-transform hover:scale-125 focus:outline-none cursor-pointer"
+                  >
+                    <Star
+                      size={32}
+                      className={
+                        starValue <= feedbackRating
+                          ? "fill-amber-400 text-amber-400"
+                          : "text-slate-200"
+                      }
+                    />
+                  </button>
+                ))}
+              </div>
+
+              {/* Comment Field */}
+              <div className="w-full space-y-1 text-left">
+                <label className="text-xs font-semibold text-slate-500">Review Comments (Optional)</label>
+                <textarea
+                  value={feedbackComment}
+                  onChange={(e) => setFeedbackComment(e.target.value)}
+                  placeholder="Share details of your experience..."
+                  className="w-full h-24 p-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 resize-none text-slate-700"
+                />
+              </div>
+
+              <div className="flex gap-3 w-full pt-2">
+                <Button
+                  variant="outline"
+                  className="flex-1 border-slate-200 text-slate-600 font-medium h-10 cursor-pointer"
+                  onClick={() => {
+                    setShowFeedbackModal(false);
+                    setFeedbackConsultation(null);
+                  }}
+                  disabled={submittingFeedback}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium h-10 cursor-pointer"
+                  onClick={handleSubmitFeedback}
+                  disabled={submittingFeedback}
+                >
+                  {submittingFeedback ? 'Submitting...' : 'Submit Feedback'}
+                </Button>
+              </div>
+            </div>
           </Card>
         </div>
       )}
