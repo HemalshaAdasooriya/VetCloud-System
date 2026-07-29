@@ -27,7 +27,7 @@ import {
     getAllVets,
     saveClinicDetails,
     submitFeedback,
-    getVetFeedback
+    submitComplaint
 } from "../controllers/userController.js";
 
 //... Navindu
@@ -88,6 +88,8 @@ userRouter.delete("/sessions/:id", revokeSession);
 userRouter.put("/clinic", saveClinicDetails);
 userRouter.put("/payout-settings", savePayoutSettings);
 userRouter.put("/consultation-fees", saveConsultationFees);
+userRouter.post("/feedback", submitFeedback);
+userRouter.post("/complaints", submitComplaint);
 
 
 //Navindu 2026/06/10 ... Get All Vets Functionality
