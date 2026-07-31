@@ -4,14 +4,15 @@ export const updatePayoutSettings = (vetId, payoutData, callback) => {
     // We use an UPSERT: Insert if new, Update if already exists
     const sql = `
         INSERT INTO veterinarian_bank_details 
-        (vet_id, bank_name, account_name, account_number, branch_code, payout_schedule)
-        VALUES (?, ?, ?, ?, ?, ?)
+        (vet_id, bank_name, account_name, account_number, branch_code, payout_schedule, minimum_payout)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE 
             bank_name = VALUES(bank_name),
             account_name = VALUES(account_name),
             account_number = VALUES(account_number),
             branch_code = VALUES(branch_code),
-            payout_schedule = VALUES(payout_schedule)
+            payout_schedule = VALUES(payout_schedule),
+            minimum_payout = VALUES(minimum_payout)
     `;
 
     const values = [
@@ -20,7 +21,8 @@ export const updatePayoutSettings = (vetId, payoutData, callback) => {
         payoutData.accountName || "",
         payoutData.accountNumber || "",
         payoutData.branchCode || "",
-        payoutData.schedule || "weekly"
+        payoutData.schedule || "weekly",
+        parseInt(payoutData.minimumPayout) || 1000
     ];
 
     db.query(sql, values, (err, result) => {

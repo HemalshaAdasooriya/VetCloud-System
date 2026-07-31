@@ -28,7 +28,8 @@ import {
     saveClinicDetails,
     submitFeedback,
     submitComplaint,
-    getVetFeedback
+    getVetFeedback,
+    getHomepageFeedback
 } from "../controllers/userController.js";
 
 //... Navindu
@@ -36,6 +37,8 @@ import {
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import db from "../config/db.js";
+import { sendEmail, getMedicalReportTemplate } from "../config/email.js";
 
 
 
@@ -96,9 +99,87 @@ userRouter.post("/complaints", submitComplaint);
 //Navindu 2026/06/10 ... Get All Vets Functionality
 userRouter.get("/vets", getAllVets);
 userRouter.post("/feedback", submitFeedback);
+userRouter.get("/feedback/homepage", getHomepageFeedback);
 userRouter.get("/feedback/vet/:id", getVetFeedback);
 //... Navindu
 
 //... Hemalsha
+
+// Chat Room File Upload Endpoint
+userRouter.post("/chat-upload", upload.single('file'), (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+    }
+    const fileUrl = `/uploads/${req.file.filename}`;
+    res.status(200).json({
+        url: fileUrl,
+        name: req.file.originalname,
+        size: req.file.size
+    });
+});
+
+// Chat Room Email Prescription Endpoint
+userRouter.post("/chat-email-prescription", (req, res) => {
+    const { appointmentId, prescription } = req.body;
+    if (!appointmentId || !prescription) {
+        return res.status(400).json({ message: "Appointment ID and prescription text are required" });
+    }
+
+    const aptSql = `
+        SELECT 
+            a.id, 
+            a.animal_id, 
+            an.name AS animal_name, 
+            an.species AS animal_species,
+            an.breed AS animal_breed,
+            v.fullName AS vet_name, 
+            po.email AS owner_email, 
+            po.fullName AS owner_name
+        FROM appointments a
+        JOIN veterinarians v ON a.veterinarian_id = v.id
+        JOIN animals an ON a.animal_id = an.id
+        JOIN pet_owners po ON a.pet_owner_id = po.id
+        WHERE a.id = ?
+    `;
+
+    db.query(aptSql, [appointmentId], async (err, results) => {
+        if (err || !results || results.length === 0) {
+            console.error("Error fetching appointment for email:", err);
+            return res.status(404).json({ message: "Appointment not found or clinical details missing" });
+        }
+
+        const apt = results[0];
+        const dateStr = new Date().toLocaleDateString("en-US", {
+            weekday: 'long', 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric'
+        });
+
+        try {
+            const html = getMedicalReportTemplate(
+                apt.owner_name,
+                apt.animal_name,
+                `Prescription for Consultation #${apt.id}`,
+                "Digital Prescription Report",
+                prescription,
+                `Dr. ${apt.vet_name}`,
+                dateStr
+            );
+
+            await sendEmail({
+                to: apt.owner_email,
+                subject: `Prescription Report: ${apt.animal_name} - Consultation #${apt.id}`,
+                html,
+                text: `Dear ${apt.owner_name}, your prescription report for ${apt.animal_name} is available. Notes: ${prescription}`
+            });
+
+            res.json({ message: "Prescription emailed successfully to " + apt.owner_email });
+        } catch (emailErr) {
+            console.error("Failed to send prescription email:", emailErr);
+            res.status(500).json({ message: "Failed to send prescription email" });
+        }
+    });
+});
 
 export default userRouter;

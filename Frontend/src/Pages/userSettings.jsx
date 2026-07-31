@@ -14,6 +14,7 @@ export default function UserSettings() {
     firstName: '',
     lastName: '',
     phone: '',
+    email: '',
     userType: 'Farmer/PetOwner',
   });
   const [farmInfo, setFarmInfo] = useState({
@@ -54,6 +55,7 @@ export default function UserSettings() {
                         firstName: data.firstName || '',
                         lastName: data.lastName || '',
                         phone: data.contact_No || '',
+                        email: data.email || '',
                         userType: 'Farmer/PetOwner', // Or fetch this dynamically if you want
                     });
 
@@ -325,6 +327,7 @@ const handleSaveProfile = async (e) => {
           firstName: personalInfo.firstName,
           lastName: personalInfo.lastName,
           phone: personalInfo.phone,
+          email: personalInfo.email,
           farmName: farmInfo.farmName,
           farmSize: farmInfo.farmSize,
           bio: farmInfo.bio,
@@ -742,6 +745,19 @@ const verify2FACode = async (e) => {
                         required
                         value={personalInfo.phone}
                         onChange={(e) => setPersonalInfo({ ...personalInfo, phone: e.target.value })}
+                        className="w-full px-4 py-3 rounded-xl border border-slate-100 bg-slate-50/30 focus:bg-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 outline-hidden transition-all text-sm font-medium text-slate-700 placeholder:text-slate-300"
+                        />
+                    </div>
+                    {/* Email Address */}
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-2">
+                        Email Address <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                        type="email"
+                        required
+                        value={personalInfo.email}
+                        onChange={(e) => setPersonalInfo({ ...personalInfo, email: e.target.value })}
                         className="w-full px-4 py-3 rounded-xl border border-slate-100 bg-slate-50/30 focus:bg-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 outline-hidden transition-all text-sm font-medium text-slate-700 placeholder:text-slate-300"
                         />
                     </div>

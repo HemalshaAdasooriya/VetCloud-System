@@ -3,6 +3,8 @@ import { addPaymentMethod, getPaymentMethods, deletePaymentMethod, updatePayoutS
 import jwt from "jsonwebtoken";
 import db from "../config/db.js";
 import Stripe from 'stripe';
+import { createNotification } from "../models/Notification.js";
+import { sendEmail, getInvoiceTemplate } from "../config/email.js";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_mock_dummy_key_if_not_provided');
 
@@ -259,7 +261,7 @@ export const verifyStripeSession = async (req, res) => {
     try {
         if (sessionId.startsWith("mock_session_")) {
             console.log(`Mock verification successful for appointment ${appointmentId}`);
-            processSuccessfulPayment(appointmentId, (err) => {
+            processSuccessfulPayment(req, appointmentId, (err) => {
                 if (err) {
                     console.error("Failed to process payment:", err);
                     return res.status(500).json({ message: "Database error" });
@@ -274,7 +276,7 @@ export const verifyStripeSession = async (req, res) => {
             const session = await stripe.checkout.sessions.retrieve(sessionId);
             if (session.payment_status === 'paid') {
                 console.log(`Stripe payment verified for appointment ${appointmentId}`);
-                processSuccessfulPayment(appointmentId, (err) => {
+                processSuccessfulPayment(req, appointmentId, (err) => {
                     if (err) {
                         console.error("Failed to process payment:", err);
                         return res.status(500).json({ message: "Database error" });
@@ -299,7 +301,7 @@ export const testPayment = (req, res) => {
     }
 
     console.log(`Processing test payment for Appointment ID: ${appointmentId}`);
-    processSuccessfulPayment(appointmentId, (err) => {
+    processSuccessfulPayment(req, appointmentId, (err) => {
         if (err) {
             console.error("Failed to process test payment:", err);
             return res.status(500).json({ message: "Failed to process payment", detail: err.message });
@@ -308,19 +310,71 @@ export const testPayment = (req, res) => {
     });
 };
 
-// ── Helper to process successful payments ───────────────────────────────────
-const processSuccessfulPayment = (appointmentId, callback) => {
+// ── Handle Payment Failure ──────────────────────────────────────────────────
+export const handlePaymentFailure = (req, res) => {
+    const { appointmentId, errorMsg } = req.body;
+    if (!appointmentId) {
+        return res.status(400).json({ message: "appointmentId is required" });
+    }
+
     db.query(`
-        SELECT a.*, v.consultation_fee, v.fullName AS vetName, p.fullName AS ownerName 
+        SELECT a.*, p.fullName AS ownerName, v.consultation_fee
+        FROM appointments a
+        JOIN pet_owners p ON a.pet_owner_id = p.id
+        JOIN veterinarians v ON a.veterinarian_id = v.id
+        WHERE a.id = ?
+    `, [appointmentId], (err, results) => {
+        if (err || results.length === 0) {
+            return res.status(404).json({ message: "Appointment not found" });
+        }
+
+        const appt = results[0];
+        const io = req.app.get("io");
+
+        // 1. Log failed payment to admin in-app notification
+        import("../models/Notification.js").then(({ createAdminNotification }) => {
+            createAdminNotification(io, {
+                type: "failed_payment",
+                title: "Failed Payment Alert",
+                message: `Failed payment transaction of LKR ${parseFloat(appt.consultation_fee).toFixed(2)} detected for client ${appt.ownerName} on appointment #${appointmentId}.`
+            });
+        }).catch(console.error);
+
+        // 2. Email failed payment report to admins
+        import("../config/email.js").then(({ getFailedPaymentReportTemplate }) => {
+            const html = getFailedPaymentReportTemplate(appointmentId, appt.ownerName, appt.consultation_fee, errorMsg);
+            db.query("SELECT email FROM admins", (errAdmin, adminList) => {
+                const adminEmails = (!errAdmin && adminList && adminList.length > 0) ? adminList.map(a => a.email) : ["admin@vetcloud.com"];
+                adminEmails.forEach(email => {
+                    sendEmail({
+                        to: email,
+                        subject: `Failed Payment Transaction Report - VetCloud #${appointmentId}`,
+                        html,
+                        text: `Failed payment transaction alert: appointment #${appointmentId} for client ${appt.ownerName} failed.`
+                    }).catch(console.error);
+                });
+            });
+        });
+
+        res.status(200).json({ message: "Failed payment report successfully dispatched to admins." });
+    });
+};
+
+// ── Helper to process successful payments ───────────────────────────────────
+const processSuccessfulPayment = (req, appointmentId, callback) => {
+    db.query(`
+        SELECT a.*, v.consultation_fee, v.fullName AS vetName, v.email AS vetEmail, p.fullName AS ownerName, p.email AS ownerEmail, an.name AS animalName
         FROM appointments a
         JOIN veterinarians v ON a.veterinarian_id = v.id
         JOIN pet_owners p ON a.pet_owner_id = p.id
+        JOIN animals an ON a.animal_id = an.id
         WHERE a.id = ?
     `, [appointmentId], (err, results) => {
         if (err) return callback(err);
         if (results.length === 0) return callback(new Error("Appointment not found"));
 
         const appointment = results[0];
+        const io = req.app.get("io");
         
         db.query("UPDATE appointments SET payment_status = 'Paid' WHERE id = ?", [appointmentId], (err) => {
             if (err) return callback(err);
@@ -348,6 +402,54 @@ const processSuccessfulPayment = (appointmentId, callback) => {
                     appointment.consultation_fee
                 ], (err) => {
                     if (err) return callback(err);
+
+                    // 1. Create In-App Notification for Owner
+                    const ownerNotification = {
+                        userId: appointment.pet_owner_id,
+                        userRole: "Farmer/PetOwner",
+                        type: "payment_success",
+                        title: "Payment Successful",
+                        message: `LKR ${parseFloat(appointment.consultation_fee).toFixed(2)} payment was successful. Receipt generated for appointment #${appointmentId}.`
+                    };
+                    createNotification(ownerNotification, (nErr, dbNotify) => {
+                        if (!nErr && dbNotify && io) {
+                            io.to(`Farmer/PetOwner_${appointment.pet_owner_id}`).emit("new-notification", dbNotify);
+                        }
+                    });
+
+                    // 2. Create In-App Notification for Vet
+                    const vetNotification = {
+                        userId: appointment.veterinarian_id,
+                        userRole: "Veterinary Doctor",
+                        type: "payment_received",
+                        title: "Payment Received",
+                        message: `LKR ${parseFloat(appointment.consultation_fee).toFixed(2)} consultation fee received from ${appointment.ownerName} for appointment #${appointmentId}.`
+                    };
+                    createNotification(vetNotification, (nErr, dbNotify) => {
+                        if (!nErr && dbNotify && io) {
+                            io.to(`Veterinary Doctor_${appointment.veterinarian_id}`).emit("new-notification", dbNotify);
+                        }
+                    });
+
+                    // 3. Send Email Invoice to Owner
+                    const formattedDate = new Date().toLocaleDateString("en-US", { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                    const orderId = `PAY-${Date.now()}`;
+                    const invoiceHtml = getInvoiceTemplate(
+                        appointment.ownerName,
+                        appointment.consultation_fee,
+                        orderId,
+                        formattedDate,
+                        appointment.animalName,
+                        appointment.vetName
+                    );
+
+                    sendEmail({
+                        to: appointment.ownerEmail,
+                        subject: `Invoice / Payment Receipt - VetCloud #${orderId}`,
+                        html: invoiceHtml,
+                        text: `Dear ${appointment.ownerName}, your payment of LKR ${appointment.consultation_fee} for consultation with Dr. ${appointment.vetName} was successful.`
+                    }).catch(console.error);
+
                     callback(null);
                 });
             });

@@ -95,6 +95,28 @@ export default function DoctorSettings() {
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState('');
 
+  const getNextPayoutDate = (schedule) => {
+    const today = new Date();
+    if (schedule === 'daily') {
+      const tomorrow = new Date(today);
+      tomorrow.setDate(today.getDate() + 1);
+      return tomorrow.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    }
+    if (schedule === 'weekly') {
+      const nextMonday = new Date(today);
+      nextMonday.setDate(today.getDate() + ((1 + 7 - today.getDay()) % 7 || 7));
+      return nextMonday.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    }
+    if (schedule === 'biweekly') {
+      const nextFortnight = new Date(today);
+      nextFortnight.setDate(today.getDate() + 14);
+      return nextFortnight.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    }
+    // monthly
+    const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+    return nextMonth.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  };
+
   const tabs = [
     { id: 'profile', name: 'Personal Profile', icon: User },
     { id: 'clinic', name: 'Clinic Details', icon: Building2 },
@@ -141,9 +163,12 @@ export default function DoctorSettings() {
             accountName: data.account_name || '',
             accountNumber: data.account_number || '',
             branchCode: data.branch_code || '',
-            schedule: data.payout_schedule || 'weekly'
+            schedule: data.payout_schedule || 'weekly',
+            current_balance: data.current_balance || 0,
+            minimum_payout: data.minimum_payout || 1000
           });
           setPayoutSchedule(data.payout_schedule || 'weekly');
+          setMinPayout(data.minimum_payout || '1000');
           setFees(prev => ({ ...prev, consultation_fee: data.consultation_fee || '' }));
         }
 
@@ -301,7 +326,8 @@ export default function DoctorSettings() {
         accountName: payoutInfo.accountName,
         accountNumber: payoutInfo.accountNumber,
         branchCode: payoutInfo.branchCode,
-        schedule: payoutSchedule
+        schedule: payoutSchedule,
+        minimumPayout: minPayout
       };
       const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/payout-settings`, {
         method: "PUT",
@@ -786,13 +812,13 @@ export default function DoctorSettings() {
                     <div className="space-y-1.5">
                       <label className="text-sm font-medium text-slate-700">Minimum Payout Amount</label>
                       <div className="relative">
-                        <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 text-sm font-medium">$</span>
+                        <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 text-sm font-medium">Rs.</span>
                         <Input
                           type="number"
                           min="0"
                           value={minPayout}
                           onChange={(e) => setMinPayout(e.target.value)}
-                          className="pl-7"
+                          className="pl-9"
                         />
                       </div>
                     </div>
@@ -802,12 +828,14 @@ export default function DoctorSettings() {
                   <div className="p-5 bg-gradient-to-br from-blue-50 to-blue-100/50 border border-blue-200 rounded-xl">
                     <h4 className="font-semibold text-blue-900 text-sm mb-3">Current Balance</h4>
                     <div className="flex items-baseline gap-2">
-                      <p className="text-3xl font-bold text-blue-900">$2,450.00</p>
+                      <p className="text-3xl font-bold text-blue-900">
+                        Rs. {parseFloat(payoutInfo.current_balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </p>
                       <p className="text-sm text-blue-600">available for payout</p>
                     </div>
                     <div className="mt-3 pt-3 border-t border-blue-200 flex justify-between text-sm">
                       <span className="text-blue-700">Next scheduled payout:</span>
-                      <span className="font-semibold text-blue-900">Monday, June 16, 2026</span>
+                      <span className="font-semibold text-blue-900">{getNextPayoutDate(payoutSchedule)}</span>
                     </div>
                   </div>
 
@@ -868,8 +896,8 @@ export default function DoctorSettings() {
                       <div key={key} className="space-y-1.5">
                         <label className="text-sm font-medium text-slate-700">{label}</label>
                         <div className="relative">
-                          <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <DollarSign size={14} className="text-slate-400" />
+                          <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-xs font-semibold text-slate-400">
+                            Rs.
                           </span>
                           <Input
                             type="number"
@@ -878,7 +906,7 @@ export default function DoctorSettings() {
                             value={fees[key]}
                             onChange={(e) => setFees({ ...fees, [key]: e.target.value })}
                             placeholder={placeholder}
-                            className="pl-7"
+                            className="pl-9"
                           />
                         </div>
                       </div>

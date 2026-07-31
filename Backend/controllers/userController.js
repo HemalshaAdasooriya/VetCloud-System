@@ -1284,5 +1284,24 @@ export const getVetFeedback = (req, res) => {
         res.status(200).json(results);
     });
 };
+
+export const getHomepageFeedback = (req, res) => {
+    const sql = `
+        SELECT f.id, f.rating, f.comment, f.created_at, 
+               p.fullName AS ownerName, p.image AS ownerImage, 'Farmer / Pet Owner' AS ownerRole
+        FROM feedbacks f
+        JOIN pet_owners p ON f.pet_owner_id = p.id
+        WHERE f.show_on_homepage = 1
+        ORDER BY f.created_at DESC
+    `;
+
+    db.query(sql, (err, results) => {
+        if (err) {
+            console.error("Error fetching homepage feedback:", err);
+            return res.status(500).json({ message: "Failed to fetch homepage feedback", error: err });
+        }
+        res.status(200).json(results);
+    });
+};
 //... Navindu
 

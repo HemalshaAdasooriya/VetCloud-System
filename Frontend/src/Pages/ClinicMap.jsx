@@ -9,7 +9,7 @@ L.Icon.Default.mergeOptions({
   shadowUrl:     "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
 });
 
-export default function ClinicMap({ clinics = [], selectedClinic }) {
+export default function ClinicMap({ clinics = [], selectedClinic, userLocation, manualLocation }) {
   const mapRef  = useRef(null);
   const mapObj  = useRef(null);
   const markers = useRef({});
@@ -26,8 +26,16 @@ export default function ClinicMap({ clinics = [], selectedClinic }) {
   });
 
   const youIcon = new L.Icon({
-    iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
-    iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
+    iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png",
+    shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
+    iconSize:    [25, 41],
+    iconAnchor:  [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize:  [41, 41],
+  });
+
+  const otherUserIcon = new L.Icon({
+    iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-violet.png",
     shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
     iconSize:    [25, 41],
     iconAnchor:  [12, 41],
@@ -71,7 +79,7 @@ export default function ClinicMap({ clinics = [], selectedClinic }) {
     });
   }, [clinics, selectedClinic]);
 
-  // ── 3. Socket + Geolocation (BLUE icon for you) ───────────────
+  // ── 3. Socket + Geolocation (BLUE icon for you, VIOLET for other users) ───────────────
   useEffect(() => {
     const socket = io(`${import.meta.env.VITE_BACKEND_URL}`, {
       transports: ["websocket", "polling"],
@@ -83,10 +91,14 @@ export default function ClinicMap({ clinics = [], selectedClinic }) {
 
     socket.on("receive-location", ({ id, latitude, longitude }) => {
       if (!mapObj.current) return;
+      if (id === socket.id) return; // Ignore our own location broadcast to avoid duplicating markers
+
       if (markers.current[id]) {
         markers.current[id].setLatLng([latitude, longitude]);
       } else {
-        markers.current[id] = L.marker([latitude, longitude]).addTo(mapObj.current);
+        markers.current[id] = L.marker([latitude, longitude], { icon: otherUserIcon })
+          .addTo(mapObj.current)
+          .bindPopup("<b>📍 Other User</b>");
       }
     });
 
@@ -108,7 +120,9 @@ export default function ClinicMap({ clinics = [], selectedClinic }) {
             markers.current["__you__"] = L.marker([latitude, longitude], { icon: youIcon })
               .addTo(mapObj.current)
               .bindPopup("<b>📍 You are here</b>");
-            mapObj.current.setView([latitude, longitude], 15);
+            if (!selectedClinic && !manualLocation) {
+              mapObj.current.setView([latitude, longitude], 15);
+            }
           }
         },
         (err) => console.error("Geolocation error:", err.message),
@@ -117,7 +131,56 @@ export default function ClinicMap({ clinics = [], selectedClinic }) {
     }
 
     return () => socket.disconnect();
-  }, []);
+  }, [selectedClinic, manualLocation]);
+
+  // ── 4. Render user location from parent state (BLUE icon) ───────
+  useEffect(() => {
+    if (!mapObj.current || !userLocation) return;
+    const { lat, lng } = userLocation;
+
+    if (markers.current["__you__"]) {
+      markers.current["__you__"].setLatLng([lat, lng]);
+    } else {
+      markers.current["__you__"] = L.marker([lat, lng], { icon: youIcon })
+        .addTo(mapObj.current)
+        .bindPopup("<b>📍 You are here</b>");
+    }
+
+    // Center map view on user's location if we're not focusing on a clinic or manual search
+    if (!selectedClinic && !manualLocation) {
+      mapObj.current.setView([lat, lng], 15);
+    }
+  }, [userLocation, selectedClinic, manualLocation]);
+
+  // ── 5. Render manual search location (GREEN icon) ───────────────
+  useEffect(() => {
+    if (!mapObj.current) return;
+
+    // Clean up previous manual marker if it exists
+    if (markers.current["__manual__"]) {
+      markers.current["__manual__"].remove();
+      delete markers.current["__manual__"];
+    }
+
+    if (manualLocation && manualLocation.lat && manualLocation.lng) {
+      const searchIcon = new L.Icon({
+        iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png",
+        shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
+        iconSize:    [25, 41],
+        iconAnchor:  [12, 41],
+        popupAnchor: [1, -34],
+        shadowSize:  [41, 41],
+      });
+
+      markers.current["__manual__"] = L.marker([manualLocation.lat, manualLocation.lng], { icon: searchIcon })
+        .addTo(mapObj.current)
+        .bindPopup(`<b>🔍 Searched:</b><br/>${manualLocation.label || "Custom Location"}`);
+
+      if (!selectedClinic) {
+        mapObj.current.setView([manualLocation.lat, manualLocation.lng], 15);
+      }
+    }
+  }, [manualLocation, selectedClinic]);
 
   return (
     <div className="relative flex-1 h-full">

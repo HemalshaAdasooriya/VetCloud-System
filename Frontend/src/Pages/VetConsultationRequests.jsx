@@ -44,6 +44,9 @@ export default function VetConsultationRequests() {
 
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [vetScheduleSlots, setVetScheduleSlots] = useState([]);
+  const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
+  const [prescriptionText, setPrescriptionText] = useState("");
+  const [completingAptId, setCompletingAptId] = useState(null);
   
   // State for data from backend
   const [pendingRequests, setPendingRequests] = useState([]);
@@ -549,13 +552,27 @@ export default function VetConsultationRequests() {
   };
 
   // Handle complete
-  const handleComplete = async (appointmentId) => {
-    if (!window.confirm('Mark this appointment as completed?')) return;
+  const handleCompleteClick = (appointmentId) => {
+    setCompletingAptId(appointmentId);
+    setPrescriptionText("");
+    setShowPrescriptionModal(true);
+  };
+
+  const handleCompleteSubmit = async (withPrescription = true) => {
+    if (withPrescription && !prescriptionText.trim()) {
+      alert("Please enter prescription/treatment details.");
+      return;
+    }
+
     setActionLoading(true);
     try {
-      await axios.patch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/vet-appointments/${appointmentId}/complete`);
+      await axios.patch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/vet-appointments/${completingAptId}/complete`, {
+        prescription: withPrescription ? prescriptionText : ""
+      });
       await fetchAppointments();
-      alert('Appointment marked as completed successfully!');
+      alert('Appointment completed successfully!');
+      setShowPrescriptionModal(false);
+      setCompletingAptId(null);
     } catch (err) {
       console.error('Failed to complete appointment:', err);
       alert('Failed to complete appointment. Please try again.');
@@ -1271,7 +1288,7 @@ export default function VetConsultationRequests() {
                     {request.status === 'Approved' && (
                       <div className="flex gap-2">
                         <Button
-                          onClick={() => handleComplete(request.id)}
+                          onClick={() => handleCompleteClick(request.id)}
                           size="sm"
                           className="bg-blue-600 hover:bg-blue-700 text-white"
                         >
@@ -1358,14 +1375,12 @@ export default function VetConsultationRequests() {
                   setShowVideoRoom(false);
                   const markDone = window.confirm("Would you like to mark this consultation as completed?");
                   if (markDone) {
-                    try {
-                      await axios.patch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/vet-appointments/${selectedRequestDetails.id}/complete`);
-                      await fetchAppointments();
-                      setSelectedRequestDetails(null);
-                      alert("Consultation marked as completed successfully!");
-                    } catch (err) {
-                      console.error("Failed to complete appointment:", err);
-                    }
+                    setCompletingAptId(selectedRequestDetails.id);
+                    setPrescriptionText("");
+                    setShowPrescriptionModal(true);
+                    setSelectedRequestDetails(null);
+                  } else {
+                    setSelectedRequestDetails(null);
                   }
                 }}
               />
@@ -1435,6 +1450,61 @@ export default function VetConsultationRequests() {
         onClose={() => setShowClientChatDrawer(false)}
         requestDetails={selectedRequestDetails}
       />
+
+      {/* Complete Consultation & Prescription Modal */}
+      {showPrescriptionModal && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <Card className="w-full max-w-md bg-white p-6 rounded-2xl shadow-xl border border-slate-100 animate-in fade-in zoom-in-95 duration-200 text-slate-800">
+            <div className="flex flex-col space-y-4 w-full">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h3 className="text-lg font-bold text-slate-800">Complete Consultation</h3>
+                <button 
+                  onClick={() => setShowPrescriptionModal(false)}
+                  className="text-slate-400 hover:text-slate-600 font-bold cursor-pointer border-0 bg-transparent"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-slate-500 mb-2">
+                  You are marking this consultation as completed. You can write a digital prescription / treatment report for the patient below:
+                </p>
+                <label className="text-xs font-bold text-slate-600">Prescription / Treatment Report</label>
+                <textarea
+                  value={prescriptionText}
+                  onChange={(e) => setPrescriptionText(e.target.value)}
+                  placeholder="e.g. Amoxicillin 250mg twice daily for 5 days. Rest and keep hydrated."
+                  className="w-full h-32 p-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500 resize-none text-slate-700 mt-1 animate-none bg-slate-50"
+                />
+              </div>
+              <div className="flex flex-col gap-2 pt-2">
+                <Button
+                  onClick={() => handleCompleteSubmit(true)}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white font-medium h-10 cursor-pointer"
+                >
+                  Complete & Send Prescription
+                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    className="flex-1 border-slate-200 text-slate-600 font-medium h-10 cursor-pointer bg-white"
+                    onClick={() => setShowPrescriptionModal(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="flex-1 text-slate-500 hover:bg-slate-50 font-medium h-10 cursor-pointer"
+                    onClick={() => handleCompleteSubmit(false)}
+                  >
+                    Complete without Prescription
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

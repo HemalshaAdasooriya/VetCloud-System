@@ -300,7 +300,7 @@ export const deleteDisease = async (req, res) => {
 export const getFeedback = async (req, res) => {
     try {
         const feedback = await queryPromise(`
-            SELECT f.id, f.rating, f.comment, f.created_at, 
+            SELECT f.id, f.rating, f.comment, f.created_at, f.show_on_homepage,
                    p.fullName AS ownerName, v.fullName AS vetName 
             FROM feedbacks f 
             JOIN pet_owners p ON f.pet_owner_id = p.id 
@@ -322,6 +322,18 @@ export const deleteFeedback = async (req, res) => {
     } catch (error) {
         console.error("Error in deleteFeedback:", error);
         res.status(500).json({ message: "Failed to delete feedback" });
+    }
+};
+
+export const toggleFeedbackHomepage = async (req, res) => {
+    const { id } = req.params;
+    const { showOnHomepage } = req.body;
+    try {
+        await queryPromise("UPDATE feedbacks SET show_on_homepage = ? WHERE id = ?", [showOnHomepage ? 1 : 0, id]);
+        res.status(200).json({ message: "Feedback homepage visibility updated successfully" });
+    } catch (error) {
+        console.error("Error in toggleFeedbackHomepage:", error);
+        res.status(500).json({ message: "Failed to update feedback visibility" });
     }
 };
 

@@ -18,6 +18,7 @@ import {
     getFeedback,
     deleteFeedback,
     addFeedback,
+    toggleFeedbackHomepage,
     getReports,
     updateAdminProfile,
     getSystemSettings,
@@ -80,6 +81,7 @@ adminRouter.delete("/diseases/:id", authenticateAdmin, deleteDisease);
 adminRouter.get("/feedback", authenticateAdmin, getFeedback);
 adminRouter.post("/feedback", authenticateAdmin, addFeedback);
 adminRouter.delete("/feedback/:id", authenticateAdmin, deleteFeedback);
+adminRouter.put("/feedback/:id/toggle-homepage", authenticateAdmin, toggleFeedbackHomepage);
 
 // Reports & Analytics
 adminRouter.get("/reports", authenticateAdmin, getReports);

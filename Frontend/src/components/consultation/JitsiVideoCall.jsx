@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Loader2, ExternalLink, RefreshCw } from 'lucide-react';
 
-export default function JitsiVideoCall({ roomName, displayName, onClose }) {
+export default function JitsiVideoCall({ roomName, displayName, onClose, voiceOnly = false }) {
   const containerRef = useRef(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -42,10 +42,10 @@ export default function JitsiVideoCall({ roomName, displayName, onClose }) {
         },
         configOverwrite: {
           startWithAudioMuted: false,
-          startWithVideoMuted: false,
+          startWithVideoMuted: voiceOnly ? true : false,
           prejoinPageEnabled: false,
           disableDeepLinking: true, // Prevent redirecting mobile web users to Jitsi app store
-          toolbarButtons: [
+          toolbarButtons: voiceOnly ? ['microphone', 'hangup'] : [
             'microphone', 'camera', 'closedcaptions', 'desktop', 'fullscreen',
             'fodeviceselection', 'hangup', 'chat', 'raisehand',
             'videoquality', 'filmstrip', 'tileview', 'videobackgroundblur',
@@ -113,6 +113,14 @@ export default function JitsiVideoCall({ roomName, displayName, onClose }) {
   };
 
   const directLink = `https://meet.jit.si/${roomName || 'vetcloud-consultation-room'}`;
+
+  if (voiceOnly) {
+    return (
+      <div style={{ width: '1px', height: '1px', opacity: 0, overflow: 'hidden' }}>
+        <div ref={containerRef} />
+      </div>
+    );
+  }
 
   return (
     <div className="relative w-full h-full bg-slate-900 flex flex-col items-center justify-center rounded-2xl overflow-hidden shadow-2xl min-h-[500px]">

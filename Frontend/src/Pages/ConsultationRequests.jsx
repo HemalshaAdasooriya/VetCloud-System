@@ -7,11 +7,23 @@
 // }
 
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { Video, MessageCircle, Calendar as CalendarIcon, Clock, ChevronRight, CheckCircle2, Search, Star, ShieldCheck, MapPin, Plus } from 'lucide-react';
 import { Button, Card, Input, Badge } from '../components/ui/ui';
 
 export default function ConsultationRequest() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      toast.error("Please login to consult a veterinarian");
+      navigate("/login");
+    }
+  }, [navigate]);
+
   const [step, setStep] = useState(1);
   const [consultType, setConsultType] = useState('video');
   const [selectedAnimal, setSelectedAnimal] = useState('');
