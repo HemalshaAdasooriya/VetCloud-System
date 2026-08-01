@@ -7,6 +7,7 @@ import {
     googleLogin,
     loginUser,
     registerUser,
+    checkPendingStatus,
     sendForgotPasswordOTP,
     verifyForgotPasswordOTP,
     resetPassword,
@@ -67,6 +68,7 @@ userRouter.post("/", upload.single('profileImage'), registerUser);
 userRouter.post("/google-login", googleLogin);
 userRouter.post("/facebook-login", facebookLogin);
 userRouter.post("/login", loginUser);
+userRouter.post("/check-pending-status", checkPendingStatus);
 
 //Navindu 2026/05/27 ... Forgot Password Functionality
 userRouter.post("/forgot-password", sendForgotPasswordOTP);

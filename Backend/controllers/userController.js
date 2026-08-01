@@ -231,7 +231,17 @@ export async function loginUser(req, res) {
                 });
             }
             if (role === "doctor" && !user.is_Active) {
-                return res.status(403).json({ message: "Your account is currently inactive. Please wait for administrator approval." });
+                const pendingToken = jwt.sign(
+                    { id: user.id, email: user.email, role: role, isPending: true },
+                    process.env.JWT_SECRET,
+                    { expiresIn: "7d" }
+                );
+                return res.status(403).json({ 
+                    message: "Your account is currently inactive. Please wait for administrator approval.",
+                    pendingToken: pendingToken,
+                    email: user.email,
+                    role: role
+                });
             }
 
             // 1. Generate the JWT Token
@@ -272,6 +282,77 @@ export async function loginUser(req, res) {
         }
     });
 }
+
+// 4.5. CHECK PENDING STATUS AND AUTO-LOGIN
+export async function checkPendingStatus(req, res) {
+    const { pendingToken } = req.body;
+    if (!pendingToken) {
+        return res.status(400).json({ message: "Pending token is required." });
+    }
+
+    try {
+        // Verify the temporary pending token
+        const decoded = jwt.verify(pendingToken, process.env.JWT_SECRET);
+        if (!decoded.isPending) {
+            return res.status(400).json({ message: "Invalid token type." });
+        }
+
+        // Fetch user status based on credentials in the token
+        getUserByEmailAndRole(decoded.email, decoded.role, (err, results) => {
+            if (err) {
+                return res.status(500).json({ message: "Database error checking status." });
+            }
+            if (results.length === 0) {
+                return res.status(404).json({ message: "User not found." });
+            }
+
+            const user = results[0];
+
+            // If the user status has been updated to active (is_Active = 1)
+            if (user.is_Active) {
+                // 1. Generate the standard active JWT Token
+                const token = jwt.sign(
+                    {   id: user.id, 
+                        email: user.email,
+                        role: decoded.role }, 
+                    process.env.JWT_SECRET
+                );
+
+                const rawUserAgent = req.headers['user-agent'] || '';
+                const parser = new UAParser(rawUserAgent);
+                const cleanDeviceString = `${parser.getBrowser().name || 'Unknown'} on ${parser.getOS().name || 'Unknown'}`;
+
+                // 2. Save session details in the database
+                saveUserSession(user.id, decoded.role, cleanDeviceString, token, (err) => {
+                    if (err) {
+                        console.error("Database failed to save auto-login session!", err);
+                    }
+                });
+
+                const { password: userPassword, ...safeUserData } = user;
+                safeUserData.role = decoded.role;
+
+                return res.status(200).json({
+                    approved: true,
+                    message: "Login successful",
+                    token: token,
+                    user: safeUserData
+                });
+            } else {
+                // Still inactive/pending
+                return res.status(200).json({
+                    approved: false,
+                    message: "Your account is currently inactive. Please wait for administrator approval."
+                });
+            }
+        });
+
+    } catch (error) {
+        console.error("Error during checking pending status:", error);
+        return res.status(401).json({ message: "Session expired or invalid token." });
+    }
+}
+
 
 
 // 2. GOOGLE LOGIN / REGISTRATION

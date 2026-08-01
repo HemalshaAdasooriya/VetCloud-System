@@ -184,10 +184,10 @@ export default function HomePage() {
 
                 <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
                     {[
-                    { title: 'Online Consultation', desc: 'Video or chat with certified vets.', icon: Video, color: 'bg-blue-100 text-blue-600', link: '/consultation' },
+                    { title: 'Online Consultation', desc: 'Video or chat with certified vets.', icon: Video, color: 'bg-blue-100 text-blue-600', link: '/login' },
                     { title: 'Disease Information', desc: 'Search our comprehensive animal health database.', icon: FileText, color: 'bg-emerald-100 text-emerald-600', link: '/diseases' },
                     { title: 'Emergency Clinics', desc: 'GPS locator for the nearest open vet clinics.', icon: MapPin, color: 'bg-rose-100 text-rose-600', link: '/clinics' },
-                    { title: 'Appointment Booking', desc: 'Schedule farm visits or clinic checkups.', icon: CalendarCheck, color: 'bg-amber-100 text-amber-600', link: '/consultation' },
+                    { title: 'Appointment Booking', desc: 'Schedule farm visits or clinic checkups.', icon: CalendarCheck, color: 'bg-amber-100 text-amber-600', link: '/login' },
                     ].map((service, idx) => (
                     <Link 
                         to={service.link} 
