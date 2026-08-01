@@ -588,6 +588,7 @@ export default function UserClinics() {
                 <ClinicMap
                     clinics={clinics}
                     selectedClinic={selectedClinic}
+                    userLocation={userLocation}
                     manualLocation={manualLocation}
                 />
             </div>

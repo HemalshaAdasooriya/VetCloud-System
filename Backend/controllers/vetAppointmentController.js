@@ -12,6 +12,8 @@ import {
 } from "../models/Appointment.js";
 import { triggerAppointmentNotification } from "./notificationController.js"; //isuri-notification
 import { markSlotAsBooked } from "../models/Schedule.js"; //Navindu 2026/06/26 ... markSlotAsBooked
+import db from "../config/db.js";
+import { sendEmail, getMedicalReportTemplate } from "../config/email.js";
 
 // Get all appointments for a veterinarian
 export const getVetAppointments = (req, res) => {
@@ -160,12 +162,87 @@ export const rejectAppointment = (req, res) => {
 // Complete appointment
 export const completeAppointment = (req, res) => {
     const { id } = req.params;
+    const { prescription } = req.body;
 
     completeApp(id, (err, result) => {
         if (err) {
             console.error('Error completing appointment:', err);
             return res.status(500).json({
                 message: "Failed to complete appointment"
+            });
+        }
+
+        // If a prescription text was provided, write it to animal_medical_histories
+        if (prescription && prescription.trim() !== "") {
+            // First fetch the appointment details to resolve animal_id, veterinarian, and client details
+            const aptSql = `
+                SELECT 
+                    a.animal_id, 
+                    v.fullName AS vet_name, 
+                    an.name AS animal_name, 
+                    po.email AS owner_email, 
+                    po.fullName AS owner_name
+                FROM appointments a
+                JOIN veterinarians v ON a.veterinarian_id = v.id
+                JOIN animals an ON a.animal_id = an.id
+                JOIN pet_owners po ON a.pet_owner_id = po.id
+                WHERE a.id = ?
+            `;
+            db.query(aptSql, [id], (aptErr, aptResults) => {
+                if (!aptErr && aptResults && aptResults.length > 0) {
+                    const apt = aptResults[0];
+                    const todayStr = new Date().toLocaleDateString("en-GB", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric"
+                    });
+                    
+                    const historySql = `
+                        INSERT INTO animal_medical_histories (animal_id, date, type, title, vet, notes)
+                        VALUES (?, ?, 'Prescription', ?, ?, ?)
+                    `;
+                    const title = `Prescription for Appointment #${id}`;
+                    db.query(historySql, [apt.animal_id, todayStr, title, `Dr. ${apt.vet_name}`, prescription], (histErr) => {
+                        if (histErr) {
+                            console.error("Error creating prescription medical history record:", histErr);
+                        } else {
+                            console.log(`Prescription medical history record created for animal ${apt.animal_id}`);
+                        }
+                    });
+
+                    // Send email to owner automatically
+                    try {
+                        const dateStr = new Date().toLocaleDateString("en-US", {
+                            weekday: 'long', 
+                            year: 'numeric', 
+                            month: 'long', 
+                            day: 'numeric'
+                        });
+                        const html = getMedicalReportTemplate(
+                            apt.owner_name,
+                            apt.animal_name,
+                            title,
+                            "Digital Prescription Report",
+                            prescription,
+                            `Dr. ${apt.vet_name}`,
+                            dateStr
+                        );
+                        sendEmail({
+                            to: apt.owner_email,
+                            subject: `Prescription Report: ${apt.animal_name} - Consultation #${id}`,
+                            html,
+                            text: `Dear ${apt.owner_name}, your prescription report for ${apt.animal_name} is available. Notes: ${prescription}`
+                        }).then(() => {
+                            console.log(`Email successfully sent to ${apt.owner_email}`);
+                        }).catch(emailErr => {
+                            console.error("Failed to send automatic prescription email:", emailErr);
+                        });
+                    } catch (emailErr) {
+                        console.error("Failed to automatically email prescription to owner:", emailErr);
+                    }
+                } else {
+                    console.error("Error fetching appointment details for prescription:", aptErr);
+                }
             });
         }
 

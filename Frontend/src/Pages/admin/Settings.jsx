@@ -25,6 +25,28 @@ export default function Settings() {
     // Commission/Payment Settings fields
     const [commissionPercentage, setCommissionPercentage] = useState("10");
 
+    const handleSimulate = async (simType) => {
+        try {
+            const token = localStorage.getItem("token");
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/admin/notifications/simulate/${simType}`, {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${token}`
+                }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                toast.success(data.message || `Simulated ${simType} event successful!`);
+                window.dispatchEvent(new Event("notificationsReloadRequest"));
+            } else {
+                toast.error("Failed to run simulated event.");
+            }
+        } catch (err) {
+            console.error("Simulation error:", err);
+            toast.error("Connection error while triggering simulation.");
+        }
+    };
+
     // Load user data & system settings
     useEffect(() => {
         if (user) {
@@ -185,6 +207,13 @@ export default function Settings() {
                 >
                     <CreditCard size={18} />
                     Payment Settings
+                </button>
+                <button 
+                    onClick={() => setActiveTab("simulation")}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${activeTab === 'simulation' ? 'bg-green-50 text-green-700' : 'text-slate-600 hover:bg-slate-50'}`}
+                >
+                    <Smartphone size={18} />
+                    Notification Simulations
                 </button>
             </Card>
 
@@ -356,6 +385,237 @@ export default function Settings() {
                                 </Button>
                             </div>
                         </form>
+                    </div>
+                )}
+
+                {activeTab === "simulation" && (
+                    <div className="space-y-6 animate-in fade-in duration-200">
+                        <div>
+                            <h3 className="text-lg font-bold text-slate-800">Notification & Flow Simulations</h3>
+                            <p className="text-sm text-slate-500">Trigger simulated platform events to test notifications and emails across different user roles.</p>
+                        </div>
+                        <hr className="border-slate-100" />
+                        
+                        <div className="space-y-8">
+                            {/* Pet Owner Simulations */}
+                            <div>
+                                <h4 className="text-sm font-bold text-slate-700 mb-3">1. Pet Owner Notifications</h4>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                                    <button 
+                                        onClick={() => handleSimulate("appointment_confirmed")}
+                                        className="px-4 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/60 rounded-xl text-xs font-semibold text-left transition-all cursor-pointer"
+                                    >
+                                        📅 Booking Confirmed
+                                    </button>
+                                    <button 
+                                        onClick={() => handleSimulate("appointment_rescheduled")}
+                                        className="px-4 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/60 rounded-xl text-xs font-semibold text-left transition-all cursor-pointer"
+                                    >
+                                        🔄 Booking Rescheduled
+                                    </button>
+                                    <button 
+                                        onClick={() => handleSimulate("appointment_cancelled")}
+                                        className="px-4 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/60 rounded-xl text-xs font-semibold text-left transition-all cursor-pointer"
+                                    >
+                                        ❌ Booking Cancelled
+                                    </button>
+                                    <button 
+                                        onClick={() => handleSimulate("vet_assigned")}
+                                        className="px-4 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/60 rounded-xl text-xs font-semibold text-left transition-all cursor-pointer"
+                                    >
+                                        👨‍⚕️ Veterinarian Assigned
+                                    </button>
+                                    <button 
+                                        onClick={() => handleSimulate("medical_record_updated")}
+                                        className="px-4 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/60 rounded-xl text-xs font-semibold text-left transition-all cursor-pointer"
+                                    >
+                                        📄 Medical Record Updated
+                                    </button>
+                                    <button 
+                                        onClick={() => handleSimulate("prescription_available")}
+                                        className="px-4 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/60 rounded-xl text-xs font-semibold text-left transition-all cursor-pointer"
+                                    >
+                                        💊 Prescription Available
+                                    </button>
+                                    <button 
+                                        onClick={() => handleSimulate("vaccination_due")}
+                                        className="px-4 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/60 rounded-xl text-xs font-semibold text-left transition-all cursor-pointer"
+                                    >
+                                        💉 Vaccination Due Soon
+                                    </button>
+                                    <button 
+                                        onClick={() => handleSimulate("test_results")}
+                                        className="px-4 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/60 rounded-xl text-xs font-semibold text-left transition-all cursor-pointer"
+                                    >
+                                        🧪 Test Results Available
+                                    </button>
+                                    <button 
+                                        onClick={() => handleSimulate("payment_success")}
+                                        className="px-4 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/60 rounded-xl text-xs font-semibold text-left transition-all cursor-pointer"
+                                    >
+                                        💰 Payment Successful
+                                    </button>
+                                    <button 
+                                        onClick={() => handleSimulate("feedback_request")}
+                                        className="px-4 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/60 rounded-xl text-xs font-semibold text-left transition-all cursor-pointer"
+                                    >
+                                        ⭐ Feedback Request
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Veterinarian Simulations */}
+                            <div>
+                                <h4 className="text-sm font-bold text-slate-700 mb-3">2. Veterinarian Notifications</h4>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                                    <button 
+                                        onClick={() => handleSimulate("new_consultation_request")}
+                                        className="px-4 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/60 rounded-xl text-xs font-semibold text-left transition-all cursor-pointer"
+                                    >
+                                        📥 New Consultation Request
+                                    </button>
+                                    <button 
+                                        onClick={() => handleSimulate("emergency_case")}
+                                        className="px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200/60 rounded-xl text-xs font-semibold text-left transition-all cursor-pointer"
+                                    >
+                                        🚨 Emergency Case Submitted
+                                    </button>
+                                    <button 
+                                        onClick={() => handleSimulate("medical_record_update_request")}
+                                        className="px-4 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/60 rounded-xl text-xs font-semibold text-left transition-all cursor-pointer"
+                                    >
+                                        📝 Record Update Request
+                                    </button>
+                                    <button 
+                                        onClick={() => handleSimulate("daily_schedule")}
+                                        className="px-4 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/60 rounded-xl text-xs font-semibold text-left transition-all cursor-pointer"
+                                    >
+                                        📧 Daily Schedule Email
+                                    </button>
+                                    <button 
+                                        onClick={() => handleSimulate("monthly_performance_report")}
+                                        className="px-4 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/60 rounded-xl text-xs font-semibold text-left transition-all cursor-pointer"
+                                    >
+                                        📊 Monthly Performance Report
+                                    </button>
+                                    <button 
+                                        onClick={() => handleSimulate("system_announcement")}
+                                        className="px-4 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/60 rounded-xl text-xs font-semibold text-left transition-all cursor-pointer"
+                                    >
+                                        📢 System Announcement
+                                    </button>
+                                    <button 
+                                        onClick={() => handleSimulate("upcoming_appointments")}
+                                        className="px-4 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/60 rounded-xl text-xs font-semibold text-left transition-all cursor-pointer"
+                                    >
+                                        ⏰ Upcoming Appointments Check
+                                    </button>
+                                    <button 
+                                        onClick={() => handleSimulate("followup_review")}
+                                        className="px-4 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/60 rounded-xl text-xs font-semibold text-left transition-all cursor-pointer"
+                                    >
+                                        🩺 Follow-up Case Reviews
+                                    </button>
+                                    <button 
+                                        onClick={() => handleSimulate("pending_prescriptions")}
+                                        className="px-4 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/60 rounded-xl text-xs font-semibold text-left transition-all cursor-pointer"
+                                    >
+                                        💊 Pending Prescriptions
+                                    </button>
+                                    <button 
+                                        onClick={() => handleSimulate("pending_medical_updates")}
+                                        className="px-4 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/60 rounded-xl text-xs font-semibold text-left transition-all cursor-pointer"
+                                    >
+                                        📂 Pending Medical Updates
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Administrator Simulations */}
+                            <div>
+                                <h4 className="text-sm font-bold text-slate-700 mb-3">3. Administrator Notifications</h4>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                                    <button 
+                                        onClick={() => handleSimulate("user_registration")}
+                                        className="px-4 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/60 rounded-xl text-xs font-semibold text-left transition-all cursor-pointer"
+                                    >
+                                        👤 New User Registration
+                                    </button>
+                                    <button 
+                                        onClick={() => handleSimulate("vet_registration")}
+                                        className="px-4 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/60 rounded-xl text-xs font-semibold text-left transition-all cursor-pointer"
+                                    >
+                                        🏥 New Vet Approval Request
+                                    </button>
+                                    <button 
+                                        onClick={() => handleSimulate("appointment_conflict")}
+                                        className="px-4 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/60 rounded-xl text-xs font-semibold text-left transition-all cursor-pointer"
+                                    >
+                                        ⚠️ Appointment Conflicts
+                                    </button>
+                                    <button 
+                                        onClick={() => handleSimulate("failed_payment")}
+                                        className="px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200/60 rounded-xl text-xs font-semibold text-left transition-all cursor-pointer"
+                                    >
+                                        💳 Failed Payment Transaction
+                                    </button>
+                                    <button 
+                                        onClick={() => handleSimulate("system_error")}
+                                        className="px-4 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/60 rounded-xl text-xs font-semibold text-left transition-all cursor-pointer"
+                                    >
+                                        ⚙️ System Error Alert
+                                    </button>
+                                    <button 
+                                        onClick={() => handleSimulate("complaint")}
+                                        className="px-4 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/60 rounded-xl text-xs font-semibold text-left transition-all cursor-pointer"
+                                    >
+                                        💬 Customer Complaint
+                                    </button>
+                                    <button 
+                                        onClick={() => handleSimulate("feedback")}
+                                        className="px-4 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/60 rounded-xl text-xs font-semibold text-left transition-all cursor-pointer"
+                                    >
+                                        ⭐ New Feedback Received
+                                    </button>
+                                    <button 
+                                        onClick={() => handleSimulate("backup")}
+                                        className="px-4 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/60 rounded-xl text-xs font-semibold text-left transition-all cursor-pointer"
+                                    >
+                                        💽 Backup Complete Status
+                                    </button>
+                                    <button 
+                                        onClick={() => handleSimulate("daily_summary")}
+                                        className="px-4 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/60 rounded-xl text-xs font-semibold text-left transition-all cursor-pointer"
+                                    >
+                                        📧 Daily System Summary
+                                    </button>
+                                    <button 
+                                        onClick={() => handleSimulate("monthly_analytics")}
+                                        className="px-4 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/60 rounded-xl text-xs font-semibold text-left transition-all cursor-pointer"
+                                    >
+                                        📈 Monthly Analytics Email
+                                    </button>
+                                    <button 
+                                        onClick={() => handleSimulate("security_alert")}
+                                        className="px-4 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/60 rounded-xl text-xs font-semibold text-left transition-all cursor-pointer"
+                                    >
+                                        🔒 Security Alert
+                                    </button>
+                                    <button 
+                                        onClick={() => handleSimulate("user_account_issue")}
+                                        className="px-4 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/60 rounded-xl text-xs font-semibold text-left transition-all cursor-pointer"
+                                    >
+                                        👤 User Account Issue
+                                    </button>
+                                    <button 
+                                        onClick={() => handleSimulate("license_expiring")}
+                                        className="px-4 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/60 rounded-xl text-xs font-semibold text-left transition-all cursor-pointer"
+                                    >
+                                        📝 Expiring License Reminder
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 )}
             </Card>

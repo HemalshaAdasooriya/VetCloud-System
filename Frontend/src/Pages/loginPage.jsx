@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { FcGoogle } from "react-icons/fc";
-import { FaFacebook, FaRegHeart} from "react-icons/fa";
+import { FaRegHeart } from "react-icons/fa";
 import { PiEyeLight, PiEyeSlash } from "react-icons/pi";
 import { LuLock } from "react-icons/lu";
 import { HiOutlineMail } from "react-icons/hi";
@@ -10,7 +10,6 @@ import { TbStethoscope } from "react-icons/tb";
 import { MdOutlineShield } from "react-icons/md";
 import toast from "react-hot-toast";
 import { GoogleOAuthProvider, useGoogleLogin } from '@react-oauth/google';
-import FacebookLogin from '@greatsumini/react-facebook-login';
 
 export default function LoginPage({ defaultRole = null }) {
 
@@ -180,41 +179,6 @@ export default function LoginPage({ defaultRole = null }) {
         }
     };
 
-    // --- FACEBOOK LOGIN HANDLER ---
-    const handleFacebookResponse = async (response) => {
-        if (!role) return toast.error("Please select a role first!");
-        setIsLoading(true);
-        
-        try {
-            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/facebook-login`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ accessToken: response.accessToken, role: role === 'farmer' ? "Farmer/PetOwner" : role === 'doctor' ? "Veterinary Doctor" : "Admin" })
-            });
-            const data = await res.json();
-            
-            if (res.ok) {
-                toast.success("Facebook Login Successful!");
-                if (data.token) localStorage.setItem("token", data.token); // Save session
-                if (data.user) {
-                    localStorage.setItem("user", JSON.stringify(data.user));
-                    // --- updated by navindu on 2026-06-10 START ---
-                    if (data.user.id) localStorage.setItem("userId", data.user.id);
-                    // --- updated by navindu on 2026-06-10 END ---
-                }
-                // Route to correct dashboard
-                if (role === "farmer") navigate("/dashboard/user");
-                if (role === "doctor") navigate("/dashboard/doctor");
-                if (role === "admin") navigate("/dashboard/admin");
-            } else {
-                toast.error(data.message || "Facebook login failed");
-            }
-        } catch {
-            toast.error("Server connection failed.");
-        } finally {
-            setIsLoading(false);
-        }
-    };
 
   
     // Paste this right above your main LoginPage component
@@ -374,43 +338,25 @@ export default function LoginPage({ defaultRole = null }) {
 
                         </div>
 
-                        <div className="flex items-center my-3">
-                        <div className="flex-grow border-t border-gray-300"></div>
-                        <span className="mx-3 text-gray-500 font-[Inter] font-normal text-[12px]">or continue with</span>
-                        <div className="flex-grow border-t border-gray-300"></div>
-                        </div>
-                        
-                        {/* google and facebook login buttons */}
-                        <div className="w-full flex flex-wrap justify-between mb-[10px]">
-                        
-                        <div className="w-[48%]">
-                            <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
-                                <InlineGoogleButton 
-                                    onSuccess={handleGoogleSuccess} 
-                                    disabled={isLoading} 
-                                />
-                            </GoogleOAuthProvider>
-                        </div>
-
-                        {/* FACEBOOK INLINE BUTTON */}
-                        <div className="w-[48%]">
-                            <FacebookLogin.default
-                                appId={import.meta.env.VITE_FACEBOOK_APP_ID}
-                                onSuccess={handleFacebookResponse}
-                                onFail={() => toast.error("Facebook Login Failed")}
-                                render={({ onClick }) => (
-                                    <button
-                                        type="button"
-                                        onClick={onClick}
-                                        disabled={isLoading}
-                                        className="w-full h-[40px] border border-[#E2E8F0] text-[#314158] font-Inter font-normal text-[14px] rounded-[14px] flex justify-center items-center hover:bg-slate-50 active:scale-95 transition-all shadow-sm disabled:opacity-70"
-                                    >
-                                        <FaFacebook className="w-[18px] h-[18px] mr-[9px] text-[#1877F2]" />Facebook
-                                    </button>
-                                )}
-                            />
-                        </div>
-                        </div>
+                        {defaultRole !== "admin" && (
+                            <>
+                                <div className="flex items-center my-3">
+                                    <div className="flex-grow border-t border-gray-300"></div>
+                                    <span className="mx-3 text-gray-500 font-[Inter] font-normal text-[12px]">or continue with</span>
+                                    <div className="flex-grow border-t border-gray-300"></div>
+                                </div>
+                                
+                                {/* google login button */}
+                                <div className="w-full mb-[10px]">
+                                    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
+                                        <InlineGoogleButton 
+                                            onSuccess={handleGoogleSuccess} 
+                                            disabled={isLoading} 
+                                        />
+                                    </GoogleOAuthProvider>
+                                </div>
+                            </>
+                        )}
 
 
                         <button type="submit" className="w-full h-[40px] bg-accent hover:bg-green-700 text-[16px] font-Inter font-medium text-white rounded-[25px] cursor-pointer transition-all duration-200 active:scale-95">

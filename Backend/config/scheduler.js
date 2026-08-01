@@ -9,7 +9,9 @@ import {
 import { 
     sendEmail, 
     getAppointmentConfirmationTemplate, 
-    getVaccinationReminderTemplate 
+    getVaccinationReminderTemplate,
+    getDailyAppointmentScheduleTemplate,
+    getMonthlyPerformanceReportTemplate
 } from "./email.js";
 import db from "./db.js";
 import fs from "fs";
@@ -188,6 +190,14 @@ export const startReminderScheduler = (io) => {
 
             // 4. Run Admin-Specific Reminder Scans
             runAdminReminders(io);
+
+            // 5. Run Vet-Specific Scheduled Scans & Reminders
+            const todayStr = new Date().toISOString().split("T")[0];
+            const currentMonthStr = new Date().toISOString().slice(0, 7);
+            runDailyVetSchedules(io, todayStr);
+            runMonthlyVetReports(io, currentMonthStr);
+            runVetFollowups(io);
+            runVetPendingRecords(io);
         });
     };
 
@@ -477,5 +487,182 @@ const runAdminReminders = (io) => {
 
             executeMonthlyAnalytics();
         }
+    });
+};
+
+// ── Vet-Specific Daily Schedules ──────────────────────────────────────────────
+export const runDailyVetSchedules = (io, todayStr) => {
+    db.query("SELECT id, fullName, email FROM veterinarians WHERE is_Active = 1", (err, vets) => {
+        if (err || !vets) return;
+        vets.forEach(vet => {
+            isReminderSent("daily_vet_schedule", vet.id, todayStr, (errSent, exists) => {
+                if (!errSent && !exists) {
+                    const sql = `
+                        SELECT a.id, a.consultation_type, po.fullName AS owner_name, an.name AS animal_name, an.species AS animal_species, s.slot_time
+                        FROM appointments a
+                        JOIN appointment_slots s ON a.selected_slot_id = s.id
+                        JOIN pet_owners po ON a.pet_owner_id = po.id
+                        JOIN animals an ON a.animal_id = an.id
+                        WHERE a.veterinarian_id = ? AND a.status = 'Approved' AND s.slot_date = CURRENT_DATE()
+                        ORDER BY s.slot_time ASC
+                    `;
+                    db.query(sql, [vet.id], (errAppt, appts) => {
+                        if (errAppt) return;
+                        const emailHtml = getDailyAppointmentScheduleTemplate(vet.fullName, appts);
+                        sendEmail({
+                            to: vet.email,
+                            subject: `Daily Appointment Schedule (${todayStr}) - VetCloud`,
+                            html: emailHtml,
+                            text: `Dear Dr. ${vet.fullName}, you have ${appts.length} consultations scheduled for today.`
+                        })
+                        .then(() => logSentReminder("daily_vet_schedule", vet.id, todayStr, () => {}))
+                        .catch(console.error);
+                    });
+                }
+            });
+        });
+    });
+};
+
+// ── Vet-Specific Monthly Reports ──────────────────────────────────────────────
+export const runMonthlyVetReports = (io, currentMonthStr) => {
+    db.query("SELECT id, fullName, email FROM veterinarians WHERE is_Active = 1", (err, vets) => {
+        if (err || !vets) return;
+        vets.forEach(vet => {
+            isReminderSent("monthly_vet_report", vet.id, currentMonthStr, (errSent, exists) => {
+                if (!errSent && !exists) {
+                    const statsSql = `
+                        SELECT 
+                            COUNT(c.id) AS completedCount,
+                            SUM(c.fee) AS revenue
+                        FROM consultations c
+                        WHERE c.doctor_id = ? AND c.status = 'Completed' AND c.appointment_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH)
+                    `;
+                    db.query(statsSql, [vet.id], (errStats, statsResults) => {
+                        if (errStats || !statsResults) return;
+                        const stats = statsResults[0] || { completedCount: 0, revenue: 0 };
+                        
+                        const ratingSql = "SELECT AVG(rating) AS averageRating FROM feedbacks WHERE veterinarian_id = ?";
+                        db.query(ratingSql, [vet.id], (errRating, ratingResults) => {
+                            const avgRating = (!errRating && ratingResults && ratingResults[0]) ? parseFloat(ratingResults[0].averageRating || 0).toFixed(1) : 0;
+                            stats.averageRating = avgRating > 0 ? avgRating : null;
+                            
+                            const emailHtml = getMonthlyPerformanceReportTemplate(vet.fullName, stats);
+                            sendEmail({
+                                to: vet.email,
+                                subject: `Monthly Performance Report (${currentMonthStr}) - VetCloud`,
+                                html: emailHtml,
+                                text: `Dear Dr. ${vet.fullName}, your monthly performance report is ready.`
+                            })
+                            .then(() => logSentReminder("monthly_vet_report", vet.id, currentMonthStr, () => {}))
+                            .catch(console.error);
+                        });
+                    });
+                }
+            });
+        });
+    });
+};
+
+// ── Vet-Specific Followups ────────────────────────────────────────────────────
+export const runVetFollowups = (io) => {
+    const sql = `
+        SELECT a.id, a.veterinarian_id, v.fullName AS vet_name, v.email AS vet_email, po.fullName AS owner_name, an.name AS animal_name
+        FROM appointments a
+        JOIN veterinarians v ON a.veterinarian_id = v.id
+        JOIN pet_owners po ON a.pet_owner_id = po.id
+        JOIN animals an ON a.animal_id = an.id
+        WHERE a.status = 'Completed' AND a.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+    `;
+    db.query(sql, (err, appts) => {
+        if (err || !appts) return;
+        appts.forEach(apt => {
+            isReminderSent("vet_followup", apt.id, "followup_check", (errSent, exists) => {
+                if (!errSent && !exists) {
+                    const vetNotify = {
+                        userId: apt.veterinarian_id,
+                        userRole: "Veterinary Doctor",
+                        type: "followup_case_review",
+                        title: "Follow-up Case Review Required",
+                        message: `Follow-up review: Please review the case for ${apt.animal_name} (owner: ${apt.owner_name}) from appointment #${apt.id}.`
+                    };
+                    createNotification(vetNotify, (notifyErr, dbNotify) => {
+                        if (!notifyErr && dbNotify) {
+                            pushSocketAlert(io, apt.veterinarian_id, "Veterinary Doctor", dbNotify);
+                        }
+                    });
+                    sendEmail({
+                        to: apt.vet_email,
+                        subject: `Follow-up Case Review Required - Appointment #${apt.id}`,
+                        html: `<h3>Follow-up Review Reminder</h3><p>Dear Dr. ${apt.vet_name}, please review the patient history and medical logs for ${apt.animal_name} to provide follow-up care if required.</p>`,
+                        text: `Dear Dr. ${apt.vet_name}, follow-up case review is pending for appointment #${apt.id}.`
+                    })
+                    .then(() => logSentReminder("vet_followup", apt.id, "followup_check", () => {}))
+                    .catch(console.error);
+                }
+            });
+        });
+    });
+};
+
+// ── Vet-Specific Pending Records & Prescriptions ──────────────────────────────
+export const runVetPendingRecords = (io) => {
+    const sql = `
+        SELECT a.id, a.veterinarian_id, v.fullName AS vet_name, v.email AS vet_email, an.id AS animal_id, an.name AS animal_name
+        FROM appointments a
+        JOIN veterinarians v ON a.veterinarian_id = v.id
+        JOIN animals an ON a.animal_id = an.id
+        WHERE a.status = 'Completed' AND a.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+    `;
+    db.query(sql, (err, appts) => {
+        if (err || !appts) return;
+        appts.forEach(apt => {
+            db.query("SELECT id, type FROM animal_medical_histories WHERE animal_id = ? AND vet = ?", [apt.animal_id, apt.vet_name], (errHist, histories) => {
+                if (errHist || !histories) return;
+                
+                const hasPrescription = histories.some(h => h.type === "Prescription");
+                const hasMedicalUpdate = histories.length > 0;
+
+                if (!hasPrescription) {
+                    isReminderSent("pending_prescription", apt.id, "prescription_check", (errSent, exists) => {
+                        if (!errSent && !exists) {
+                            const vetNotify = {
+                                userId: apt.veterinarian_id,
+                                userRole: "Veterinary Doctor",
+                                type: "pending_prescription",
+                                title: "Pending Prescription Alert",
+                                message: `Pending prescription: You haven't uploaded a prescription for ${apt.animal_name} from appointment #${apt.id}.`
+                            };
+                            createNotification(vetNotify, (notifyErr, dbNotify) => {
+                                if (!notifyErr && dbNotify) {
+                                    pushSocketAlert(io, apt.veterinarian_id, "Veterinary Doctor", dbNotify);
+                                }
+                            });
+                            logSentReminder("pending_prescription", apt.id, "prescription_check", () => {});
+                        }
+                    });
+                }
+
+                if (!hasMedicalUpdate) {
+                    isReminderSent("pending_medical_update", apt.id, "medical_update_check", (errSent, exists) => {
+                        if (!errSent && !exists) {
+                            const vetNotify = {
+                                userId: apt.veterinarian_id,
+                                userRole: "Veterinary Doctor",
+                                type: "pending_medical_update",
+                                title: "Pending Medical Record Update",
+                                message: `Pending record update: Please upload treatment/visit notes for ${apt.animal_name} from appointment #${apt.id}.`
+                            };
+                            createNotification(vetNotify, (notifyErr, dbNotify) => {
+                                if (!notifyErr && dbNotify) {
+                                    pushSocketAlert(io, apt.veterinarian_id, "Veterinary Doctor", dbNotify);
+                                }
+                            });
+                            logSentReminder("pending_medical_update", apt.id, "medical_update_check", () => {});
+                        }
+                    });
+                }
+            });
+        });
     });
 };
