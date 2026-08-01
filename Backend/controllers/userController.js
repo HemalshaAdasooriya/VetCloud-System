@@ -100,7 +100,16 @@ export function registerUser(req, res) {
                             text: `Welcome to VetCloud, ${data.firstName}! Please verify your account.`
                         }).catch(console.error);
                         //-------------
-                         // Automatically log in the user after creation
+                        // Notify admins of new user registration
+                        const io = req.app.get("io");
+                        import("../models/Notification.js").then(({ createAdminNotification }) => {
+                            createAdminNotification(io, {
+                                type: "new_user_registration",
+                                title: "New User Registered",
+                                message: `New Pet Owner/Farmer registered: ${data.firstName} ${data.lastName} (${data.email}).`
+                            });
+                        }).catch(console.error);
+                        // Automatically log in the user after creation
                         getUserByEmailAndRole(data.email, "farmer", (fetchErr, userResults) => {
                             if (fetchErr || userResults.length === 0) {
                                 return res.status(201).json({ message: "Pet Owner registered successfully. Please log in manually." });
@@ -143,6 +152,15 @@ export function registerUser(req, res) {
                             text: `Welcome to VetCloud, ${data.firstName}! Please verify your account.`
                         }).catch(console.error);
                         //---------
+                        // Notify admins of new veterinarian registration request
+                        const io = req.app.get("io");
+                        import("../models/Notification.js").then(({ createAdminNotification }) => {
+                            createAdminNotification(io, {
+                                type: "new_vet_registration",
+                                title: "New Vet Registration Request",
+                                message: `New veterinarian registered: Dr. ${data.firstName} ${data.lastName} (${data.email}, License: ${data.license_number}). Pending approval.`
+                            });
+                        }).catch(console.error);
                         // Do not automatically log in if they are inactive (which they are by default)
                         getUserByEmailAndRole(data.email, "doctor", (fetchErr, userResults) => {
                             return res.status(201).json({ 
@@ -212,7 +230,6 @@ export async function loginUser(req, res) {
                 return res.status(403).json({ message: "Your account is currently inactive. Please wait for administrator approval." });
             }
 
-    
             // 1. Generate the JWT Token
             console.log("STEP 1: Generating Token...");
             const token = jwt.sign(
@@ -635,6 +652,19 @@ export const updateUserProfile = (req, res) => {
             
             updatePetOwnerProfile(userId, profileData, (err, result) => {
                 if (err) return res.status(500).json({ message: "Database error during update" });
+                
+                // Send security alert email
+                getUserByIdAndRole(userId, 'farmer', (errUser, userInfo) => {
+                    if (!errUser && userInfo) {
+                        sendEmail({
+                            to: userInfo.email,
+                            subject: "Security Alert: Profile Information Updated",
+                            html: `<h3>Profile Updated</h3><p>Dear ${userInfo.fullName}, your VetCloud account profile information has been successfully updated.</p>`,
+                            text: `Dear ${userInfo.fullName}, your VetCloud account profile information has been updated.`
+                        }).catch(console.error);
+                    }
+                });
+
                 return res.status(200).json({ message: "Profile updated successfully" });
             });
 
@@ -642,6 +672,19 @@ export const updateUserProfile = (req, res) => {
             
             updateVeterinarianProfile(userId, profileData, (err, result) => {
                 if (err) return res.status(500).json({ message: "Database error during update" });
+                
+                // Send security alert email
+                getUserByIdAndRole(userId, 'doctor', (errUser, userInfo) => {
+                    if (!errUser && userInfo) {
+                        sendEmail({
+                            to: userInfo.email,
+                            subject: "Security Alert: Profile Information Updated",
+                            html: `<h3>Profile Updated</h3><p>Dear ${userInfo.fullName}, your VetCloud account profile information has been successfully updated.</p>`,
+                            text: `Dear ${userInfo.fullName}, your VetCloud account profile information has been updated.`
+                        }).catch(console.error);
+                    }
+                });
+
                 return res.status(200).json({ message: "Profile updated successfully" });
             });
 
@@ -796,6 +839,18 @@ export const verifyAndEnable2FA = (req, res) => {
             enableUser2FA(userId, userRole, secret, (err) => {
                 if (err) return res.status(500).json({ message: "Failed to save to database" });
                 
+                // Send security alert email
+                getUserByIdAndRole(userId, userRole === 'Veterinary Doctor' || userRole === 'doctor' ? 'doctor' : 'farmer', (errUser, userInfo) => {
+                    if (!errUser && userInfo) {
+                        sendEmail({
+                            to: userInfo.email,
+                            subject: "Security Alert: Two-Factor Authentication Enabled",
+                            html: `<h3>Two-Factor Authentication Enabled</h3><p>Dear ${userInfo.fullName}, Two-Factor Authentication (2FA) has been enabled on your VetCloud account. If you did not make this change, please contact VetCloud support immediately.</p>`,
+                            text: `Dear ${userInfo.fullName}, Two-Factor Authentication (2FA) has been enabled on your VetCloud account.`
+                        }).catch(console.error);
+                    }
+                });
+
                 return res.status(200).json({ message: "2FA Enabled Successfully!" });
             });
         } else {
@@ -924,6 +979,18 @@ export const disable2FA = (req, res) => {
                 return res.status(500).json({ message: "Failed to disable 2FA in database" });
             }
             
+            // Send security alert email
+            getUserByIdAndRole(userId, userRole === 'Veterinary Doctor' || userRole === 'doctor' ? 'doctor' : 'farmer', (errUser, userInfo) => {
+                if (!errUser && userInfo) {
+                    sendEmail({
+                        to: userInfo.email,
+                        subject: "Security Alert: Two-Factor Authentication Disabled",
+                        html: `<h3>Two-Factor Authentication Disabled</h3><p>Dear ${userInfo.fullName}, Two-Factor Authentication (2FA) has been disabled on your VetCloud account. If you did not make this change, please contact VetCloud support immediately.</p>`,
+                        text: `Dear ${userInfo.fullName}, Two-Factor Authentication (2FA) has been disabled on your VetCloud account.`
+                    }).catch(console.error);
+                }
+            });
+
             return res.status(200).json({ message: "Two-Factor Authentication disabled successfully." });
         });
 
@@ -993,9 +1060,12 @@ export const revokeOtherSessions = (req, res) => {
 //Navindu 2026/06/10 ... get vet details for scheduling appointments
 export const getAllVets = (req, res) => {
     const sql = `
-        SELECT id, fullName, specialization, years_of_experience, consultation_fee, image
-        FROM veterinarians
-        WHERE is_Active = 1
+        SELECT v.id, v.fullName, v.specialization, v.years_of_experience, v.consultation_fee, v.image,
+               COALESCE(ROUND(AVG(f.rating), 1), 5.0) AS rating
+        FROM veterinarians v
+        LEFT JOIN feedbacks f ON v.id = f.veterinarian_id
+        WHERE v.is_Active = 1
+        GROUP BY v.id
     `;
 
     db.query(sql, (err, results) => {
@@ -1008,7 +1078,7 @@ export const getAllVets = (req, res) => {
             name: `Dr. ${v.fullName}`,
             spec: v.specialization,
             exp: `${v.years_of_experience} Years`,
-            rating: 4.8,
+            rating: parseFloat(v.rating),
             available: true,
             image: v.image || "/default.jpg"
         }));
@@ -1098,31 +1168,89 @@ export const submitFeedback = (req, res) => {
 
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        
-        // Ensure user is farmer/pet owner
-        if (decoded.role !== 'farmer' && decoded.role !== 'Farmer/PetOwner') {
-            return res.status(403).json({ message: "Forbidden: Only pet owners can submit feedback." });
+        const userId = decoded.id;
+        const userRole = decoded.role;
+
+        // Check if role is pet owner
+        if (userRole !== "Farmer/PetOwner" && userRole !== "farmer") {
+            return res.status(403).json({ message: "Only pet owners can submit feedback" });
         }
 
-        const pet_owner_id = decoded.id;
-        const { veterinarian_id, rating, comment, consultation_type } = req.body;
+        const { veterinarianId, rating, comment } = req.body;
 
-        if (!veterinarian_id || !rating) {
-            return res.status(400).json({ message: "Veterinarian ID and rating are required." });
+        if (!rating) {
+            return res.status(400).json({ message: "Rating is required" });
         }
 
-        const sql = `
-            INSERT INTO feedbacks (pet_owner_id, veterinarian_id, rating, comment, status, consultation_type, helpful_count)
-            VALUES (?, ?, ?, ?, 'Under Review', ?, 0)
+        const insertSql = `
+            INSERT INTO feedbacks (pet_owner_id, veterinarian_id, rating, comment)
+            VALUES (?, ?, ?, ?)
         `;
 
-        db.query(sql, [pet_owner_id, veterinarian_id, rating, comment || "", consultation_type || "Video Consultation"], (err, result) => {
+        db.query(insertSql, [userId, veterinarianId || null, rating, comment || null], (err, result) => {
             if (err) {
-                console.error("DB error inserting feedback:", err.sqlMessage || err);
-                return res.status(500).json({ message: "Database error saving feedback", error: err.sqlMessage || err });
+                console.error("Error inserting feedback:", err);
+                return res.status(500).json({ message: "Database error submitting feedback", err });
             }
+
+            // Trigger Admin in-app notification of new feedback/review received
+            const io = req.app.get("io");
+            import("../models/Notification.js").then(({ createAdminNotification }) => {
+                createAdminNotification(io, {
+                    type: "new_feedback_received",
+                    title: "New Feedback Received",
+                    message: `New feedback received (Rating: ${rating}/5) for Vet ID: ${veterinarian_id}.`
+                });
+            }).catch(console.error);
+
             return res.status(201).json({ message: "Feedback submitted successfully, awaiting approval!" });
         });
+    } catch (error) {
+        console.error("Token verification error in submitFeedback:", error);
+        return res.status(401).json({ message: "Unauthorized: Invalid token" });
+    }
+};
+
+export const submitComplaint = (req, res) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ message: "Unauthorized: No token provided" });
+    }
+
+    const token = authHeader.split(" ")[1];
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const { title, description } = req.body;
+
+        if (!title || !description) {
+            return res.status(400).json({ message: "Title and description are required." });
+        }
+
+        // Save complaint to DB
+        import("../models/Notification.js").then(({ createComplaint, createAdminNotification }) => {
+            createComplaint({
+                userId: decoded.id,
+                userRole: decoded.role === 'Veterinary Doctor' || decoded.role === 'doctor' ? 'doctor' : 'farmer',
+                title,
+                description
+            }, (err, result) => {
+                if (err) {
+                    console.error("DB error inserting complaint:", err);
+                    return res.status(500).json({ message: "Failed to submit complaint" });
+                }
+
+                // Trigger Admin alert
+                const io = req.app.get("io");
+                createAdminNotification(io, {
+                    type: "customer_complaint",
+                    title: "New Customer Complaint",
+                    message: `New complaint: "${title}" submitted by ${decoded.role} ID: ${decoded.id}.`
+                });
+
+                return res.status(201).json({ message: "Complaint submitted successfully!", data: result });
+            });
+        }).catch(console.error);
 
     } catch (error) {
         return res.status(401).json({ message: "Invalid or expired token" });

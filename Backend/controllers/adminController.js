@@ -58,6 +58,21 @@ export const updateUserStatus = async (req, res) => {
     const { is_Active } = req.body;
     try {
         await queryPromise("UPDATE pet_owners SET is_Active = ? WHERE id = ?", [is_Active ? 1 : 0, id]);
+        
+        // Fetch user email to send update
+        const userResults = await queryPromise("SELECT email, fullName FROM pet_owners WHERE id = ?", [id]);
+        if (userResults && userResults.length > 0) {
+            const user = userResults[0];
+            import("../config/email.js").then(({ sendEmail }) => {
+                sendEmail({
+                    to: user.email,
+                    subject: "Account Status Update - VetCloud",
+                    html: `<h3>Account Status Updated</h3><p>Dear ${user.fullName},</p><p>Your VetCloud account has been marked as <strong>${is_Active ? "Active" : "Inactive"}</strong> by the administrator.</p>`,
+                    text: `Dear ${user.fullName}, your VetCloud account status has been updated to ${is_Active ? "Active" : "Inactive"}.`
+                }).catch(console.error);
+            });
+        }
+
         res.status(200).json({ message: "User status updated successfully" });
     } catch (error) {
         console.error("Error in updateUserStatus:", error);
@@ -99,6 +114,21 @@ export const updateDoctorStatus = async (req, res) => {
     const { is_Active } = req.body;
     try {
         await queryPromise("UPDATE veterinarians SET is_Active = ? WHERE id = ?", [is_Active ? 1 : 0, id]);
+        
+        // Fetch doctor email to send update
+        const doctorResults = await queryPromise("SELECT email, fullName FROM veterinarians WHERE id = ?", [id]);
+        if (doctorResults && doctorResults.length > 0) {
+            const vet = doctorResults[0];
+            import("../config/email.js").then(({ sendEmail }) => {
+                sendEmail({
+                    to: vet.email,
+                    subject: "Account Approval Status Update - VetCloud",
+                    html: `<h3>Account Approval Status Updated</h3><p>Dear Dr. ${vet.fullName},</p><p>Your veterinarian account status has been updated to <strong>${is_Active ? "Active / Approved" : "Inactive / Under Review"}</strong> by the administrator.</p>`,
+                    text: `Dear Dr. ${vet.fullName}, your veterinarian account approval status has been updated to ${is_Active ? "Active" : "Inactive"}.`
+                }).catch(console.error);
+            });
+        }
+
         res.status(200).json({ message: "Doctor status updated successfully" });
     } catch (error) {
         console.error("Error in updateDoctorStatus:", error);
@@ -270,8 +300,8 @@ export const deleteDisease = async (req, res) => {
 export const getFeedback = async (req, res) => {
     try {
         const feedback = await queryPromise(`
-            SELECT f.id, f.rating, f.comment, f.status, f.consultation_type, f.helpful_count, f.created_at, 
-                   p.fullName AS ownerName, p.image AS ownerImage, v.fullName AS vetName, v.image AS vetImage 
+            SELECT f.id, f.rating, f.comment, f.created_at, 
+                   p.fullName AS ownerName, v.fullName AS vetName 
             FROM feedbacks f 
             JOIN pet_owners p ON f.pet_owner_id = p.id 
             LEFT JOIN veterinarians v ON f.veterinarian_id = v.id 
@@ -281,23 +311,6 @@ export const getFeedback = async (req, res) => {
     } catch (error) {
         console.error("Error in getFeedback:", error);
         res.status(500).json({ message: "Failed to fetch feedback" });
-    }
-};
-
-export const updateFeedbackStatus = async (req, res) => {
-    const { id } = req.params;
-    const { status } = req.body;
-
-    if (!status) {
-        return res.status(400).json({ message: "Status is required." });
-    }
-
-    try {
-        await queryPromise("UPDATE feedbacks SET status = ? WHERE id = ?", [status, id]);
-        res.status(200).json({ message: `Feedback status updated to ${status} successfully` });
-    } catch (error) {
-        console.error("Error in updateFeedbackStatus:", error);
-        res.status(500).json({ message: "Failed to update feedback status" });
     }
 };
 
@@ -380,5 +393,61 @@ export const updateAdminProfile = async (req, res) => {
     } catch (error) {
         console.error("Error in updateAdminProfile:", error);
         res.status(500).json({ message: "Failed to update admin profile" });
+    }
+};
+
+// 9. System Settings (Commission, etc.)
+export const getSystemSettings = async (req, res) => {
+    try {
+        const settings = await queryPromise("SELECT * FROM system_settings");
+        const settingsObj = {};
+        settings.forEach(s => {
+            settingsObj[s.setting_key] = s.setting_value;
+        });
+        if (!settingsObj.commission_percentage) {
+            settingsObj.commission_percentage = "10";
+        }
+        res.status(200).json(settingsObj);
+    } catch (error) {
+        console.error("Error in getSystemSettings:", error);
+        res.status(500).json({ message: "Failed to fetch system settings" });
+    }
+};
+
+export const updateSystemSettings = async (req, res) => {
+    const { commission_percentage } = req.body;
+    if (commission_percentage === undefined || commission_percentage === null) {
+        return res.status(400).json({ message: "commission_percentage is required" });
+    }
+    
+    try {
+        const sql = `
+            INSERT INTO system_settings (setting_key, setting_value) 
+            VALUES ('commission_percentage', ?)
+            ON DUPLICATE KEY UPDATE setting_value = ?
+        `;
+        await queryPromise(sql, [String(commission_percentage), String(commission_percentage)]);
+        res.status(200).json({ message: "System settings updated successfully!" });
+    } catch (error) {
+        console.error("Error in updateSystemSettings:", error);
+        res.status(500).json({ message: "Failed to update system settings" });
+    }
+};
+
+export const addFeedback = async (req, res) => {
+    const { petOwnerId, veterinarianId, rating, comment } = req.body;
+    if (!petOwnerId || !rating) {
+        return res.status(400).json({ message: "Pet Owner ID and Rating are required" });
+    }
+    try {
+        const result = await queryPromise(`
+            INSERT INTO feedbacks (pet_owner_id, veterinarian_id, rating, comment)
+            VALUES (?, ?, ?, ?)
+        `, [petOwnerId, veterinarianId || null, rating, comment || null]);
+        
+        res.status(201).json({ message: "Feedback added successfully", feedbackId: result.insertId });
+    } catch (error) {
+        console.error("Error in addFeedback:", error);
+        res.status(500).json({ message: "Failed to add feedback" });
     }
 };

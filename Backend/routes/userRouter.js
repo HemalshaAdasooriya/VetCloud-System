@@ -26,7 +26,8 @@ import {
     saveConsultationFees,
     getAllVets,
     saveClinicDetails,
-    submitFeedback
+    submitFeedback,
+    submitComplaint
 } from "../controllers/userController.js";
 
 //... Navindu
@@ -88,10 +89,13 @@ userRouter.put("/clinic", saveClinicDetails);
 userRouter.put("/payout-settings", savePayoutSettings);
 userRouter.put("/consultation-fees", saveConsultationFees);
 userRouter.post("/feedback", submitFeedback);
+userRouter.post("/complaints", submitComplaint);
 
 
 //Navindu 2026/06/10 ... Get All Vets Functionality
 userRouter.get("/vets", getAllVets);
+userRouter.post("/feedback", submitFeedback);
+userRouter.get("/feedback/vet/:id", getVetFeedback);
 //... Navindu
 
 //... Hemalsha

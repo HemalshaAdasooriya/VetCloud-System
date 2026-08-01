@@ -146,7 +146,22 @@ export function DashboardLayout() {
       case "test_results":
         return <div className={`${iconClass} bg-teal-100 text-teal-600`}><ShieldCheck size={16} /></div>;
       case "feedback_request":
+      case "new_feedback_received":
+      case "feedback_received":
         return <div className={`${iconClass} bg-indigo-100 text-indigo-600`}><Star size={16} /></div>;
+      case "new_user_registration":
+      case "new_vet_registration":
+      case "approval_reminder":
+        return <div className={`${iconClass} bg-emerald-100 text-emerald-600`}><Users size={16} /></div>;
+      case "appointment_conflict":
+      case "system_error":
+      case "unresolved_complaints":
+        return <div className={`${iconClass} bg-rose-100 text-rose-600`}><X size={16} /></div>;
+      case "backup_status":
+      case "data_backup_reminder":
+        return <div className={`${iconClass} bg-cyan-100 text-cyan-600`}><Database size={16} /></div>;
+      case "system_maintenance":
+        return <div className={`${iconClass} bg-sky-100 text-sky-600`}><Settings size={16} /></div>;
       default:
         return <div className={`${iconClass} bg-slate-100 text-slate-500`}><Bell size={16} /></div>;
     }
@@ -184,6 +199,7 @@ export function DashboardLayout() {
     { name: 'Upcoming Consultations', path: '/dashboard/doctor/consultations', icon: Stethoscope },
     { name: 'Consultation Requests', path: '/dashboard/doctor/requests', icon: ClipboardList }, //Navindu 2026/06/19 ... vet consultation requests
     { name: 'Schedule', path: '/dashboard/doctor/schedule', icon: Calendar },
+    { name: 'Ratings & Reviews', path: '/dashboard/doctor/ratings', icon: Star },
     { name: 'Settings', path: '/dashboard/doctor/settings', icon: Settings },
   ] : [
     { name: 'Dashboard Overview', path: '/dashboard/admin', icon: LayoutDashboard },

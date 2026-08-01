@@ -12,7 +12,7 @@ import toast from "react-hot-toast";
 import { GoogleOAuthProvider, useGoogleLogin } from '@react-oauth/google';
 import FacebookLogin from '@greatsumini/react-facebook-login';
 
-export default function LoginPage() {
+export default function LoginPage({ defaultRole = null }) {
 
     const [show2FA, setShow2FA] = useState(false);
     const [twoFactorCode, setTwoFactorCode] = useState('');
@@ -21,29 +21,31 @@ export default function LoginPage() {
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
     const navigate = useNavigate();
-    const [role, setRole] = useState(null);
+    const [role, setRole] = useState(defaultRole);
 
     const buttonStyle = (value) => `
-    group min-w-[120px] h-[70px] border text-[11.2px] rounded-lg 
+    group w-[48%] h-[85px] border rounded-[14px] 
     flex flex-col justify-center items-center text-center
-    transition-all duration-300 active:scale-95
+    font-medium text-[13px] tracking-wide
+    transition-all duration-300 active:scale-95 cursor-pointer
 
     ${
       role === value
-        ? "border-green-500 text-green-600 bg-green-50 shadow-lg scale-105"
-        : "border-[#E2E8F0] text-secondary hover:border-green-500 hover:text-green-600 hover:bg-green-50 hover:shadow-md"
+        ? "border-green-500 text-green-600 bg-green-50/50 shadow-md scale-[1.02]"
+        : "border-[#E2E8F0] text-slate-600 bg-white hover:border-green-400 hover:text-green-600 hover:bg-green-50/20 hover:shadow-sm"
     }
   `;
 
   const iconStyle = (value) => `
-    w-[25px] h-[25px] flex justify-center items-center rounded-[10px] 
-    shadow-md mb-[8px] transition-all duration-300
+    w-[32px] h-[32px] flex justify-center items-center rounded-[10px] 
+    transition-all duration-300 mb-[6px]
 
     ${
       role === value
-        ? "bg-green-600"
-        : "bg-[#afb1b3] group-hover:bg-green-600"
-    }`;
+        ? "bg-green-600 text-white shadow-sm shadow-green-500/25"
+        : "bg-slate-100 text-slate-500 group-hover:bg-green-600 group-hover:text-white"
+    }
+  `;
 
 
     async function handleLogin() {
@@ -283,7 +285,7 @@ export default function LoginPage() {
                     </form>
                 ) : (
                     /* --- THE NORMAL LOGIN SCREEN --- */
-                    <>
+                    <form onSubmit={(e) => { e.preventDefault(); handleLogin(); }} className="w-full flex flex-col">
                         <div className="text-secondary text-[24px] font-bold font-[Inter] text-left flex items-center mb-[10px]">
                         <img src="/public/Logo.png" className="w-[50px] h-[35px] mr-1 object-fill" alt="VetCloud Logo" />
                         VetCloud
@@ -293,37 +295,32 @@ export default function LoginPage() {
 
                         <p className="text-[#62748E] text-[14px] font-[Inter] italic font-normal mt-[2px]">Access veterinary care anytime, anywhere.</p>
 
-                        <p className="text-[#45556C] text-[14px] font-[Inter] font-normal mt-[10px]">Sign in as</p>
-
-                        {/* user section */}
-                        <div className="flex flex-wrap justify-between mt-[6px] font-bold">  
-                        <div className="min-w-[120px] h-[70px]" >
-                            <button onClick={() => setRole("farmer")} className={buttonStyle("farmer")}>
-                            <div className={iconStyle("farmer")}>
-                                <CiHeart className="h-[20px] w-[20px] text-white" />
+                        {defaultRole === "admin" ? (
+                            <div className="text-secondary text-[18px] font-semibold mt-[10px] mb-[15px] font-[Inter]">
+                                Sign in as Administrator
                             </div>
-                            Pet Owner / Farmer
-                            </button>
-                        </div>
+                        ) : (
+                            <>
+                                <p className="text-[#45556C] text-[14px] font-[Inter] font-normal mt-[10px]">Sign in as</p>
 
-                        <div className="min-w-[120px] h-[70px]" >
-                            <button onClick={() => setRole("doctor")} className={buttonStyle("doctor")}>
-                            <div className={iconStyle("doctor")}>
-                                <TbStethoscope className="h-[18px] w-[18px] text-white" />
-                            </div>
-                            Veterinary Doctor
-                            </button>
-                        </div>
+                                {/* user section */}
+                                <div className="flex flex-wrap justify-between w-full mt-[6px] font-bold">  
+                                    <button type="button" onClick={() => setRole("farmer")} className={buttonStyle("farmer")}>
+                                    <div className={iconStyle("farmer")}>
+                                        <CiHeart className="h-[20px] w-[20px]" />
+                                    </div>
+                                    Pet Owner / Farmer
+                                    </button>
 
-                        <div className="min-w-[120px] h-[70px]" >
-                            <button onClick={() => setRole("admin")} className={buttonStyle("admin")}>
-                            <div className={iconStyle("admin")}>
-                                <MdOutlineShield className="h-[20px] w-[20px] text-white" />
-                            </div>
-                            Administrator
-                            </button>
-                        </div> 
-                        </div>
+                                    <button type="button" onClick={() => setRole("doctor")} className={buttonStyle("doctor")}>
+                                    <div className={iconStyle("doctor")}>
+                                        <TbStethoscope className="h-[18px] w-[18px]" />
+                                    </div>
+                                    Veterinary Doctor
+                                    </button>
+                                </div>
+                            </>
+                        )}
 
                         {/* Email Input */}
                         <p className="text-secondary mt-[10px] font-[Inter] font-medium text-[14px] mb-[8.5px]">Email Address</p>
@@ -416,17 +413,19 @@ export default function LoginPage() {
                         </div>
 
 
-                        <button onClick={handleLogin} className="w-full h-[40px] bg-accent hover:bg-green-700 text-[16px] font-Inter font-medium text-white rounded-[25px] cursor-pointer transition-all duration-200 active:scale-95">
+                        <button type="submit" className="w-full h-[40px] bg-accent hover:bg-green-700 text-[16px] font-Inter font-medium text-white rounded-[25px] cursor-pointer transition-all duration-200 active:scale-95">
                                 Login to Dashboard
                         </button>
 
-                        <p className="mt-[5px] text-gray flex justify-center items-center text-[14px] font-[Inter] font-normal">
-                                Don't have an account? 
-                                <Link to="/register" className="text-accent font-normal hover:underline ml-1">
-                                Register here
-                                </Link>
-                        </p>
-                    </>
+                        {defaultRole !== "admin" && (
+                            <p className="mt-[5px] text-gray flex justify-center items-center text-[14px] font-[Inter] font-normal">
+                                    Don't have an account? 
+                                    <Link to="/register" className="text-accent font-normal hover:underline ml-1">
+                                    Register here
+                                    </Link>
+                            </p>
+                        )}
+                    </form>
                 )}
             </div>
         </div>

@@ -39,6 +39,62 @@ export const initializeNotificationTables = () => {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `;
 
+    const createComplaintsTable = `
+        CREATE TABLE IF NOT EXISTS complaints (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            user_role VARCHAR(50) NOT NULL,
+            title VARCHAR(255) NOT NULL,
+            description TEXT NOT NULL,
+            status VARCHAR(50) DEFAULT 'Pending',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `;
+
+    const createSystemErrorsTable = `
+        CREATE TABLE IF NOT EXISTS system_errors (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            error_code VARCHAR(100) NOT NULL,
+            message TEXT NOT NULL,
+            severity VARCHAR(50) DEFAULT 'High',
+            resolved TINYINT(1) DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `;
+
+    const createSystemBackupsTable = `
+        CREATE TABLE IF NOT EXISTS system_backups (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            backup_name VARCHAR(255) NOT NULL,
+            status VARCHAR(50) DEFAULT 'Success',
+            file_size VARCHAR(50),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `;
+
+    const createSystemMaintenanceTable = `
+        CREATE TABLE IF NOT EXISTS system_maintenance (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(255) NOT NULL,
+            scheduled_time DATETIME NOT NULL,
+            duration_mins INT NOT NULL,
+            status VARCHAR(50) DEFAULT 'Scheduled',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `;
+
+    const createLicensesSubscriptionsTable = `
+        CREATE TABLE IF NOT EXISTS licenses_subscriptions (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            entity_type VARCHAR(50) NOT NULL,
+            entity_id INT NOT NULL,
+            license_or_sub_name VARCHAR(255) NOT NULL,
+            expiry_date DATE NOT NULL,
+            status VARCHAR(50) DEFAULT 'Active',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `;
+
     db.query(createNotificationsTable, (err) => {
         if (err) console.error("Error creating notifications table:", err);
         else console.log("MySQL 'notifications' table verified.");
@@ -52,6 +108,31 @@ export const initializeNotificationTables = () => {
     db.query(createSentRemindersTable, (err) => {
         if (err) console.error("Error creating sent_reminders table:", err);
         else console.log("MySQL 'sent_reminders' table verified.");
+    });
+
+    db.query(createComplaintsTable, (err) => {
+        if (err) console.error("Error creating complaints table:", err);
+        else console.log("MySQL 'complaints' table verified.");
+    });
+
+    db.query(createSystemErrorsTable, (err) => {
+        if (err) console.error("Error creating system_errors table:", err);
+        else console.log("MySQL 'system_errors' table verified.");
+    });
+
+    db.query(createSystemBackupsTable, (err) => {
+        if (err) console.error("Error creating system_backups table:", err);
+        else console.log("MySQL 'system_backups' table verified.");
+    });
+
+    db.query(createSystemMaintenanceTable, (err) => {
+        if (err) console.error("Error creating system_maintenance table:", err);
+        else console.log("MySQL 'system_maintenance' table verified.");
+    });
+
+    db.query(createLicensesSubscriptionsTable, (err) => {
+        if (err) console.error("Error creating licenses_subscriptions table:", err);
+        else console.log("MySQL 'licenses_subscriptions' table verified.");
     });
 };
 
@@ -237,3 +318,154 @@ export const isReminderSent = (entityType, entityId, reminderType, callback) => 
         callback(null, results.length > 0);
     });
 };
+
+// ========================================================
+// ADMIN SYSTEM NOTIFICATIONS AND SIMULATION CRUD DATA
+// ========================================================
+
+// Fetch all active admin ids
+export const getAllAdminIds = (callback) => {
+    db.query("SELECT id FROM admins", (err, results) => {
+        if (err) return callback(err);
+        callback(null, results.map(r => r.id));
+    });
+};
+
+// Insert a notification for all admin users and push via socket
+export const createAdminNotification = (io, data, callback) => {
+    getAllAdminIds((err, adminIds) => {
+        if (err) {
+            console.error("Failed to query admin IDs:", err);
+            if (callback) callback(err);
+            return;
+        }
+        
+        // If there are no admins in the DB, mock it with ID 1
+        const ids = adminIds.length > 0 ? adminIds : [1];
+        let completed = 0;
+        const results = [];
+        
+        ids.forEach(adminId => {
+            const notifyData = {
+                userId: adminId,
+                userRole: "admin",
+                type: data.type,
+                title: data.title,
+                message: data.message
+            };
+            
+            createNotification(notifyData, (errNotify, dbNotify) => {
+                if (!errNotify && dbNotify) {
+                    results.push(dbNotify);
+                    if (io) {
+                        io.to(`admin_${adminId}`).emit("new-notification", dbNotify);
+                    }
+                }
+                completed++;
+                if (completed === ids.length) {
+                    if (callback) callback(null, results);
+                }
+            });
+        });
+    });
+};
+
+// Complaints
+export const createComplaint = (data, callback) => {
+    const sql = `
+        INSERT INTO complaints (user_id, user_role, title, description)
+        VALUES (?, ?, ?, ?)
+    `;
+    db.query(sql, [data.userId, data.userRole, data.title, data.description], (err, result) => {
+        if (err) return callback(err);
+        db.query("SELECT * FROM complaints WHERE id = ?", [result.insertId], (err2, rows) => {
+            if (err2) return callback(err2);
+            callback(null, rows[0]);
+        });
+    });
+};
+
+export const getComplaints = (callback) => {
+    db.query("SELECT * FROM complaints ORDER BY created_at DESC", callback);
+};
+
+export const resolveComplaint = (id, callback) => {
+    db.query("UPDATE complaints SET status = 'Resolved' WHERE id = ?", [id], callback);
+};
+
+// System Errors
+export const createSystemError = (data, callback) => {
+    const sql = `
+        INSERT INTO system_errors (error_code, message, severity)
+        VALUES (?, ?, ?)
+    `;
+    db.query(sql, [data.errorCode, data.message, data.severity || 'High'], (err, result) => {
+        if (err) return callback(err);
+        db.query("SELECT * FROM system_errors WHERE id = ?", [result.insertId], (err2, rows) => {
+            if (err2) return callback(err2);
+            callback(null, rows[0]);
+        });
+    });
+};
+
+export const getSystemErrors = (callback) => {
+    db.query("SELECT * FROM system_errors ORDER BY created_at DESC", callback);
+};
+
+// Backups
+export const createSystemBackup = (data, callback) => {
+    const sql = `
+        INSERT INTO system_backups (backup_name, status, file_size)
+        VALUES (?, ?, ?)
+    `;
+    db.query(sql, [data.backupName, data.status, data.fileSize], (err, result) => {
+        if (err) return callback(err);
+        db.query("SELECT * FROM system_backups WHERE id = ?", [result.insertId], (err2, rows) => {
+            if (err2) return callback(err2);
+            callback(null, rows[0]);
+        });
+    });
+};
+
+export const getSystemBackups = (callback) => {
+    db.query("SELECT * FROM system_backups ORDER BY created_at DESC", callback);
+};
+
+// Maintenance
+export const createSystemMaintenance = (data, callback) => {
+    const sql = `
+        INSERT INTO system_maintenance (title, scheduled_time, duration_mins)
+        VALUES (?, ?, ?)
+    `;
+    db.query(sql, [data.title, data.scheduledTime, data.durationMins], (err, result) => {
+        if (err) return callback(err);
+        db.query("SELECT * FROM system_maintenance WHERE id = ?", [result.insertId], (err2, rows) => {
+            if (err2) return callback(err2);
+            callback(null, rows[0]);
+        });
+    });
+};
+
+export const getSystemMaintenance = (callback) => {
+    db.query("SELECT * FROM system_maintenance ORDER BY scheduled_time ASC", callback);
+};
+
+// Subscriptions & Licenses
+export const createLicenseSubscription = (data, callback) => {
+    const sql = `
+        INSERT INTO licenses_subscriptions (entity_type, entity_id, license_or_sub_name, expiry_date, status)
+        VALUES (?, ?, ?, ?, ?)
+    `;
+    db.query(sql, [data.entityType, data.entityId, data.name, data.expiryDate, data.status || 'Active'], (err, result) => {
+        if (err) return callback(err);
+        db.query("SELECT * FROM licenses_subscriptions WHERE id = ?", [result.insertId], (err2, rows) => {
+            if (err2) return callback(err2);
+            callback(null, rows[0]);
+        });
+    });
+};
+
+export const getLicensesSubscriptions = (callback) => {
+    db.query("SELECT * FROM licenses_subscriptions ORDER BY expiry_date ASC", callback);
+};
+
