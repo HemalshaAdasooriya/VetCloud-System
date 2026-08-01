@@ -263,13 +263,14 @@ export const updatePetOwnerProfile = (ownerId, profileData, callback) => {
         profileData.zip, profileData.country
     ];
 
-    // Query 2: Update the main table's fullName AND address
+    // Query 2: Update the main table's fullName, address, contact_No AND email
     const mainTableSql = `
         UPDATE pet_owners 
         SET 
             fullName = CONCAT(?, ' ', ?),
             address = ?,
-            contact_No = ?
+            contact_No = ?,
+            email = ?
         WHERE id = ?
     `;
 
@@ -278,6 +279,7 @@ export const updatePetOwnerProfile = (ownerId, profileData, callback) => {
         profileData.lastName, 
         fullAddress, 
         profileData.phone, 
+        profileData.email || "",
         ownerId
     ];
 
@@ -448,13 +450,13 @@ export const getFullVeterinarianProfile = (vetId, callback) => {
     
     const sql = `
         SELECT 
-            main.email, main.contact_No, main.license_number, main.specialization, 
+            main.id, main.email, main.contact_No, main.license_number, main.specialization, 
             main.years_of_experience, main.consultation_fee, main.image, main.is_two_factor_enabled,
             profile.firstName, profile.lastName, profile.bio, profile.professional_title,
             clinic.clinic_name, clinic.registration_number, clinic.address AS clinic_address, 
             clinic.city AS clinic_city, clinic.state AS clinic_state, 
             clinic.zip_code AS clinic_zip, clinic.phone AS clinic_phone,
-            bank.bank_name, bank.account_name, bank.account_number, bank.branch_code, bank.payout_schedule
+            bank.bank_name, bank.account_name, bank.account_number, bank.branch_code, bank.payout_schedule, bank.minimum_payout
         FROM veterinarians main
         /* USING CORRECT JOIN COLUMN: profile.vet_id */
         LEFT JOIN veterinarian_profiles profile ON main.id = profile.vet_id
@@ -472,7 +474,41 @@ export const getFullVeterinarianProfile = (vetId, callback) => {
             return callback({ message: "User not found" }, null);
         }
         
-        callback(null, results[0]); 
+        const profileData = results[0];
+        const consultFee = parseFloat(profileData.consultation_fee || 0);
+
+        // Fetch balance details: completed appointments count, total payouts, commission pct
+        const balanceSql = `
+            SELECT 
+                (SELECT COUNT(*) FROM appointments WHERE veterinarian_id = ? AND status = 'Completed') AS completedCount,
+                (SELECT COALESCE(SUM(amount), 0) FROM payouts WHERE veterinarian_id = ? AND status = 'Paid') AS totalPaidPayouts,
+                (SELECT CAST(setting_value AS UNSIGNED) FROM system_settings WHERE setting_key = 'commission_percentage') AS commissionPercentage
+        `;
+
+        db.query(balanceSql, [vetId, vetId], (balErr, balResults) => {
+            if (balErr) {
+                console.error("Error querying doctor balance details:", balErr);
+                profileData.current_balance = 0;
+                profileData.completed_appointments_count = 0;
+                profileData.total_paid_payouts = 0;
+                return callback(null, profileData);
+            }
+
+            const balData = balResults[0] || { completedCount: 0, totalPaidPayouts: 0, commissionPercentage: 10 };
+            const completedCount = balData.completedCount || 0;
+            const totalPaidPayouts = parseFloat(balData.totalPaidPayouts || 0);
+            const commissionPercentage = parseFloat(balData.commissionPercentage || 10);
+
+            // Compute total earnings and remaining balance
+            const totalEarnings = completedCount * consultFee * (1 - (commissionPercentage / 100));
+            const currentBalance = totalEarnings - totalPaidPayouts;
+
+            profileData.current_balance = Math.max(0, currentBalance);
+            profileData.completed_appointments_count = completedCount;
+            profileData.total_paid_payouts = totalPaidPayouts;
+
+            callback(null, profileData);
+        });
     });
 };
 

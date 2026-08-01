@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import db from "../config/db.js";
-import { sendEmail } from "../config/email.js";
+import { sendEmail, getAppointmentConfirmationTemplate, getVaccinationReminderTemplate, getMedicalReportTemplate, getInvoiceTemplate, getDailyAppointmentScheduleTemplate, getMonthlyPerformanceReportTemplate, getSystemAnnouncementTemplate, getSecurityAlertTemplate, getFailedPaymentReportTemplate, getUserAccountIssueTemplate, getNewConsultationAssignmentTemplate } from "../config/email.js";
 import { 
     createAdminNotification, 
     createComplaint, 
@@ -14,7 +14,8 @@ import {
     createSystemMaintenance, 
     getSystemMaintenance, 
     createLicenseSubscription, 
-    getLicensesSubscriptions 
+    getLicensesSubscriptions,
+    createNotification
 } from "../models/Notification.js";
 import { createPetOwner, createVeterinarian } from "../models/User.js";
 
@@ -93,11 +94,30 @@ export const simulateAction = async (req, res) => {
     const io = req.app.get("io");
 
     try {
+        let ownerId = 1;
+        let ownerEmail = "farmer@example.com";
+        let ownerName = "John Doe";
+        const owners = await queryPromise("SELECT id, email, fullName FROM pet_owners LIMIT 1");
+        if (owners.length > 0) {
+            ownerId = owners[0].id;
+            ownerEmail = owners[0].email;
+            ownerName = owners[0].fullName;
+        }
+
+        let vetId = 1;
+        let vetEmail = "doctor@example.com";
+        let vetName = "Smith";
+        const vets = await queryPromise("SELECT id, email, fullName FROM veterinarians LIMIT 1");
+        if (vets.length > 0) {
+            vetId = vets[0].id;
+            vetEmail = vets[0].email;
+            vetName = vets[0].fullName;
+        }
+
         if (type === "user_registration") {
             const rand = Math.floor(Math.random() * 10000);
             const userEmail = `farmer_${rand}@example.com`;
             
-            // Trigger in-app notification directly
             createAdminNotification(io, {
                 type: "new_user_registration",
                 title: "New User Registered",
@@ -109,29 +129,25 @@ export const simulateAction = async (req, res) => {
         
         else if (type === "vet_registration") {
             const rand = Math.floor(Math.random() * 10000);
-            const vetEmail = `doctor_${rand}@example.com`;
             const licenseNo = `LIC-${rand}`;
 
-            // Trigger in-app notification directly
             createAdminNotification(io, {
                 type: "new_vet_registration",
                 title: "New Vet Registration Request",
                 message: `New veterinarian registered: Dr. Smith (License: ${licenseNo}). Pending administrator approval.`
             });
 
-            // Log a license track
             createLicenseSubscription({
                 entityType: "Veterinarian",
                 entityId: rand,
                 name: `Vet License (${licenseNo})`,
-                expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // expiring in 30 days
+                expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
             }, () => {});
 
             return res.status(200).json({ message: "Simulated veterinarian registration request notification sent." });
         } 
         
         else if (type === "appointment_conflict") {
-            // Find/simulate overlapping slots
             createAdminNotification(io, {
                 type: "appointment_conflict",
                 title: "Appointment Conflict Detected",
@@ -146,7 +162,6 @@ export const simulateAction = async (req, res) => {
             const code = codes[Math.floor(Math.random() * codes.length)];
             const errorMsg = `Simulated system anomaly detected: ${code} inside api route.`;
 
-            // Insert into system_errors
             createSystemError({
                 errorCode: code,
                 message: errorMsg,
@@ -169,9 +184,8 @@ export const simulateAction = async (req, res) => {
             const title = `Billing discrepancy issue #${rand}`;
             const desc = "I was double charged LKR 1500.00 during my consultation with Dr. Perera yesterday. Please refund.";
 
-            // Save complaint
             createComplaint({
-                userId: 1,
+                userId: ownerId,
                 userRole: "farmer",
                 title,
                 description: desc
@@ -199,34 +213,24 @@ export const simulateAction = async (req, res) => {
         } 
         
         else if (type === "backup") {
-            // Create a mock backup file physically in Backend/uploads/backups
             const backupDir = path.join("uploads", "backups");
-            if (!fs.existsSync(backupDir)) {
-                fs.mkdirSync(backupDir, { recursive: true });
-            }
+            if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
 
             const timestamp = Date.now();
             const fileName = `vetcloud_backup_${timestamp}.sql`;
             const filePath = path.join(backupDir, fileName);
 
-            // Write mock SQL content
-            const content = `-- VetCloud MySQL Database Backup Dump\n-- Generated on ${new Date().toLocaleString()}\nUSE vetcloud;\n`;
-            fs.writeFileSync(filePath, content, "utf8");
-
+            fs.writeFileSync(filePath, `-- VetCloud MySQL Backup\n`, "utf8");
             const stats = fs.statSync(filePath);
             const sizeKB = (stats.size / 1024).toFixed(2) + " KB";
 
-            // Save to DB
             createSystemBackup({
                 backupName: fileName,
                 status: "Success",
                 fileSize: sizeKB
             }, async (err, result) => {
-                if (err) {
-                    return res.status(500).json({ message: "Failed to record backup status in database" });
-                }
+                if (err) return res.status(500).json({ message: "Failed to record backup" });
 
-                // Send Email Notification to admins
                 const adminList = await queryPromise("SELECT email FROM admins");
                 const adminEmails = adminList.length > 0 ? adminList.map(a => a.email) : ["admin@vetcloud.com"];
 
@@ -234,20 +238,11 @@ export const simulateAction = async (req, res) => {
                     sendEmail({
                         to: email,
                         subject: "Database Backup Completed - Success",
-                        html: `
-                            <h2>Backup Completed Successfully</h2>
-                            <p>A new system backup was created successfully.</p>
-                            <ul>
-                                <li><strong>Backup File:</strong> ${fileName}</li>
-                                <li><strong>File Size:</strong> ${sizeKB}</li>
-                                <li><strong>Created At:</strong> ${new Date().toLocaleString()}</li>
-                            </ul>
-                        `,
-                        text: `Database backup ${fileName} of size ${sizeKB} created successfully.`
+                        html: `<h2>Backup Completed Successfully</h2><p>File: ${fileName} (${sizeKB})</p>`,
+                        text: `Database backup ${fileName} successfully generated.`
                     }).catch(console.error);
                 });
 
-                // Send In-App notification
                 createAdminNotification(io, {
                     type: "backup_status",
                     title: "Backup Completion Status",
@@ -259,7 +254,6 @@ export const simulateAction = async (req, res) => {
         } 
         
         else if (type === "daily_summary") {
-            // Aggregate summary data
             const [ownersCount] = await queryPromise("SELECT COUNT(*) AS count FROM pet_owners");
             const [vetsCount] = await queryPromise("SELECT COUNT(*) AS count FROM veterinarians");
             const [appointmentsCount] = await queryPromise("SELECT COUNT(*) AS count FROM appointments");
@@ -274,20 +268,8 @@ export const simulateAction = async (req, res) => {
                 sendEmail({
                     to: email,
                     subject: "Daily System Summary Report - VetCloud",
-                    html: `
-                        <h2>Daily System Summary Report</h2>
-                        <p>Here is the overview of the system status as of ${new Date().toLocaleDateString()}:</p>
-                        <table style="width:100%; border-collapse:collapse; margin-top:15px;">
-                            <tr style="background:#f8fafc;"><td style="padding:8px; border:1px solid #e2e8f0; font-weight:600;">Total Registrations (Owners)</td><td style="padding:8px; border:1px solid #e2e8f0;">${ownersCount.count}</td></tr>
-                            <tr><td style="padding:8px; border:1px solid #e2e8f0; font-weight:600;">Total Registrations (Vets)</td><td style="padding:8px; border:1px solid #e2e8f0;">${vetsCount.count}</td></tr>
-                            <tr style="background:#f8fafc;"><td style="padding:8px; border:1px solid #e2e8f0; font-weight:600;">Total Appointments</td><td style="padding:8px; border:1px solid #e2e8f0;">${appointmentsCount.count}</td></tr>
-                            <tr><td style="padding:8px; border:1px solid #e2e8f0; font-weight:600;">Total Generated Revenue</td><td style="padding:8px; border:1px solid #e2e8f0;">LKR ${parseFloat(revenueSum.sum || 0).toFixed(2)}</td></tr>
-                            <tr style="background:#f8fafc;"><td style="padding:8px; border:1px solid #e2e8f0; font-weight:600;">Pending Customer Complaints</td><td style="padding:8px; border:1px solid #e2e8f0; color:#e11d48; font-weight:700;">${pendingComplaints.count}</td></tr>
-                            <tr><td style="padding:8px; border:1px solid #e2e8f0; font-weight:600;">Active System Anomalies</td><td style="padding:8px; border:1px solid #e2e8f0; color:#e11d48;">${recentErrors.count}</td></tr>
-                        </table>
-                        <p style="margin-top:20px; font-size:12px; color:#64748b;">Daily automated scan completed successfully.</p>
-                    `,
-                    text: `Daily Summary: Owners: ${ownersCount.count}, Vets: ${vetsCount.count}, Appointments: ${appointmentsCount.count}, Revenue: LKR ${revenueSum.sum || 0}.`
+                    html: `<h2>Daily System Summary Report</h2><p>Revenue: LKR ${parseFloat(revenueSum.sum || 0).toFixed(2)}, Active Anomalies: ${recentErrors.count}</p>`,
+                    text: `Daily Summary Report generated.`
                 }).catch(console.error);
             });
 
@@ -295,7 +277,6 @@ export const simulateAction = async (req, res) => {
         } 
         
         else if (type === "monthly_analytics") {
-            // Aggregate analytics
             const [ownersCount] = await queryPromise("SELECT COUNT(*) AS count FROM pet_owners");
             const [vetsCount] = await queryPromise("SELECT COUNT(*) AS count FROM veterinarians");
             const [appointmentsCount] = await queryPromise("SELECT COUNT(*) AS count FROM appointments");
@@ -308,28 +289,436 @@ export const simulateAction = async (req, res) => {
                 sendEmail({
                     to: email,
                     subject: "Monthly System Analytics Report - VetCloud",
-                    html: `
-                        <h2>Monthly System Analytics & Trends</h2>
-                        <p>Consolidated statistics and health indicators for the past month:</p>
-                        <div style="background-color:#ecfdf5; border:1px solid #a7f3d0; border-radius:8px; padding:15px; margin:15px 0;">
-                            <h3 style="color:#065f46; margin:0 0 10px 0;">Performance Indicators</h3>
-                            <p style="margin:5px 0;"><strong>Active Platform Engagement:</strong> Excellent</p>
-                            <p style="margin:5px 0;"><strong>Vet Availability Slot Fill Rate:</strong> 72%</p>
-                        </div>
-                        <table style="width:100%; border-collapse:collapse;">
-                            <tr style="background:#f8fafc;"><td style="padding:8px; border:1px solid #e2e8f0; font-weight:600;">Registered Pet Owners</td><td style="padding:8px; border:1px solid #e2e8f0;">${ownersCount.count}</td></tr>
-                            <tr><td style="padding:8px; border:1px solid #e2e8f0; font-weight:600;">Approved Veterinarians</td><td style="padding:8px; border:1px solid #e2e8f0;">${vetsCount.count}</td></tr>
-                            <tr style="background:#f8fafc;"><td style="padding:8px; border:1px solid #e2e8f0; font-weight:600;">Consultations Completed</td><td style="padding:8px; border:1px solid #e2e8f0;">${appointmentsCount.count}</td></tr>
-                            <tr><td style="padding:8px; border:1px solid #e2e8f0; font-weight:600;">Platform Revenue Growth</td><td style="padding:8px; border:1px solid #e2e8f0; color:#10b981; font-weight:700;">+14.5% (LKR ${parseFloat(revenueSum.sum || 0).toFixed(2)})</td></tr>
-                        </table>
-                    `,
-                    text: `Monthly Analytics: Owners: ${ownersCount.count}, Vets: ${vetsCount.count}, Appointments: ${appointmentsCount.count}, Revenue: LKR ${revenueSum.sum || 0}.`
+                    html: `<h2>Monthly Analytics</h2><p>Total Revenue: LKR ${parseFloat(revenueSum.sum || 0).toFixed(2)}</p>`,
+                    text: `Monthly Analytics Report generated.`
                 }).catch(console.error);
             });
 
             return res.status(200).json({ message: "Monthly analytics email dispatch simulated." });
-        } 
-        
+        }
+
+        // ── PET OWNER SIMULATIONS ─────────────────────────────────────────────
+        else if (type === "appointment_confirmed") {
+            const dataNotify = {
+                userId: ownerId,
+                userRole: "Farmer/PetOwner",
+                type: "appointment_confirmed",
+                title: "Appointment Booking Confirmed",
+                message: `Your appointment request for Bobby with Dr. ${vetName} has been successfully approved.`
+            };
+            createNotification(dataNotify, (err, dbNotify) => {
+                if (!err && dbNotify && io) io.to(`Farmer/PetOwner_${ownerId}`).emit("new-notification", dbNotify);
+            });
+
+            const emailHtml = getAppointmentConfirmationTemplate(ownerName, "Bobby", vetName, new Date(), "10:00 AM", "video", "General checkup");
+            sendEmail({
+                to: ownerEmail,
+                subject: "Appointment Confirmation Details - VetCloud",
+                html: emailHtml,
+                text: `Dear ${ownerName}, your appointment is confirmed.`
+            }).catch(console.error);
+
+            return res.status(200).json({ message: "Simulated appointment confirmation alerts sent." });
+        }
+
+        else if (type === "appointment_rescheduled") {
+            const dataNotify = {
+                userId: ownerId,
+                userRole: "Farmer/PetOwner",
+                type: "appointment_rescheduled",
+                title: "Appointment Rescheduled",
+                message: `Your appointment request has been rescheduled. New slots proposed.`
+            };
+            createNotification(dataNotify, (err, dbNotify) => {
+                if (!err && dbNotify && io) io.to(`Farmer/PetOwner_${ownerId}`).emit("new-notification", dbNotify);
+            });
+
+            return res.status(200).json({ message: "Simulated rescheduled appointment alerts sent." });
+        }
+
+        else if (type === "appointment_cancelled") {
+            const dataNotify = {
+                userId: ownerId,
+                userRole: "Farmer/PetOwner",
+                type: "appointment_cancelled",
+                title: "Appointment Cancelled",
+                message: `Your consultation with Dr. ${vetName} was cancelled.`
+            };
+            createNotification(dataNotify, (err, dbNotify) => {
+                if (!err && dbNotify && io) io.to(`Farmer/PetOwner_${ownerId}`).emit("new-notification", dbNotify);
+            });
+
+            return res.status(200).json({ message: "Simulated cancellation alerts sent." });
+        }
+
+        else if (type === "vet_assigned") {
+            const dataNotify = {
+                userId: ownerId,
+                userRole: "Farmer/PetOwner",
+                type: "vet_assigned",
+                title: "Veterinarian Assigned",
+                message: `Veterinarian Dr. ${vetName} has been assigned to your consultation.`
+            };
+            createNotification(dataNotify, (err, dbNotify) => {
+                if (!err && dbNotify && io) io.to(`Farmer/PetOwner_${ownerId}`).emit("new-notification", dbNotify);
+            });
+
+            return res.status(200).json({ message: "Simulated veterinarian assignment notification sent." });
+        }
+
+        else if (type === "medical_record_updated") {
+            const dataNotify = {
+                userId: ownerId,
+                userRole: "Farmer/PetOwner",
+                type: "medical_updated",
+                title: "Medical Record Updated",
+                message: `Medical file for your animal Bobby has been updated by Dr. ${vetName}.`
+            };
+            createNotification(dataNotify, (err, dbNotify) => {
+                if (!err && dbNotify && io) io.to(`Farmer/PetOwner_${ownerId}`).emit("new-notification", dbNotify);
+            });
+
+            const emailHtml = getMedicalReportTemplate(ownerName, "Bobby", "Routine Treatment Notes", "Medical Notes", "Patient shows great progress.", vetName, new Date().toLocaleDateString());
+            sendEmail({
+                to: ownerEmail,
+                subject: "Medical Report / Records Updated - VetCloud",
+                html: emailHtml,
+                text: `Bobby's medical history updated.`
+            }).catch(console.error);
+
+            return res.status(200).json({ message: "Simulated medical record update alerts sent." });
+        }
+
+        else if (type === "prescription_available") {
+            const dataNotify = {
+                userId: ownerId,
+                userRole: "Farmer/PetOwner",
+                type: "prescription_available",
+                title: "Prescription Available",
+                message: `New digital prescription file uploaded for Bobby by Dr. ${vetName}.`
+            };
+            createNotification(dataNotify, (err, dbNotify) => {
+                if (!err && dbNotify && io) io.to(`Farmer/PetOwner_${ownerId}`).emit("new-notification", dbNotify);
+            });
+
+            const emailHtml = getMedicalReportTemplate(ownerName, "Bobby", "Prescription Refill #1029", "Prescription", "Amoxicillin 250mg twice daily.", vetName, new Date().toLocaleDateString());
+            sendEmail({
+                to: ownerEmail,
+                subject: "Prescription Refill File Available - VetCloud",
+                html: emailHtml,
+                text: `Prescription refill file available.`
+            }).catch(console.error);
+
+            return res.status(200).json({ message: "Simulated prescription available alerts sent." });
+        }
+
+        else if (type === "vaccination_due") {
+            const dataNotify = {
+                userId: ownerId,
+                userRole: "Farmer/PetOwner",
+                type: "vaccination_due",
+                title: "Vaccination Due Soon",
+                message: `Reminder: Vaccination 'Rabies Booster' is due for Bobby in 7 days.`
+            };
+            createNotification(dataNotify, (err, dbNotify) => {
+                if (!err && dbNotify && io) io.to(`Farmer/PetOwner_${ownerId}`).emit("new-notification", dbNotify);
+            });
+
+            const emailHtml = getVaccinationReminderTemplate(ownerName, "Bobby", "Rabies Booster", new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
+            sendEmail({
+                to: ownerEmail,
+                subject: "Vaccination Schedule Alert - VetCloud",
+                html: emailHtml,
+                text: `Bobby has a vaccination due soon.`
+            }).catch(console.error);
+
+            return res.status(200).json({ message: "Simulated vaccination due reminders sent." });
+        }
+
+        else if (type === "test_results") {
+            const dataNotify = {
+                userId: ownerId,
+                userRole: "Farmer/PetOwner",
+                type: "test_results",
+                title: "Test Results Available",
+                message: `Diagnostic lab test results are ready for Bobby.`
+            };
+            createNotification(dataNotify, (err, dbNotify) => {
+                if (!err && dbNotify && io) io.to(`Farmer/PetOwner_${ownerId}`).emit("new-notification", dbNotify);
+            });
+
+            const emailHtml = getMedicalReportTemplate(ownerName, "Bobby", "Blood Chemistry Profile", "Diagnostic", "All parameters normal.", vetName, new Date().toLocaleDateString());
+            sendEmail({
+                to: ownerEmail,
+                subject: "Test Results Available - VetCloud",
+                html: emailHtml,
+                text: `Diagnostic test results ready.`
+            }).catch(console.error);
+
+            return res.status(200).json({ message: "Simulated test result notifications sent." });
+        }
+
+        else if (type === "payment_success") {
+            const dataNotify = {
+                userId: ownerId,
+                userRole: "Farmer/PetOwner",
+                type: "payment_success",
+                title: "Payment Successful",
+                message: `LKR 1,500.00 payment was successful. Receipt generated.`
+            };
+            createNotification(dataNotify, (err, dbNotify) => {
+                if (!err && dbNotify && io) io.to(`Farmer/PetOwner_${ownerId}`).emit("new-notification", dbNotify);
+            });
+
+            const emailHtml = getInvoiceTemplate(ownerName, "1500.00", "PAY-TEST-9921", new Date().toLocaleString(), "Bobby", vetName);
+            sendEmail({
+                to: ownerEmail,
+                subject: "Payment Receipt / Invoice - VetCloud",
+                html: emailHtml,
+                text: `Invoice payment receipt for consultation.`
+            }).catch(console.error);
+
+            return res.status(200).json({ message: "Simulated successful payment receipt sent." });
+        }
+
+        else if (type === "feedback_request") {
+            const dataNotify = {
+                userId: ownerId,
+                userRole: "Farmer/PetOwner",
+                type: "feedback_request",
+                title: "Feedback Request",
+                message: `Please tell us about your experience consulting Dr. ${vetName} for Bobby.`
+            };
+            createNotification(dataNotify, (err, dbNotify) => {
+                if (!err && dbNotify && io) io.to(`Farmer/PetOwner_${ownerId}`).emit("new-notification", dbNotify);
+            });
+
+            return res.status(200).json({ message: "Simulated feedback request sent." });
+        }
+
+        // ── VETERINARIAN SIMULATIONS ──────────────────────────────────────────
+        else if (type === "new_consultation_request") {
+            const dataNotify = {
+                userId: vetId,
+                userRole: "Veterinary Doctor",
+                type: "appointment_assigned",
+                title: "New Consultation Request",
+                message: `New request from client ${ownerName} for consultation of Bobby.`
+            };
+            createNotification(dataNotify, (err, dbNotify) => {
+                if (!err && dbNotify && io) io.to(`Veterinary Doctor_${vetId}`).emit("new-notification", dbNotify);
+            });
+
+            const emailHtml = getNewConsultationAssignmentTemplate(vetName, ownerName, "Bobby", new Date(), "10:00 AM");
+            sendEmail({
+                to: vetEmail,
+                subject: "New Consultation Assignment - VetCloud",
+                html: emailHtml,
+                text: `Dear Dr. ${vetName}, you have a new consultation request.`
+            }).catch(console.error);
+
+            return res.status(200).json({ message: "Simulated consultation request alerts sent." });
+        }
+
+        else if (type === "emergency_case") {
+            const dataNotify = {
+                userId: vetId,
+                userRole: "Veterinary Doctor",
+                type: "appointment_conflict", // matches red alert style
+                title: "🚨 EMERGENCY Case Submitted",
+                message: `CRITICAL: Client ${ownerName} submitted an emergency request for bovine clinical support.`
+            };
+            createNotification(dataNotify, (err, dbNotify) => {
+                if (!err && dbNotify && io) io.to(`Veterinary Doctor_${vetId}`).emit("new-notification", dbNotify);
+            });
+
+            return res.status(200).json({ message: "Simulated emergency notification sent." });
+        }
+
+        else if (type === "medical_record_update_request") {
+            const dataNotify = {
+                userId: vetId,
+                userRole: "Veterinary Doctor",
+                type: "appointment_reminder",
+                title: "Medical Record Update Request",
+                message: `Please finalize and upload visit summaries for today's completed cases.`
+            };
+            createNotification(dataNotify, (err, dbNotify) => {
+                if (!err && dbNotify && io) io.to(`Veterinary Doctor_${vetId}`).emit("new-notification", dbNotify);
+            });
+
+            return res.status(200).json({ message: "Simulated medical record update request sent." });
+        }
+
+        else if (type === "daily_schedule") {
+            const appts = [
+                { slot_time: "09:30 AM", owner_name: "John Doe", animal_name: "Bobby", animal_species: "Dog", consultation_type: "video" },
+                { slot_time: "11:00 AM", owner_name: "Alice Perera", animal_name: "Molly", animal_species: "Cow", consultation_type: "chat" }
+            ];
+            const emailHtml = getDailyAppointmentScheduleTemplate(vetName, appts);
+            sendEmail({
+                to: vetEmail,
+                subject: "Daily Appointment Schedule - VetCloud",
+                html: emailHtml,
+                text: `Daily appointment schedule report.`
+            }).catch(console.error);
+
+            return res.status(200).json({ message: "Simulated daily schedule email dispatched." });
+        }
+
+        else if (type === "monthly_performance_report") {
+            const stats = { completedCount: 24, revenue: 36000.00, averageRating: 4.8 };
+            const emailHtml = getMonthlyPerformanceReportTemplate(vetName, stats);
+            sendEmail({
+                to: vetEmail,
+                subject: "Monthly Performance Report - VetCloud",
+                html: emailHtml,
+                text: `Monthly performance stats summary.`
+            }).catch(console.error);
+
+            return res.status(200).json({ message: "Simulated monthly performance report email dispatched." });
+        }
+
+        else if (type === "system_announcement") {
+            const emailHtml = getSystemAnnouncementTemplate("Service Interruption Notice", "The platform will undergo regular upgrades this Sunday between 02:00 AM and 04:00 AM LKR. Socket streams might disconnect briefly.");
+            sendEmail({
+                to: vetEmail,
+                subject: "System Announcement - VetCloud Upgrade Notice",
+                html: emailHtml,
+                text: `System announcement concerning upcoming platform maintenance.`
+            }).catch(console.error);
+
+            return res.status(200).json({ message: "Simulated system announcement broadcast email sent." });
+        }
+
+        else if (type === "upcoming_appointments") {
+            const dataNotify = {
+                userId: vetId,
+                userRole: "Veterinary Doctor",
+                type: "appointment_reminder",
+                title: "Upcoming Appointment Reminder",
+                message: `Your scheduled consultation with ${ownerName} starts in 1 hour.`
+            };
+            createNotification(dataNotify, (err, dbNotify) => {
+                if (!err && dbNotify && io) io.to(`Veterinary Doctor_${vetId}`).emit("new-notification", dbNotify);
+            });
+
+            return res.status(200).json({ message: "Simulated upcoming appointment reminders sent." });
+        }
+
+        else if (type === "followup_review") {
+            const dataNotify = {
+                userId: vetId,
+                userRole: "Veterinary Doctor",
+                type: "followup_case_review",
+                title: "Follow-up Case Review Required",
+                message: `Please complete a follow-up review for Bobby (client: ${ownerName})'s diagnostic logs.`
+            };
+            createNotification(dataNotify, (err, dbNotify) => {
+                if (!err && dbNotify && io) io.to(`Veterinary Doctor_${vetId}`).emit("new-notification", dbNotify);
+            });
+
+            return res.status(200).json({ message: "Simulated follow-up alerts sent." });
+        }
+
+        else if (type === "pending_prescriptions") {
+            const dataNotify = {
+                userId: vetId,
+                userRole: "Veterinary Doctor",
+                type: "pending_prescription",
+                title: "Pending Prescription Upload",
+                message: `Reminder: prescription details remain pending for completed consultation #${ownerId}.`
+            };
+            createNotification(dataNotify, (err, dbNotify) => {
+                if (!err && dbNotify && io) io.to(`Veterinary Doctor_${vetId}`).emit("new-notification", dbNotify);
+            });
+
+            return res.status(200).json({ message: "Simulated pending prescription alerts sent." });
+        }
+
+        else if (type === "pending_medical_updates") {
+            const dataNotify = {
+                userId: vetId,
+                userRole: "Veterinary Doctor",
+                type: "pending_medical_update",
+                title: "Pending Medical Record Update",
+                message: `Reminder: animal clinical notes have not been finalized for completed consultation #${ownerId}.`
+            };
+            createNotification(dataNotify, (err, dbNotify) => {
+                if (!err && dbNotify && io) io.to(`Veterinary Doctor_${vetId}`).emit("new-notification", dbNotify);
+            });
+
+            return res.status(200).json({ message: "Simulated pending medical record alerts sent." });
+        }
+
+        // ── ADMINISTRATOR SIMULATIONS ─────────────────────────────────────────
+        else if (type === "failed_payment") {
+            createAdminNotification(io, {
+                type: "appointment_conflict", // matches red alert style
+                title: "Failed Payment Transaction",
+                message: `Failed transaction of LKR 1,500.00 for client ${ownerName} on appointment #12.`
+            });
+
+            const emailHtml = getFailedPaymentReportTemplate(12, ownerName, 1500.00, "Insufficient funds / card declined");
+            const adminList = await queryPromise("SELECT email FROM admins");
+            const adminEmails = adminList.length > 0 ? adminList.map(a => a.email) : ["admin@vetcloud.com"];
+
+            adminEmails.forEach(email => {
+                sendEmail({
+                    to: email,
+                    subject: "Failed Payment Report - VetCloud",
+                    html: emailHtml,
+                    text: `Billing transaction failed.`
+                }).catch(console.error);
+            });
+
+            return res.status(200).json({ message: "Simulated failed payment report sent." });
+        }
+
+        else if (type === "security_alert") {
+            const emailHtml = getSecurityAlertTemplate("Brute Force Detected", "Multiple consecutive failed login attempts detected on administrator account from IP: 198.162.1.20.", "Device: Chrome/Windows, Location: Unknown. Account remains active, please verify logs.");
+            const adminList = await queryPromise("SELECT email FROM admins");
+            const adminEmails = adminList.length > 0 ? adminList.map(a => a.email) : ["admin@vetcloud.com"];
+
+            adminEmails.forEach(email => {
+                sendEmail({
+                    to: email,
+                    subject: "Security Warning Alert - VetCloud Admin",
+                    html: emailHtml,
+                    text: `System security incident alert.`
+                }).catch(console.error);
+            });
+
+            return res.status(200).json({ message: "Simulated security alert email dispatched." });
+        }
+
+        else if (type === "user_account_issue") {
+            const emailHtml = getUserAccountIssueTemplate("Profile Spam Warning", "User Account John Doe (farmer_992@example.com) has been flagged by automated logs for sending spam consultations.");
+            const adminList = await queryPromise("SELECT email FROM admins");
+            const adminEmails = adminList.length > 0 ? adminList.map(a => a.email) : ["admin@vetcloud.com"];
+
+            adminEmails.forEach(email => {
+                sendEmail({
+                    to: email,
+                    subject: "Account Issue Alert - VetCloud Support",
+                    html: emailHtml,
+                    text: `User profile issue warning.`
+                }).catch(console.error);
+            });
+
+            return res.status(200).json({ message: "Simulated account issue email sent." });
+        }
+
+        else if (type === "license_expiring") {
+            createAdminNotification(io, {
+                type: "system_maintenance",
+                title: "Expiring License Alert",
+                message: `License reminder: doctor Dr. Smith's veterinary practice permit is expiring within 30 days.`
+            });
+
+            return res.status(200).json({ message: "Simulated licensing expiry alert sent." });
+        }
+
         else {
             return res.status(400).json({ message: `Unknown simulation alert type: ${type}` });
         }

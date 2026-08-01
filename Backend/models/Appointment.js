@@ -223,11 +223,13 @@ export const getAppointmentsByOwner = (ownerId, callback) => {
             s.slot_date AS appointment_date,
             s.slot_time AS appointment_time,
             s.id AS selected_slot_id,
-            s.is_selected
+            s.is_selected,
+            h.notes AS prescription
         FROM appointments a
         JOIN animals an ON a.animal_id = an.id
         JOIN veterinarians v ON a.veterinarian_id = v.id
         LEFT JOIN appointment_slots s ON a.selected_slot_id = s.id
+        LEFT JOIN animal_medical_histories h ON h.animal_id = a.animal_id AND h.type = 'Prescription' AND h.title = CONCAT('Prescription for Appointment #', a.id)
         WHERE a.pet_owner_id = ?
         ORDER BY a.created_at DESC
     `;
@@ -245,7 +247,8 @@ export const getAppointmentsByOwner = (ownerId, callback) => {
                 appointment_date: row.appointment_date || null,
                 appointment_time: row.appointment_time || null,
                 reason_notes: parsedReason.notes,
-                availability_slots: parsedReason.availability
+                availability_slots: parsedReason.availability,
+                prescription: row.prescription || null
             };
         });
         

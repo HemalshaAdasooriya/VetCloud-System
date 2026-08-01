@@ -37,4 +37,36 @@ export const initializePaymentSettingsTable = () => {
             console.log("MySQL 'appointments.payment_status' column verified.");
         }
     });
+
+    // Alter feedbacks table to add show_on_homepage if it doesn't exist
+    db.query("SHOW COLUMNS FROM feedbacks LIKE 'show_on_homepage'", (err, results) => {
+        if (err) {
+            console.error("Error checking feedbacks columns:", err);
+            return;
+        }
+        if (results.length === 0) {
+            db.query("ALTER TABLE feedbacks ADD COLUMN show_on_homepage TINYINT(1) DEFAULT 0", (err) => {
+                if (err) console.error("Error adding show_on_homepage column to feedbacks:", err);
+                else console.log("MySQL 'feedbacks' table altered: added show_on_homepage.");
+            });
+        } else {
+            console.log("MySQL 'feedbacks.show_on_homepage' column verified.");
+        }
+    });
+
+    // Alter veterinarian_bank_details table to add minimum_payout if it doesn't exist
+    db.query("SHOW COLUMNS FROM veterinarian_bank_details LIKE 'minimum_payout'", (err, results) => {
+        if (err) {
+            console.error("Error checking veterinarian_bank_details columns:", err);
+            return;
+        }
+        if (results.length === 0) {
+            db.query("ALTER TABLE veterinarian_bank_details ADD COLUMN minimum_payout INT DEFAULT 1000", (err) => {
+                if (err) console.error("Error adding minimum_payout column to veterinarian_bank_details:", err);
+                else console.log("MySQL 'veterinarian_bank_details' table altered: added minimum_payout.");
+            });
+        } else {
+            console.log("MySQL 'veterinarian_bank_details.minimum_payout' column verified.");
+        }
+    });
 };

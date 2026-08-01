@@ -1,14 +1,62 @@
 import { ArrowRight, CalendarCheck, CalendarCheck2, FileText, HeartPulse, HeartPulseIcon, LucideHeartPulse, MapPin, Phone, Play, ShieldCheck, Star, Stethoscope, StethoscopeIcon, Video, VideoIcon } from "lucide-react";
 import { Button, Card } from "../components/Ui/ui";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 import Navigation from "../layouts/navigation";
 import Footer from "../layouts/footer";
 import { FaInstagram } from "react-icons/fa6";
 import { BsFacebook, BsInstagram, BsTwitter } from "react-icons/bs";
 import { motion } from "framer-motion";
+import { useState, useEffect } from "react";
 
 
 export default function HomePage() {
+    const navigate = useNavigate();
+    const [testimonials, setTestimonials] = useState([]);
+
+    const fetchTestimonials = async () => {
+        try {
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/feedback/homepage`);
+            if (res.ok) {
+                const data = await res.json();
+                setTestimonials(data);
+            }
+        } catch (error) {
+            console.error("Error fetching testimonials:", error);
+        }
+    };
+
+    useEffect(() => {
+        fetchTestimonials();
+    }, []);
+
+    const defaultTestimonials = [
+        {
+            comment: "VetCloud saved my calf's life. Being able to video call a vet at 2 AM from my barn was incredible.",
+            ownerName: "John Davis", ownerRole: "Dairy Farmer", rating: 5,
+            ownerImage: "https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=1974&auto=format&fit=crop"
+        },
+        {
+            comment: "I used to drive 45 minutes to the nearest clinic for basic checkups. Now I just use the app!",
+            ownerName: "Sarah Jenkins", ownerRole: "Pet Owner", rating: 5,
+            ownerImage: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=1976&auto=format&fit=crop"
+        },
+        {
+            comment: "The disease database helps me spot early signs of illness in my flock before it spreads.",
+            ownerName: "Miguel Torres", ownerRole: "Poultry Farmer", rating: 5,
+            ownerImage: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=1974&auto=format&fit=crop"
+        }
+    ];
+
+    const displayTestimonials = testimonials.length > 0 ? testimonials : defaultTestimonials;
+
+    const getOwnerImage = (image) => {
+        if (!image) return "/default.jpg";
+        if (image.startsWith("/uploads/")) {
+            return `${import.meta.env.VITE_BACKEND_URL}${image}`;
+        }
+        return image;
+    };
     return (
         <div className="flex flex-col">
             <Navigation />
@@ -141,7 +189,17 @@ export default function HomePage() {
                     { title: 'Emergency Clinics', desc: 'GPS locator for the nearest open vet clinics.', icon: MapPin, color: 'bg-rose-100 text-rose-600', link: '/clinics' },
                     { title: 'Appointment Booking', desc: 'Schedule farm visits or clinic checkups.', icon: CalendarCheck, color: 'bg-amber-100 text-amber-600', link: '/consultation' },
                     ].map((service, idx) => (
-                    <Link to={service.link} key={idx}>
+                    <Link 
+                        to={service.link} 
+                        key={idx}
+                        onClick={(e) => {
+                            if (service.link === '/consultation' && !localStorage.getItem("token")) {
+                                e.preventDefault();
+                                toast.error("Please login to consult a veterinarian");
+                                navigate("/login");
+                            }
+                        }}
+                    >
                         <Card className="h-full p-6 hover:shadow-md transition-shadow border-slate-100 hover:border-green-200 group cursor-pointer">
                             <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-6 ${service.color}`}>
                                 <service.icon size={24} />
@@ -210,25 +268,9 @@ export default function HomePage() {
                     </div>
                     
                     <div className="grid md:grid-cols-3 gap-8">
-                        {[
-                        {
-                            text: "VetCloud saved my calf's life. Being able to video call a vet at 2 AM from my barn was incredible.",
-                            name: "John Davis", role: "Dairy Farmer",
-                            img: "https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=1974&auto=format&fit=crop"
-                        },
-                        {
-                            text: "I used to drive 45 minutes to the nearest clinic for basic checkups. Now I just use the app!",
-                            name: "Sarah Jenkins", role: "Pet Owner",
-                            img: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=1976&auto=format&fit=crop"
-                        },
-                        {
-                            text: "The disease database helps me spot early signs of illness in my flock before it spreads.",
-                            name: "Miguel Torres", role: "Poultry Farmer",
-                            img: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=1974&auto=format&fit=crop"
-                        }
-                        ].map((t, i) => (
+                        {displayTestimonials.map((t, i) => (
                         <motion.div
-                            key={i}
+                            key={t.id || i}
                             initial={{ opacity: 0, y: 70 }}
                             whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true, margin: "-50px" }}
@@ -238,20 +280,20 @@ export default function HomePage() {
                                 className="h-full p-8 bg-white border border-slate-100 transition-all duration-300 hover:-translate-y-2 hover:shadow-xl hover:border-green-100 group cursor-default"
                             >
                                 <div className="flex gap-1 text-amber-400 mb-4 transition-transform duration-300 group-hover:scale-105 origin-left">
-                                    {[...Array(5)].map((_, j) => <Star key={j} size={18} fill="currentColor" />)}
+                                    {[...Array(t.rating || 5)].map((_, j) => <Star key={j} size={18} fill="currentColor" />)}
                                 </div>
-                                <p className="text-slate-700 italic mb-6">"{t.text}"</p>
+                                <p className="text-slate-700 italic mb-6">"{t.comment || t.text}"</p>
                                 <div className="flex items-center gap-4 mt-auto">
                                     <div className="overflow-hidden rounded-full w-12 h-12 shrink-0">
                                         <img 
-                                            src={t.img} 
-                                            alt={t.name} 
+                                            src={getOwnerImage(t.ownerImage || t.img)} 
+                                            alt={t.ownerName || t.name} 
                                             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" 
                                         />
                                     </div>
                                     <div>
-                                        <h4 className="font-semibold text-slate-900 group-hover:text-green-600 transition-colors duration-300">{t.name}</h4>
-                                        <p className="text-sm text-slate-500">{t.role}</p>
+                                        <h4 className="font-semibold text-slate-900 group-hover:text-green-600 transition-colors duration-300">{t.ownerName || t.name}</h4>
+                                        <p className="text-sm text-slate-500">{t.ownerRole || t.role}</p>
                                     </div>
                                 </div>
                             </Card>

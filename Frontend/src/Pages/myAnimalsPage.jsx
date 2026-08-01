@@ -173,6 +173,146 @@ export default function MyAnimalsPage() {
     }
   };
 
+  const handleDownloadPrescription = (record, animal) => {
+    const printWindow = window.open("", "_blank");
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Medical Prescription Report - ${animal.name}</title>
+          <style>
+            body {
+              font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+              color: #334155;
+              padding: 40px;
+              line-height: 1.6;
+            }
+            .header {
+              display: flex;
+              justify-content: space-between;
+              border-bottom: 2px solid #10b981;
+              padding-bottom: 20px;
+              margin-bottom: 30px;
+            }
+            .title {
+              font-size: 24px;
+              font-weight: 800;
+              color: #0f766e;
+              margin: 0;
+            }
+            .subtitle {
+              font-size: 12px;
+              color: #64748b;
+            }
+            .info-grid {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 20px;
+              margin-bottom: 30px;
+              background-color: #f8fafc;
+              padding: 20px;
+              border-radius: 12px;
+              border: 1px solid #e2e8f0;
+            }
+            .info-item {
+              margin-bottom: 10px;
+            }
+            .info-label {
+              font-size: 11px;
+              font-weight: 700;
+              color: #94a3b8;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+            }
+            .info-value {
+              font-size: 14px;
+              font-weight: 600;
+              color: #334155;
+            }
+            .content {
+              background: #fff;
+              border: 1px solid #e2e8f0;
+              border-radius: 12px;
+              padding: 30px;
+              margin-bottom: 30px;
+              box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            }
+            .content-title {
+              font-size: 16px;
+              font-weight: 700;
+              color: #0f766e;
+              border-bottom: 1px solid #f1f5f9;
+              padding-bottom: 10px;
+              margin-bottom: 15px;
+            }
+            .prescription-text {
+              font-size: 14px;
+              white-space: pre-wrap;
+              color: #475569;
+            }
+            .footer {
+              text-align: center;
+              font-size: 11px;
+              color: #94a3b8;
+              margin-top: 50px;
+              border-top: 1px solid #e2e8f0;
+              padding-top: 20px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div>
+              <h1 class="title">VetCloud Medical Report</h1>
+              <span class="subtitle">Digital Prescription & Consultation Summary</span>
+            </div>
+            <div style="text-align: right; font-family: sans-serif;">
+              <span style="font-weight: 700; color: #10b981;">VETCLOUD SYSTEM</span>
+            </div>
+          </div>
+          
+          <div class="info-grid">
+            <div>
+              <div class="info-item">
+                <div class="info-label">Patient Name</div>
+                <div class="info-value">${animal.name} (${animal.breed})</div>
+              </div>
+              <div class="info-item">
+                <div class="info-label">Species / Age</div>
+                <div class="info-value">${animal.species} · ${animal.age} years old</div>
+              </div>
+            </div>
+            <div>
+              <div class="info-item">
+                <div class="info-label">Report Date</div>
+                <div class="info-value">${record.date}</div>
+              </div>
+              <div class="info-item">
+                <div class="info-label">Attending Veterinarian</div>
+                <div class="info-value">${record.vet || record.veterinarian}</div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="content">
+            <div class="content-title">Prescribed Medication & Directions</div>
+            <div class="prescription-text">${record.notes || record.details}</div>
+          </div>
+          
+          <div class="footer">
+            This is a computer-generated medical report issued by VetCloud.
+          </div>
+          <script>
+            window.onload = function() {
+              window.print();
+              setTimeout(function() { window.close(); }, 500);
+            }
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   // Open Delete Confirm modal
   const handleOpenDeleteConfirm = (id) => {
     setDeletingAnimalId(id);
@@ -799,9 +939,19 @@ export default function MyAnimalsPage() {
                         {record.notes}
                       </p>
 
-                      <div className="text-[11px] text-slate-400 font-medium flex items-center gap-1">
-                        <span>Attending Veterinarian:</span>
-                        <span className="font-semibold text-slate-500">{record.vet}</span>
+                      <div className="flex items-center justify-between gap-4 border-t border-slate-100/50 pt-2 mt-2">
+                        <div className="text-[11px] text-slate-400 font-medium flex items-center gap-1">
+                          <span>Attending Veterinarian:</span>
+                          <span className="font-semibold text-slate-500">{record.vet || record.veterinarian}</span>
+                        </div>
+                        {record.type === "Prescription" && (
+                          <button
+                            onClick={() => handleDownloadPrescription(record, selectedHistoryAnimal)}
+                            className="text-xs font-bold text-green-600 hover:text-green-700 flex items-center gap-1 cursor-pointer transition-colors bg-green-50 px-2.5 py-1 rounded-lg border border-green-100"
+                          >
+                            Download Report
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}

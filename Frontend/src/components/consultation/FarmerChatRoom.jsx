@@ -7,10 +7,9 @@ import {
 import toast from 'react-hot-toast';
 import JitsiVideoCall from './JitsiVideoCall';
 
-export default function ChatConsultationRoom({ 
+export default function FarmerChatRoom({ 
   isOpen, 
   onClose, 
-  onComplete, 
   requestDetails 
 }) {
   const [chatRoomMessages, setChatRoomMessages] = useState([]);
@@ -18,17 +17,18 @@ export default function ChatConsultationRoom({
   const [isTyping, setIsTyping] = useState(false);
   const [callState, setCallState] = useState('idle'); // 'idle', 'calling', 'incoming', 'active'
   const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
-  const [prescriptionInput, setPrescriptionInput] = useState('');
+  const [prescriptionText, setPrescriptionText] = useState('');
+  const [emailing, setEmailing] = useState(false);
   const socketRef = useRef(null);
   const messagesEndRef = useRef(null);
 
   const storageKey = `chat_history_${requestDetails?.id}`;
 
   const quickReplies = [
-    "Reviewing files now. 🩺",
-    "Any fever or loss of appetite?",
-    "Keep the patient isolated.",
-    "Preparing prescription..."
+    "Hello Doctor! 👋",
+    "Uploaded the file.",
+    "Bessie is not eating since morning.",
+    "Thank you so much!"
   ];
 
   // Establish socket connection and load history
@@ -59,21 +59,22 @@ export default function ChatConsultationRoom({
     });
 
     // Listen for voice call actions
-    socket.on("voice-call-broadcast", ({ action, sender }) => {
-      if (sender === "doctor") return; // Ignore own actions
-
+    socket.on("voice-call-broadcast", ({ action }) => {
       if (action === "invite") {
         setCallState("incoming");
       } else if (action === "accept") {
         setCallState("active");
-        toast.success("Voice call connected!");
       } else if (action === "decline") {
         setCallState("idle");
-        toast.error("Call declined.");
       } else if (action === "hangup") {
         setCallState("idle");
-        toast.success("Call ended.");
       }
+    });
+
+    // Listen for consultation complete
+    socket.on("consultation-completed", ({ prescription }) => {
+      setPrescriptionText(prescription);
+      setShowPrescriptionModal(true);
     });
 
     return () => {
@@ -95,8 +96,8 @@ export default function ChatConsultationRoom({
     socketRef.current.emit("voice-call-action", {
       appointmentId: requestDetails.id,
       action: "invite",
-      sender: "doctor",
-      senderName: "Dr. " + (requestDetails.veterinarian_name || "Doctor")
+      sender: "client",
+      senderName: requestDetails.owner_name || "Farmer"
     });
   };
 
@@ -106,8 +107,8 @@ export default function ChatConsultationRoom({
     socketRef.current.emit("voice-call-action", {
       appointmentId: requestDetails.id,
       action: "accept",
-      sender: "doctor",
-      senderName: "Dr. " + (requestDetails.veterinarian_name || "Doctor")
+      sender: "client",
+      senderName: requestDetails.owner_name || "Farmer"
     });
   };
 
@@ -117,8 +118,8 @@ export default function ChatConsultationRoom({
     socketRef.current.emit("voice-call-action", {
       appointmentId: requestDetails.id,
       action: "decline",
-      sender: "doctor",
-      senderName: "Dr. " + (requestDetails.veterinarian_name || "Doctor")
+      sender: "client",
+      senderName: requestDetails.owner_name || "Farmer"
     });
   };
 
@@ -128,8 +129,8 @@ export default function ChatConsultationRoom({
     socketRef.current.emit("voice-call-action", {
       appointmentId: requestDetails.id,
       action: "hangup",
-      sender: "doctor",
-      senderName: "Dr. " + (requestDetails.veterinarian_name || "Doctor")
+      sender: "client",
+      senderName: requestDetails.owner_name || "Farmer"
     });
   };
 
@@ -141,8 +142,8 @@ export default function ChatConsultationRoom({
     socketRef.current.emit("send-chat-message", {
       appointmentId: requestDetails.id,
       text: textToSend,
-      sender: 'doctor',
-      senderName: 'Dr. ' + (requestDetails.veterinarian_name || 'Doctor')
+      sender: 'client',
+      senderName: requestDetails.owner_name || 'Farmer'
     });
     
     if (!customText) setChatInput('');
@@ -172,8 +173,8 @@ export default function ChatConsultationRoom({
           appointmentId: requestDetails.id,
           text: file.name,
           fileUrl: res.data.url,
-          sender: 'doctor',
-          senderName: 'Dr. ' + (requestDetails.veterinarian_name || 'Doctor')
+          sender: 'client',
+          senderName: requestDetails.owner_name || 'Farmer'
         });
       }
     } catch (err) {
@@ -182,39 +183,80 @@ export default function ChatConsultationRoom({
     }
   };
 
-  const handleEndConsultation = () => {
-    setShowPrescriptionModal(true);
+  const handleEmailReport = async () => {
+    setEmailing(true);
+    const loadToast = toast.loading("Sending medical report to your email...");
+    try {
+      await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/users/chat-email-prescription`, {
+        appointmentId: requestDetails.id,
+        prescription: prescriptionText
+      });
+      toast.success("Medical report successfully sent to your email!", { id: loadToast });
+    } catch (err) {
+      console.error("Failed to email prescription:", err);
+      toast.error("Failed to email report. Please try again.", { id: loadToast });
+    } finally {
+      setEmailing(false);
+    }
   };
 
-  const handleCompleteSubmit = async () => {
-    if (!prescriptionInput.trim()) {
-      alert("Please enter prescription/treatment details.");
-      return;
-    }
+  const handleDownloadPDF = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Treatment Report - Appointment #${requestDetails.id}</title>
+          <style>
+            body { font-family: 'Helvetica Neue', Arial, sans-serif; padding: 40px; color: #1e293b; line-height: 1.6; }
+            .header { border-bottom: 2px solid #10b981; padding-bottom: 20px; margin-bottom: 30px; text-align: center; }
+            .logo { font-size: 24px; font-weight: bold; color: #059669; }
+            .title { font-size: 18px; color: #64748b; margin-top: 5px; text-transform: uppercase; letter-spacing: 1px; }
+            .grid { display: grid; grid-template-cols: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
+            .card { background: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; }
+            .card-title { font-weight: bold; font-size: 11px; text-transform: uppercase; color: #64748b; margin-bottom: 8px; border-bottom: 1px solid #cbd5e1; padding-bottom: 4px; }
+            .prescription-box { background: #f0fdf4; border: 1px solid #bbf7d0; color: #14532d; padding: 20px; border-radius: 8px; font-size: 14px; white-space: pre-line; margin-bottom: 40px; }
+            .footer { border-top: 1px solid #e2e8f0; padding-top: 20px; text-align: center; font-size: 11px; color: #94a3b8; margin-top: 50px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="logo">VETCLOUD SYSTEM</div>
+            <div class="title">Official Consultation Treatment Report</div>
+          </div>
+          
+          <div class="grid">
+            <div class="card">
+              <div class="card-title">Doctor Details</div>
+              <strong>Dr. ${requestDetails.veterinarian_name}</strong><br>
+              VetCloud Registered Veterinarian<br>
+              Consultation Type: Chat Session
+            </div>
+            <div class="card">
+              <div class="card-title">Patient & Owner Details</div>
+              <strong>Owner:</strong> ${requestDetails.owner_name || 'Farmer'}<br>
+              <strong>Patient Name:</strong> ${requestDetails.animal_name}<br>
+              <strong>Species:</strong> ${requestDetails.animal_species}
+            </div>
+          </div>
 
-    const loadToast = toast.loading("Completing consultation...");
-    try {
-      // 1. Send complete request with prescription to backend
-      await axios.patch(`${import.meta.env.VITE_BACKEND_URL}/api/vet-appointments/${requestDetails.id}/complete`, {
-        prescription: prescriptionInput
-      });
+          <div class="card-title">Prescribed Treatments & Advice</div>
+          <div class="prescription-box">${prescriptionText.replace(/\n/g, '<br>')}</div>
 
-      // 2. Emit socket completion event
-      if (socketRef.current) {
-        socketRef.current.emit("complete-consultation", {
-          appointmentId: requestDetails.id,
-          prescription: prescriptionInput
-        });
-      }
-
-      toast.success("Consultation completed and prescription saved!", { id: loadToast });
-      setShowPrescriptionModal(false);
-      onClose(); // Close chat window
-      if (onComplete) onComplete(); // Trigger refresh on parent page
-    } catch (err) {
-      console.error("Failed to complete appointment:", err);
-      toast.error("Failed to complete consultation. Please try again.", { id: loadToast });
-    }
+          <div class="footer">
+            This is a computer-generated medical record from VetCloud. Date: ${new Date().toLocaleDateString()}<br>
+            VetCloud Consultation ID: #${requestDetails.id}
+          </div>
+          
+          <script>
+            window.onload = function() {
+              window.print();
+            }
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
   };
 
   return (
@@ -225,94 +267,76 @@ export default function ChatConsultationRoom({
         {/* Header info */}
         <div className="border-b border-slate-800 pb-5">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-950/40 text-white font-bold shrink-0">
-              VS
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-505 flex items-center justify-center shadow-lg shadow-emerald-950/40 text-white font-bold shrink-0">
+              VC
             </div>
             <div>
               <h3 className="text-sm font-bold text-white uppercase tracking-wider">VetCloud Live</h3>
-              <p className="text-[10px] text-blue-400 font-semibold uppercase tracking-wider mt-0.5">Doctor Console</p>
+              <p className="text-[10px] text-emerald-400 font-semibold uppercase tracking-wider mt-0.5">Farmer Portal</p>
             </div>
           </div>
         </div>
 
-        {/* Patient/Case Overview */}
+        {/* Veterinarian overview */}
         <div className="space-y-5 flex-1">
           <div className="p-4 bg-slate-950/40 border border-slate-850 rounded-xl">
-            <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Client / Farmer</p>
-            <p className="text-base font-extrabold text-white mt-1">{requestDetails.owner_name}</p>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-blue-950/30 text-blue-400 text-[10px] font-bold rounded-full mt-2.5 border border-blue-900/30">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-              Connected
+            <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Consulting Vet</p>
+            <p className="text-base font-extrabold text-white mt-1">Dr. {requestDetails.veterinarian_name}</p>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-emerald-950/30 text-emerald-400 text-[10px] font-bold rounded-full mt-2.5 border border-emerald-900/30">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Online
             </span>
           </div>
 
-          <div className="p-4 bg-slate-950/40 border border-slate-850 rounded-xl space-y-4">
+          <div className="p-4 bg-slate-950/40 border border-slate-850 rounded-xl space-y-3">
             <div>
-              <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Patient</p>
+              <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Patient Name</p>
               <p className="text-sm font-bold text-slate-200 mt-0.5">{requestDetails.animal_name}</p>
             </div>
             <div>
-              <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Breed & Species</p>
-              <p className="text-xs font-semibold text-slate-400 mt-0.5 capitalize">
-                {requestDetails.animal_species} {requestDetails.animal_breed ? `(${requestDetails.animal_breed})` : ''}
-              </p>
-            </div>
-            <div className="grid grid-cols-2 gap-3 border-t border-slate-850 pt-3">
-              <div>
-                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Age</p>
-                <p className="text-xs font-bold text-slate-300 mt-0.5">{requestDetails.animal_age || '4 Years'}</p>
-              </div>
-              <div>
-                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Weight</p>
-                <p className="text-xs font-bold text-slate-300 mt-0.5">{requestDetails.animal_weight || '1,400 lbs'}</p>
-              </div>
+              <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Species</p>
+              <p className="text-xs font-semibold text-slate-400 mt-0.5 capitalize">{requestDetails.animal_species}</p>
             </div>
           </div>
 
           <div className="p-4 bg-slate-950/40 border border-slate-850 rounded-xl space-y-2">
-            <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Reason for consultation</p>
+            <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Reason / Description</p>
             <p className="text-xs text-slate-300 leading-relaxed bg-slate-950/60 p-3 rounded-lg border border-slate-850 max-h-36 overflow-y-auto">
               {requestDetails.reason_notes || 'No description provided.'}
             </p>
           </div>
         </div>
 
-        {/* Action button */}
-        <div className="pt-4 border-t border-slate-850 space-y-2">
+        {/* Close/Minimize button */}
+        <div className="pt-4 border-t border-slate-850">
           <button 
             onClick={() => {
-              if (window.confirm("Minimize chat room and return to requests?")) {
+              if (window.confirm("Leave this chat room? You can open it again from your consultations page.")) {
                 onClose();
               }
             }}
-            className="w-full bg-slate-950 hover:bg-slate-850 text-slate-300 py-2.5 rounded-xl text-xs font-bold transition-all border border-slate-850 cursor-pointer shadow-sm hover:shadow-md active:scale-98"
-          >
-            Minimize Workspace
-          </button>
-          <button
-            onClick={handleEndConsultation}
-            className="w-full bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-xl text-xs font-extrabold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer border-0 active:scale-98"
+            className="w-full bg-slate-950 hover:bg-slate-850 text-slate-300 py-2.5 rounded-xl text-xs font-bold transition-all border border-slate-850 cursor-pointer shadow-md hover:shadow-lg active:scale-98 flex items-center justify-center gap-1.5"
           >
             <XCircle size={14} />
-            End Consultation
+            Leave Chat Room
           </button>
         </div>
       </div>
 
       {/* Right Panel: Immersive Chat Feed with subtle gradient background */}
-      <div className="flex-1 bg-slate-50 flex flex-col h-full relative">
+      <div className="flex-1 bg-white flex flex-col h-full relative">
         
         {/* Top Header bar with Glassmorphism style */}
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-white/90 backdrop-blur-md shadow-sm z-10 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full overflow-hidden border border-slate-200 bg-gradient-to-tr from-blue-100 to-indigo-50 flex items-center justify-center text-blue-700 font-bold text-sm shadow-inner shrink-0">
-              {requestDetails.owner_name ? requestDetails.owner_name.charAt(0) : 'F'}
+            <div className="w-10 h-10 rounded-full overflow-hidden border border-slate-200 bg-gradient-to-tr from-emerald-100 to-teal-50 flex items-center justify-center text-emerald-700 font-bold text-sm shadow-inner shrink-0">
+              {requestDetails.veterinarian_name ? requestDetails.veterinarian_name.charAt(0) : 'D'}
             </div>
             <div>
-              <h4 className="font-bold text-slate-850 text-sm">{requestDetails.owner_name}</h4>
+              <h4 className="font-bold text-slate-850 text-sm">Dr. {requestDetails.veterinarian_name}</h4>
               <div className="flex items-center gap-1.5 mt-0.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-                <span className="text-[10px] text-slate-400 font-semibold">Farmer consultation session</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-[10px] text-slate-400 font-semibold">Live Consultation Session</span>
               </div>
             </div>
           </div>
@@ -320,10 +344,20 @@ export default function ChatConsultationRoom({
           <div className="flex items-center gap-2">
             <button
               onClick={handleInitiateCall}
-              className="p-2.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all cursor-pointer border border-slate-200 bg-white hover:border-blue-200 flex items-center justify-center active:scale-95 shadow-sm"
+              className="p-2.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all cursor-pointer border border-slate-200 bg-white hover:border-emerald-200 flex items-center justify-center active:scale-95 shadow-sm"
               title="Start Online Voice Call"
             >
               <Phone size={18} />
+            </button>
+            <button
+              onClick={() => {
+                if (window.confirm("Leave this chat room? You can open it again from your consultations page.")) {
+                  onClose();
+                }
+              }}
+              className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border-0 active:scale-95 shadow-sm"
+            >
+              Close
             </button>
           </div>
         </div>
@@ -338,8 +372,8 @@ export default function ChatConsultationRoom({
                     <Phone size={16} />
                   </div>
                   <div>
-                    <p className="text-sm font-bold">Calling {requestDetails.owner_name || 'Farmer'}...</p>
-                    <p className="text-xs text-slate-400 animate-pulse">Waiting for answer</p>
+                    <p className="text-sm font-bold">Calling Dr. {requestDetails.veterinarian_name}...</p>
+                    <p className="text-xs text-slate-400 animate-pulse">Waiting for doctor to pick up</p>
                   </div>
                 </>
               )}
@@ -350,7 +384,7 @@ export default function ChatConsultationRoom({
                   </div>
                   <div>
                     <p className="text-sm font-bold">Incoming Call...</p>
-                    <p className="text-xs text-amber-400 font-medium">{requestDetails.owner_name || 'Farmer'} is calling you</p>
+                    <p className="text-xs text-emerald-400 font-medium">Dr. {requestDetails.veterinarian_name} is calling you</p>
                   </div>
                 </>
               )}
@@ -400,7 +434,7 @@ export default function ChatConsultationRoom({
         {callState === 'active' && (
           <JitsiVideoCall
             roomName={`vetcloud-voicecall-${requestDetails.id}`}
-            displayName={`Dr. ${requestDetails.veterinarian_name}`}
+            displayName={requestDetails.owner_name || 'Farmer'}
             onClose={handleHangupCall}
             voiceOnly={true}
           />
@@ -410,28 +444,28 @@ export default function ChatConsultationRoom({
         <div className="flex-1 overflow-y-auto p-6 space-y-5 bg-gradient-to-b from-slate-50 to-slate-100/50 scrollbar-thin scrollbar-thumb-slate-205">
           {chatRoomMessages.length === 0 ? (
             <div className="text-center py-24 text-slate-400 text-xs flex flex-col items-center justify-center space-y-4">
-              <div className="w-16 h-16 rounded-2xl bg-blue-50 text-blue-500 flex items-center justify-center shadow-inner animate-bounce">
+              <div className="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-500 flex items-center justify-center shadow-inner animate-bounce">
                 <MessageSquare size={26} />
               </div>
               <div className="max-w-xs space-y-1">
                 <p className="font-bold text-slate-700 text-sm">Real-Time Consultation Feed</p>
-                <p className="text-[11px] text-slate-400">Say hello or share files with the client to start the consultation.</p>
+                <p className="text-[11px] text-slate-400">Say hello or share files with Dr. {requestDetails.veterinarian_name} to start your case consultation.</p>
               </div>
             </div>
           ) : (
             chatRoomMessages.map((msg) => {
-              const isDoc = msg.sender === 'doctor';
-              const displayName = isDoc ? 'You' : msg.senderName;
+              const isClient = msg.sender === 'client';
+              const displayName = isClient ? 'You' : msg.senderName;
               return (
-                <div key={msg.id} className={`flex gap-3.5 max-w-[85%] ${isDoc ? 'ml-auto flex-row-reverse' : 'mr-auto'}`}>
+                <div key={msg.id} className={`flex gap-3.5 max-w-[85%] ${isClient ? 'ml-auto flex-row-reverse' : 'mr-auto'}`}>
                   {/* Avatar */}
                   <div className={`w-8 h-8 rounded-full overflow-hidden border border-slate-200 flex items-center justify-center shrink-0 text-xs font-bold shadow-sm ${
-                    isDoc ? 'bg-blue-600 text-white' : 'bg-white text-slate-600'
+                    isClient ? 'bg-emerald-600 text-white' : 'bg-white text-slate-600'
                   }`}>
-                    {isDoc ? 'Dr' : 'U'}
+                    {isClient ? 'U' : 'Dr'}
                   </div>
 
-                  <div className={`flex flex-col ${isDoc ? 'items-end' : 'items-start'}`}>
+                  <div className={`flex flex-col ${isClient ? 'items-end' : 'items-start'}`}>
                     <span className="text-[10px] text-slate-400 font-semibold mb-1 px-1">{displayName}</span>
                     
                     {/* Message Bubble */}
@@ -441,12 +475,12 @@ export default function ChatConsultationRoom({
                         target="_blank"
                         rel="noopener noreferrer"
                         className={`rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-md flex items-center gap-3 transition-all hover:-translate-y-0.5 hover:shadow-lg ${
-                          isDoc
-                            ? 'bg-blue-50 border border-blue-200 text-blue-950 rounded-tr-none hover:bg-blue-100'
+                          isClient
+                            ? 'bg-emerald-50 border border-emerald-200 text-emerald-950 rounded-tr-none hover:bg-emerald-100'
                             : 'bg-white text-slate-800 rounded-tl-none border border-slate-200 hover:bg-slate-50'
                         }`}
                       >
-                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isDoc ? 'bg-blue-200 text-blue-800' : 'bg-slate-100 text-slate-500'}`}>
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isClient ? 'bg-emerald-200 text-emerald-800' : 'bg-slate-100 text-slate-500'}`}>
                           <Paperclip size={16} />
                         </div>
                         <div className="text-left min-w-0">
@@ -456,8 +490,8 @@ export default function ChatConsultationRoom({
                       </a>
                     ) : (
                       <div className={`rounded-2xl px-4.5 py-3 text-sm leading-relaxed shadow-md ${
-                        isDoc
-                          ? 'bg-gradient-to-r from-blue-600 to-indigo-500 text-white rounded-tr-none'
+                        isClient
+                          ? 'bg-gradient-to-r from-emerald-600 to-teal-500 text-white rounded-tr-none'
                           : 'bg-white text-slate-800 rounded-tl-none border border-slate-200/80'
                       }`}>
                         {msg.text}
@@ -466,7 +500,7 @@ export default function ChatConsultationRoom({
                     
                     <div className="flex items-center gap-1.5 mt-1 px-1">
                       <span className="text-[9px] text-slate-400 font-medium">{msg.time}</span>
-                      {isDoc && <CheckCheck size={11} className="text-blue-500" />}
+                      {isClient && <CheckCheck size={11} className="text-emerald-500" />}
                     </div>
                   </div>
                 </div>
@@ -484,7 +518,7 @@ export default function ChatConsultationRoom({
               <button
                 key={i}
                 onClick={() => handleSendMessageInChatRoom(reply)}
-                className="px-3 py-1 bg-slate-50 border border-slate-200 hover:border-blue-400 hover:text-blue-600 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer active:scale-95 text-slate-500 hover:bg-blue-50/30"
+                className="px-3 py-1 bg-slate-50 border border-slate-200 hover:border-emerald-400 hover:text-emerald-600 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer active:scale-95 text-slate-500 hover:bg-emerald-50/30"
               >
                 {reply}
               </button>
@@ -494,13 +528,13 @@ export default function ChatConsultationRoom({
           <div className="flex gap-2 items-center">
             <input 
               type="file" 
-              id="doctor-chat-file-input" 
+              id="farmer-chat-file-input" 
               className="hidden" 
               onChange={handleFileUpload} 
             />
             <label 
-              htmlFor="doctor-chat-file-input" 
-              className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all cursor-pointer border border-slate-200 flex items-center justify-center bg-slate-50 shrink-0 h-10 w-10 shadow-sm hover:border-blue-200 active:scale-95"
+              htmlFor="farmer-chat-file-input" 
+              className="p-2 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all cursor-pointer border border-slate-200 flex items-center justify-center bg-slate-50 shrink-0 h-10 w-10 shadow-sm hover:border-emerald-200 active:scale-95"
               title="Share File / Document"
             >
               <Paperclip size={18} />
@@ -511,59 +545,68 @@ export default function ChatConsultationRoom({
               onChange={(e) => setChatInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSendMessageInChatRoom()}
               placeholder="Type your message..."
-              className="flex-1 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-slate-50 text-slate-800 placeholder-slate-400 h-10 transition-all font-medium"
+              className="flex-1 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 bg-slate-50 text-slate-800 placeholder-slate-400 h-10 transition-all font-medium"
             />
             <button
               onClick={() => handleSendMessageInChatRoom()}
-              className="bg-gradient-to-r from-blue-600 to-indigo-505 hover:from-blue-700 hover:to-indigo-600 text-white p-2.5 rounded-xl transition-all h-10 w-10 flex items-center justify-center shrink-0 shadow-md shadow-blue-600/10 active:scale-95 border-0 cursor-pointer"
+              className="bg-gradient-to-r from-emerald-600 to-teal-505 hover:from-emerald-700 hover:to-teal-600 text-white p-2.5 rounded-xl transition-all h-10 w-10 flex items-center justify-center shrink-0 shadow-md shadow-emerald-600/10 active:scale-95 border-0 cursor-pointer"
             >
               <Send size={16} />
             </button>
           </div>
         </div>
+
       </div>
 
-      {/* Complete consultation and write prescription modal */}
+      {/* Consultation Complete Prescription Report Modal */}
       {showPrescriptionModal && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-slate-955/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-200 text-slate-800">
-            <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <Stethoscope className="text-blue-605" />
-              Complete Consultation
+            <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-605 flex items-center justify-center mb-4">
+              <Stethoscope size={24} />
+            </div>
+            
+            <h3 className="text-lg font-bold text-slate-900">
+              Consultation Completed!
             </h3>
             <p className="text-xs text-slate-505 mt-1">
-              Provide treatment instructions, diagnosis, and prescription details. This report will be saved to patient history, sent to the farmer's email, and made downloadable.
+              Dr. {requestDetails.veterinarian_name} has finalized this session and issued a medical prescription report for <strong>{requestDetails.animal_name}</strong>.
             </p>
 
-            <div className="mt-4 space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-705 uppercase tracking-wider mb-1">
-                  Prescription & Advice details
-                </label>
-                <textarea
-                  value={prescriptionInput}
-                  onChange={(e) => setPrescriptionInput(e.target.value)}
-                  placeholder="Enter diagnosis, prescribed medicines, dosage, and home care instructions..."
-                  rows={6}
-                  className="w-full border border-slate-205 rounded-xl p-3 text-sm focus:outline-none focus:border-blue-500 bg-slate-50 text-slate-800 placeholder-slate-400 font-medium"
-                />
-              </div>
+            <div className="mt-4 p-4 bg-emerald-50/50 border border-emerald-100 rounded-xl">
+              <span className="block text-[10px] font-bold text-emerald-705 uppercase tracking-wider mb-1.5">
+                Prescribed Advice & Medications:
+              </span>
+              <p className="text-sm text-slate-700 whitespace-pre-line leading-relaxed font-medium">
+                {prescriptionText}
+              </p>
             </div>
 
-            <div className="mt-6 flex justify-end gap-3">
+            <div className="mt-6 flex flex-col sm:flex-row gap-2.5">
               <button
-                onClick={() => setShowPrescriptionModal(false)}
-                className="px-4 py-2 bg-slate-105 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer border-0"
+                onClick={handleDownloadPDF}
+                className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-505 hover:from-emerald-700 hover:to-teal-600 text-white py-2.5 rounded-xl text-xs font-bold transition-all active:scale-95 shadow-md shadow-emerald-500/10 cursor-pointer border-0"
               >
-                Go Back
+                Download PDF Report
               </button>
               <button
-                onClick={handleCompleteSubmit}
-                className="px-5 py-2 bg-gradient-to-r from-blue-600 to-indigo-505 hover:from-blue-700 hover:to-indigo-650 text-white rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-md shadow-blue-500/10 border-0"
+                onClick={handleEmailReport}
+                disabled={emailing}
+                className="flex-1 bg-white hover:bg-slate-50 text-slate-700 py-2.5 rounded-xl text-xs font-bold transition-all active:scale-95 border border-slate-200 cursor-pointer disabled:opacity-50"
               >
-                Submit & Complete
+                {emailing ? "Sending Email..." : "Email Report to Me"}
               </button>
             </div>
+
+            <button
+              onClick={() => {
+                setShowPrescriptionModal(false);
+                onClose(); // Exit chat
+              }}
+              className="mt-3 w-full bg-slate-105 hover:bg-slate-200 text-slate-650 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer border-0"
+            >
+              Close & Exit Chat
+            </button>
           </div>
         </div>
       )}

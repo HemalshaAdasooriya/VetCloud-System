@@ -1,4 +1,3 @@
-// routes/paymentRouter.js
 import express from "express";
 import { 
     getPaymentInfo, 
@@ -9,7 +8,8 @@ import {
     fetchPaymentMethods, 
     removePaymentMethod,
     getCommissionRate,
-    testPayment
+    testPayment,
+    handlePaymentFailure
 } from "../controllers/paymentController.js";
 
 const paymentRouter = express.Router();
@@ -20,6 +20,7 @@ paymentRouter.post("/info", getPaymentInfo);
 // Route for Stripe checkout
 paymentRouter.post("/create-checkout-session", createStripeCheckoutSession);
 paymentRouter.post("/verify-session", verifyStripeSession);
+paymentRouter.post("/failure", handlePaymentFailure);
 
 // Route for saving the veterinarian bank details
 paymentRouter.post("/payout-settings", savePayoutSettings);

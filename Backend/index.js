@@ -46,6 +46,39 @@ io.on("connection", (socket) => {
         }
     });//isuri-notification
 
+    // Chat Room Events
+    socket.on("join-chat-room", ({ appointmentId }) => {
+        const roomName = `appointment_chat_${appointmentId}`;
+        socket.join(roomName);
+        console.log(`Socket client (${socket.id}) joined chat room: ${roomName}`);
+    });
+
+    socket.on("send-chat-message", ({ appointmentId, text, fileUrl, sender, senderName }) => {
+        const roomName = `appointment_chat_${appointmentId}`;
+        io.to(roomName).emit("receive-chat-message", {
+            id: Date.now() + Math.random(),
+            sender,
+            senderName,
+            text,
+            fileUrl,
+            time: new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+        });
+    });
+
+    socket.on("voice-call-action", ({ appointmentId, action, sender, senderName }) => {
+        const roomName = `appointment_chat_${appointmentId}`;
+        io.to(roomName).emit("voice-call-broadcast", {
+            action, // 'invite', 'accept', 'decline', 'hangup'
+            sender,
+            senderName
+        });
+    });
+
+    socket.on("complete-consultation", ({ appointmentId, prescription }) => {
+        const roomName = `appointment_chat_${appointmentId}`;
+        io.to(roomName).emit("consultation-completed", { prescription });
+    });
+
     socket.on("send-location", (data) => {
         io.emit("receive-location", { id: socket.id, ...data });
     });

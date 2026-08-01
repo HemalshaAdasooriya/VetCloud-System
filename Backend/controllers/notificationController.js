@@ -16,7 +16,8 @@ import {
 import { 
     sendEmail, 
     getInvoiceTemplate, 
-    getAccountVerificationTemplate 
+    getAccountVerificationTemplate,
+    getNewConsultationAssignmentTemplate
 } from "../config/email.js";
 import db from "../config/db.js";
 
@@ -363,13 +364,18 @@ export const triggerAppointmentNotification = (app, appointmentId, triggerType) 
                     userId: apt.veterinarian_id,
                     userRole: "Veterinary Doctor",
                     type: "appointment_assigned",
-                    title: "New Appointment Request",
-                    message: `You have a new appointment request from ${apt.owner_name} for ${apt.animal_name}.`
+                    title: "New Consultation Request",
+                    message: `You have a new consultation request from ${apt.owner_name} for ${apt.animal_name}.`
                 };
                 emailToOwner = {
                     subject: "Appointment Request Submitted - VetCloud",
                     html: `<h3>Appointment Request Submitted</h3><p>Dear ${apt.owner_name}, your request to consult Dr. ${apt.vet_name} for ${apt.animal_name} is pending approval.</p>`,
                     text: `Dear ${apt.owner_name}, your appointment request is pending.`
+                };
+                emailToVet = {
+                    subject: "New Consultation Assignment - VetCloud",
+                    html: getNewConsultationAssignmentTemplate(apt.vet_name, apt.owner_name, apt.animal_name, slot.slot_date, slot.slot_time),
+                    text: `Dear Dr. ${apt.vet_name}, a new consultation has been assigned to you by ${apt.owner_name}.`
                 };
             } 
             else if (triggerType === "appointment_confirmed") {
@@ -380,6 +386,20 @@ export const triggerAppointmentNotification = (app, appointmentId, triggerType) 
                     title: "Appointment Confirmed",
                     message: `Dr. ${apt.vet_name} confirmed your appointment for ${apt.animal_name} on ${formattedDate} at ${formattedTime}.`
                 };
+                // Extra in-app alert for vet assignment
+                const vetAssignedNotify = {
+                    userId: apt.pet_owner_id,
+                    userRole: "Farmer/PetOwner",
+                    type: "vet_assigned",
+                    title: "Veterinarian Assigned",
+                    message: `Dr. ${apt.vet_name} has been assigned to your appointment on ${formattedDate} at ${formattedTime}.`
+                };
+                createNotification(vetAssignedNotify, (nErr, dbNotify) => {
+                    if (!nErr && dbNotify && io) {
+                        io.to(`Farmer/PetOwner_${apt.pet_owner_id}`).emit("new-notification", dbNotify);
+                    }
+                });
+
                 vetNotify = {
                     userId: apt.veterinarian_id,
                     userRole: "Veterinary Doctor",

@@ -1,10 +1,12 @@
 import { BookOpen, HeartPulse, LogIn, MapPin } from "lucide-react";
 import { Activity, useEffect, useState } from "react";
-import { Link, Outlet, useLocation } from "react-router-dom";
+import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "../components/Ui/ui";
+import toast from "react-hot-toast";
 
 export default function Navigation() {
     const location = useLocation();
+    const navigate = useNavigate();
     const [scrolled, setScrolled] = useState(false);
 
     useEffect(() => {
@@ -39,6 +41,13 @@ export default function Navigation() {
                     <Link
                         key={item.path}
                         to={item.path}
+                        onClick={(e) => {
+                            if (item.path === '/consultation' && !localStorage.getItem("token")) {
+                                e.preventDefault();
+                                toast.error("Please login to consult a veterinarian");
+                                navigate("/login");
+                            }
+                        }}
                         className={`text-sm font-medium transition-colors flex items-center gap-2 ${
                         location.pathname === item.path ? 'text-green-600' : 'text-slate-600 hover:text-green-600'
                         }`}
@@ -60,8 +69,17 @@ export default function Navigation() {
                         Sign Up
                     </Button>
                     </Link>
-                    <Link to="/consultation">
-                    <Button>Book Appointment</Button>
+                    <Link 
+                        to="/consultation"
+                        onClick={(e) => {
+                            if (!localStorage.getItem("token")) {
+                                e.preventDefault();
+                                toast.error("Please login to consult a veterinarian");
+                                navigate("/login");
+                            }
+                        }}
+                    >
+                        <Button>Book Appointment</Button>
                     </Link>
                 </div>
             </div>

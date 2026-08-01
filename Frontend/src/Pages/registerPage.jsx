@@ -6,9 +6,7 @@ import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 
 import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
-import FacebookLogin, { FacebookLoginClient } from '@greatsumini/react-facebook-login';
 import CustomGoogleButton from "../layouts/CustomGoogleButton";
-import CustomFacebookButton from "../layouts/CustomFacebookButton";
 import { useRef } from "react";
 
 
@@ -100,83 +98,7 @@ export default function RegisterPage() {
     };
 
     
-    // FACEBOOK HANDLER
-   
-    // const handleFacebookResponse = async (response) => {
-    //     setIsLoading(true);
-    //     const backendRole = role === 'user' ? "Farmer/PetOwner" : "Veterinary Doctor";
-        
-    //     try {
-    //         const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/facebook-login`, {
-    //             method: "POST",
-    //             headers: { "Content-Type": "application/json" },
-    //             body: JSON.stringify({ accessToken: response.accessToken, role: backendRole })
-    //         });
-    //         const data = await res.json();
-            
-    //         if (res.ok) {
-    //             toast.success("Facebook Authentication Successful!");
-    //             // navigate("/dashboard");
-    //         } else {
-    //             setSubmitMessage({ text: data.message || "Facebook registration failed", isError: true });
-    //         }
-    //     } catch{
-    //         setSubmitMessage({ text: "Server connection failed.", isError: true });
-    //     } finally {
-    //         setIsLoading(false);
-    //     }
-    // };
-    const handleFacebookResponse = async (response) => {
-        // 1. Tracker: This prints exactly what Facebook gives React in the console
-        console.log("FACEBOOK POPUP GAVE ME:", response);
 
-        // Ensure the user picked a role before clicking the button
-        if (!role) {
-            return toast.error("Please select a role first!");
-        }
-
-        setIsLoading(true);
-
-        // 2. Format the role to match what your MySQL database expects
-        const backendRole = role === 'farmer' ? "Farmer/PetOwner" : role === 'doctor' ? "Veterinary Doctor" : "Admin";
-
-        try {
-            // 3. Send the request
-            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/facebook-login`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                
-                // 🔍 THE FIX: We use the word 'token' so the backend recognizes the package
-                body: JSON.stringify({ 
-                    token: response.accessToken, 
-                    role: backendRole 
-                })
-            });
-            
-            const data = await res.json();
-            
-            if (res.ok) {
-                toast.success("Facebook Login Successful!");
-                
-                // 4. Save the Session (Print the digital ID Badge)
-                if (data.token) localStorage.setItem("token", data.token); 
-                if (data.user) localStorage.setItem("user", JSON.stringify(data.user));
-                
-                // 5. Navigate (Escort the user to their specific dashboard)
-                if (role === "farmer") navigate("/dashboard/user");
-                if (role === "doctor") navigate("/dashboard/doctor");
-                if (role === "admin") navigate("/dashboard/admin");
-                
-            } else {
-                toast.error(data.message || "Facebook login failed");
-            }
-        } catch (error) {
-            console.error("Frontend fetch error:", error);
-            toast.error("Server connection failed.");
-        } finally {
-            setIsLoading(false);
-        }
-    };
 
     
     // STANDARD REGISTRATION HANDLER
@@ -193,37 +115,39 @@ export default function RegisterPage() {
         setSubmitMessage({ text: "", isError: false }); 
 
         const backendRole = role === 'user' ? "Farmer/PetOwner" : "Veterinary Doctor";
-        const payload = {
-            firstName,
-            lastName,
-            email,
-            password,
-            contact_No: phone,
-            role: backendRole,
-            };
+        const formData = new FormData();
+        formData.append("firstName", firstName);
+        formData.append("lastName", lastName);
+        formData.append("email", email);
+        formData.append("password", password);
+        formData.append("contact_No", phone);
+        formData.append("role", backendRole);
 
         if (role === 'user') {
-            payload.numberOfAnimals = numberOfAnimals || 0;
-            payload.street = street;
-            payload.city = city;
-            payload.state = state;
-            payload.zip = zip;
-            payload.country = country;
+            formData.append("numberOfAnimals", numberOfAnimals || 0);
+            formData.append("street", street);
+            formData.append("city", city);
+            formData.append("state", state);
+            formData.append("zip", zip);
+            formData.append("country", country);
         } else {
-            payload.license_number = license;
-            payload.specialization = specialization;
-            payload.years_of_experience = experience || 0;
-            payload.consultation_fee = fee || 0;
+            formData.append("license_number", license);
+            formData.append("specialization", specialization);
+            formData.append("years_of_experience", experience || 0);
+            formData.append("consultation_fee", fee || 0);
+        }
+
+        if (profileImage) {
+            formData.append("profileImage", profileImage);
         }
 
         try {
-                const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payload)
-                });
+            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/`, {
+                method: "POST",
+                body: formData
+            });
 
-            const result = await response.json()
+            const result = await response.json();
             if (response.status === 201 || response.status === 200) {
                 toast.success("Account created successfully!");
                 if (result.token) localStorage.setItem("token", result.token);
@@ -303,12 +227,7 @@ export default function RegisterPage() {
                                 />
                             </GoogleOAuthProvider>
 
-                            {/* FACEBOOK BUTTON */}
-                            <CustomFacebookButton 
-                                onSuccess={handleFacebookResponse}
-                                onFail={() => setSubmitMessage({ text: "Facebook Login Failed", isError: true })}
-                                isLoading={isLoading}
-                            />
+
                         </div>
 
                         <div className="relative">

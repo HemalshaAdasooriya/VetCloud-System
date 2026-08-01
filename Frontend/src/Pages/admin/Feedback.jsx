@@ -82,6 +82,26 @@ export default function Feedback() {
         }
     };
 
+    const handleToggleHomepage = async (id, currentStatus) => {
+        try {
+            const token = localStorage.getItem("token");
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/admin/feedback/${id}/toggle-homepage`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                },
+                body: JSON.stringify({ showOnHomepage: !currentStatus })
+            });
+            if (!res.ok) throw new Error("Failed to update visibility");
+            toast.success(currentStatus ? "Removed from Home Page" : "Selected as Best Review for Home Page!");
+            fetchFeedback();
+        } catch (error) {
+            console.error("Error toggling homepage status:", error);
+            toast.error("Failed to update review visibility");
+        }
+    };
+
     const handleAddFeedback = async (e) => {
         e.preventDefault();
         if (!selectedOwnerId) {
@@ -207,15 +227,29 @@ export default function Feedback() {
                                             </div>
                                         </div>
                                     </div>
-                                    <Button 
-                                        onClick={() => handleDeleteFeedback(fb.id)}
-                                        variant="ghost" 
-                                        size="sm"
-                                        title="Delete Comment"
-                                        className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg"
-                                    >
-                                        <Trash2 size={15} />
-                                    </Button>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => handleToggleHomepage(fb.id, fb.show_on_homepage)}
+                                            className={`px-2.5 py-1 text-xs font-bold rounded-full transition-all border shrink-0 cursor-pointer ${
+                                                fb.show_on_homepage 
+                                                    ? 'bg-green-100 text-green-700 border-green-200 hover:bg-green-200' 
+                                                    : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'
+                                            }`}
+                                            title={fb.show_on_homepage ? "Remove from Home Page" : "Show on Home Page"}
+                                        >
+                                            {fb.show_on_homepage ? "✓ Best Review" : "Show on Home"}
+                                        </button>
+                                        <Button 
+                                            onClick={() => handleDeleteFeedback(fb.id)}
+                                            variant="ghost" 
+                                            size="sm"
+                                            title="Delete Comment"
+                                            className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg cursor-pointer"
+                                        >
+                                            <Trash2 size={15} />
+                                        </Button>
+                                    </div>
                                 </div>
                                 <p className="text-sm text-slate-600 leading-relaxed font-medium bg-white p-3 rounded-lg border border-slate-100/50">
                                     "{fb.comment || "Rated without comments."}"

@@ -5,10 +5,11 @@ import toast from 'react-hot-toast';
 import {
   Video, Calendar as CalendarIcon, Clock, CheckCircle2,
   MoreVertical, FileText, AlertCircle, XCircle, HourglassIcon, CreditCard, ShieldAlert,
-  Star
+  Star, MessageSquare
 } from 'lucide-react';
 import { Button, Card, Badge } from '../components/ui/ui';
 import JitsiVideoCall from '../components/consultation/JitsiVideoCall';
+import FarmerChatRoom from '../components/consultation/FarmerChatRoom';
 
 const TAB_STYLES = {
   pending: { text: 'text-amber-600', underline: 'bg-amber-600' },
@@ -24,6 +25,7 @@ export default function ConsultationPage() {
   const [activeMenuId, setActiveMenuId] = useState(null);
   const [cancelModalId, setCancelModalId] = useState(null);
   const [showVideoRoom, setShowVideoRoom] = useState(false);
+  const [showChatRoom, setShowChatRoom] = useState(false);
   const [selectedRequestDetails, setSelectedRequestDetails] = useState(null);
 
   // Feedback states
@@ -32,6 +34,12 @@ export default function ConsultationPage() {
   const [feedbackRating, setFeedbackRating] = useState(5);
   const [feedbackComment, setFeedbackComment] = useState("");
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
+  
+  // Prescription Report modal states
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [selectedReportConsultation, setSelectedReportConsultation] = useState(null);
+  const [emailing, setEmailing] = useState(false);
+
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [verifyingPayment, setVerifyingPayment] = useState(false);
@@ -93,6 +101,12 @@ export default function ConsultationPage() {
       toast.success("Simulated Sandbox/Test payment successful!");
       setShowPaymentModal(false);
       fetchAppointments();
+      
+      // Auto-open chat room if it's a chat consultation
+      if (paymentAppointment && paymentAppointment.consultation_type === 'chat') {
+        setSelectedRequestDetails(paymentAppointment);
+        setShowChatRoom(true);
+      }
     } catch (err) {
       console.error("Test payment error:", err);
       toast.error("Failed to process simulated payment.");
@@ -153,7 +167,20 @@ export default function ConsultationPage() {
             appointmentId
           });
           toast.success("Payment completed via Stripe!", { id: loadingToast });
-          fetchAppointments();
+          
+          // Fetch updated appointments list
+          const ownerId = localStorage.getItem('userId');
+          if (ownerId) {
+            const res = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/appointments/owner/${ownerId}`);
+            setAppointments(res.data);
+            
+            // Check if the paid appointment is chat type, and open it
+            const paidAppt = res.data.find(a => String(a.id) === String(appointmentId));
+            if (paidAppt && paidAppt.consultation_type === 'chat') {
+              setSelectedRequestDetails(paidAppt);
+              setShowChatRoom(true);
+            }
+          }
         } catch (err) {
           console.error("Verification error:", err);
           toast.error("Failed to verify Stripe payment.", { id: loadingToast });
@@ -251,6 +278,99 @@ export default function ConsultationPage() {
 
   const handleCancelAppointment = (appointmentId) => {
     setCancelModalId(appointmentId);
+  };
+
+  const handleViewReport = (consultation) => {
+    setSelectedReportConsultation(consultation);
+    setShowReportModal(true);
+  };
+
+  const handleEmailReport = async () => {
+    if (!selectedReportConsultation) return;
+    setEmailing(true);
+    const loadToast = toast.loading("Sending medical report to your email...");
+    try {
+      await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/users/chat-email-prescription`, {
+        appointmentId: selectedReportConsultation.id,
+        prescription: selectedReportConsultation.prescription || "No prescription details available."
+      });
+      toast.success("Medical report successfully sent to your email!", { id: loadToast });
+    } catch (err) {
+      console.error("Failed to email prescription:", err);
+      toast.error("Failed to email report. Please try again.", { id: loadToast });
+    } finally {
+      setEmailing(false);
+    }
+  };
+
+  const handleDownloadPDF = () => {
+    if (!selectedReportConsultation) return;
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    
+    const formattedDate = new Date(selectedReportConsultation.appointment_date || selectedReportConsultation.created_at).toLocaleDateString("en-US", {
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric'
+    });
+
+    const prescriptionText = selectedReportConsultation.prescription || "No prescription details entered.";
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Treatment Report - Appointment #${selectedReportConsultation.id}</title>
+          <style>
+            body { font-family: 'Helvetica Neue', Arial, sans-serif; padding: 40px; color: #1e293b; line-height: 1.6; }
+            .header { border-bottom: 2px solid #10b981; padding-bottom: 20px; margin-bottom: 30px; text-align: center; }
+            .logo { font-size: 24px; font-weight: bold; color: #059669; }
+            .title { font-size: 18px; color: #64748b; margin-top: 5px; text-transform: uppercase; letter-spacing: 1px; }
+            .grid { display: grid; grid-template-cols: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
+            .card { background: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; }
+            .card-title { font-weight: bold; font-size: 11px; text-transform: uppercase; color: #64748b; margin-bottom: 8px; border-bottom: 1px solid #cbd5e1; padding-bottom: 4px; }
+            .prescription-box { background: #f0fdf4; border: 1px solid #bbf7d0; color: #14532d; padding: 20px; border-radius: 8px; font-size: 14px; white-space: pre-line; margin-bottom: 40px; }
+            .footer { border-top: 1px solid #e2e8f0; padding-top: 20px; text-align: center; font-size: 11px; color: #94a3b8; margin-top: 50px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="logo">VETCLOUD SYSTEM</div>
+            <div class="title">Official Consultation Treatment Report</div>
+          </div>
+          
+          <div class="grid">
+            <div class="card">
+              <div class="card-title">Doctor Details</div>
+              <strong>Dr. ${selectedReportConsultation.veterinarian_name}</strong><br>
+              VetCloud Registered Veterinarian<br>
+              Consultation Type: ${selectedReportConsultation.consultation_type.toUpperCase()}
+            </div>
+            <div class="card">
+              <div class="card-title">Patient & Owner Details</div>
+              <strong>Patient Name:</strong> ${selectedReportConsultation.animal_name}<br>
+              <strong>Species:</strong> ${selectedReportConsultation.animal_species || 'N/A'}<br>
+              <strong>Breed:</strong> ${selectedReportConsultation.animal_breed || 'N/A'}
+            </div>
+          </div>
+
+          <div class="card-title">Prescribed Treatments & Advice</div>
+          <div class="prescription-box">${prescriptionText.replace(/\\n/g, '<br>').replace(/\n/g, '<br>')}</div>
+
+          <div class="footer">
+            This is a computer-generated medical record from VetCloud. Date: ${formattedDate}<br>
+            VetCloud Consultation ID: #${selectedReportConsultation.id}
+          </div>
+          
+          <script>
+            window.onload = function() {
+              window.print();
+            }
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
   };
 
   // Filter appointments by status
@@ -575,6 +695,18 @@ export default function ConsultationPage() {
                             <CreditCard size={18} className="mr-2" />
                             Pay Fee
                           </Button>
+                        ) : consult.consultation_type === 'chat' ? (
+                          <Button 
+                            className="flex-1 bg-green-600 hover:bg-green-700 text-white whitespace-nowrap px-4 font-semibold"
+                            disabled={!hasSlot}
+                            onClick={() => {
+                              setSelectedRequestDetails(consult);
+                              setShowChatRoom(true);
+                            }}
+                          >
+                            <MessageSquare size={18} className="mr-2" />
+                            Open Chat
+                          </Button>
                         ) : (
                           <Button 
                             className="flex-1 bg-blue-600 hover:bg-blue-700 text-white whitespace-nowrap px-4 font-semibold"
@@ -678,10 +810,16 @@ export default function ConsultationPage() {
                       </div>
                     </div>
                     <div className="flex flex-col justify-end md:border-l md:border-slate-100 md:pl-6 gap-2">
-                      <Button variant="outline" className="border-slate-300 text-slate-700 hover:bg-slate-50 w-full">
-                        <FileText size={18} className="mr-2" />
-                        View Report
-                      </Button>
+                      {consult.status === 'Completed' && (
+                        <Button 
+                          variant="outline" 
+                          className="border-slate-300 text-slate-700 hover:bg-slate-50 w-full cursor-pointer"
+                          onClick={() => handleViewReport(consult)}
+                        >
+                          <FileText size={18} className="mr-2" />
+                          View Report
+                        </Button>
+                      )}
                       {consult.status === 'Completed' && !isAppointmentRated(consult.id) && (
                         <Button 
                           className="bg-green-600 hover:bg-green-700 text-white w-full flex items-center justify-center cursor-pointer font-semibold text-sm"
@@ -790,6 +928,18 @@ export default function ConsultationPage() {
             />
           </div>
         </div>
+      )}
+
+      {/* Farmer Chat Consultation Room Overlay */}
+      {showChatRoom && selectedRequestDetails && (
+        <FarmerChatRoom
+          isOpen={showChatRoom}
+          onClose={() => {
+            setShowChatRoom(false);
+            setSelectedRequestDetails(null);
+          }}
+          requestDetails={selectedRequestDetails}
+        />
       )}
 
       {/* Dynamic Payment Modal */}
@@ -957,6 +1107,68 @@ export default function ConsultationPage() {
                 </Button>
               </div>
             </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Consultation Report Details Modal */}
+      {showReportModal && selectedReportConsultation && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <Card className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-200 text-slate-800">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <FileText size={24} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 leading-snug">
+                  Consultation Report
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Appointment #{selectedReportConsultation.id} &bull; Completed
+                </p>
+              </div>
+            </div>
+            
+            <p className="text-xs text-slate-600 leading-relaxed mb-4">
+              Dr. <strong>{selectedReportConsultation.veterinarian_name}</strong> completed the session and issued the following prescription and treatment advice for <strong>{selectedReportConsultation.animal_name}</strong> ({selectedReportConsultation.animal_species || 'Unknown'}):
+            </p>
+
+            <div className="p-4 bg-emerald-50/50 border border-emerald-100 rounded-xl max-h-48 overflow-y-auto mb-6">
+              <span className="block text-[10px] font-bold text-emerald-700 uppercase tracking-wider mb-2">
+                Prescribed Advice & Medications:
+              </span>
+              <p className="text-sm text-slate-700 whitespace-pre-line leading-relaxed font-medium">
+                {selectedReportConsultation.prescription || "No prescription notes entered."}
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2.5">
+              <Button
+                onClick={handleDownloadPDF}
+                className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-700 hover:to-teal-600 text-white py-2.5 rounded-xl text-xs font-bold transition-all active:scale-95 shadow-md shadow-emerald-500/10 cursor-pointer border-0"
+              >
+                Download PDF Report
+              </Button>
+              <Button
+                onClick={handleEmailReport}
+                disabled={emailing}
+                variant="outline"
+                className="flex-1 border-slate-200 text-slate-700 hover:bg-slate-50 py-2.5 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer bg-white"
+              >
+                {emailing ? "Sending Email..." : "Email Report to Me"}
+              </Button>
+            </div>
+
+            <Button
+              onClick={() => {
+                setShowReportModal(false);
+                setSelectedReportConsultation(null);
+              }}
+              variant="ghost"
+              className="mt-3 w-full text-slate-500 hover:bg-slate-100 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer"
+            >
+              Close
+            </Button>
           </Card>
         </div>
       )}

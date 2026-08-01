@@ -258,3 +258,177 @@ export const getPasswordResetTemplate = (ownerName, otp) => {
     `;
     return wrapTemplate("Password Reset OTP", content);
 };
+
+// 7. Veterinarian Daily Schedule Template
+export const getDailyAppointmentScheduleTemplate = (vetName, appointments) => {
+    let rowsHtml = "";
+    if (appointments.length === 0) {
+        rowsHtml = `<tr><td colspan="4" style="padding: 12px; text-align: center; color: #64748b;">No appointments scheduled for today.</td></tr>`;
+    } else {
+        appointments.forEach(apt => {
+            rowsHtml += `
+                <tr>
+                    <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px;">${apt.slot_time}</td>
+                    <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; font-weight: 600;">${apt.owner_name}</td>
+                    <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px;">${apt.animal_name} (${apt.animal_species})</td>
+                    <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; text-transform: uppercase;">${apt.consultation_type}</td>
+                </tr>
+            `;
+        });
+    }
+
+    const content = `
+        <p>Dear Dr. ${vetName},</p>
+        <p>Here is your daily appointment schedule for today, **${new Date().toLocaleDateString("en-US", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}**:</p>
+        
+        <table style="width: 100%; border-collapse: collapse; margin: 20px 0; border: 1px solid #e2e8f0; text-align: left;">
+            <thead>
+                <tr style="background-color: #f8fafc;">
+                    <th style="padding: 12px; border-bottom: 2px solid #e2e8f0; font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase;">Time</th>
+                    <th style="padding: 12px; border-bottom: 2px solid #e2e8f0; font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase;">Pet Owner</th>
+                    <th style="padding: 12px; border-bottom: 2px solid #e2e8f0; font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase;">Animal</th>
+                    <th style="padding: 12px; border-bottom: 2px solid #e2e8f0; font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase;">Type</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${rowsHtml}
+            </tbody>
+        </table>
+
+        <p>Please log in to your VetCloud Dashboard to manage these appointments and start calls on time.</p>
+        <a href="http://localhost:5173/dashboard/doctor/schedule" class="button">View My Schedule</a>
+    `;
+    return wrapTemplate("Daily Appointment Schedule", content);
+};
+
+// 8. Veterinarian Monthly Performance Report Template
+export const getMonthlyPerformanceReportTemplate = (vetName, stats) => {
+    const content = `
+        <p>Dear Dr. ${vetName},</p>
+        <p>Your Monthly Performance Report for the past month is ready:</p>
+        
+        <div class="details-box">
+            <div class="details-item">
+                <span class="details-label">Total Completed Consultations:</span>
+                <span class="details-value">${stats.completedCount || 0}</span>
+            </div>
+            <div class="details-item">
+                <span class="details-label">Consultation Revenue Generated:</span>
+                <span class="details-value" style="color: #10b981; font-weight: 700;">LKR ${parseFloat(stats.revenue || 0).toFixed(2)}</span>
+            </div>
+            <div class="details-item">
+                <span class="details-label">Average Patient Rating:</span>
+                <span class="details-value">${stats.averageRating ? stats.averageRating + ' / 5.0' : 'N/A'}</span>
+            </div>
+        </div>
+
+        <p>Thank you for your dedicated service on the VetCloud platform! We appreciate your commitment to animal care.</p>
+    `;
+    return wrapTemplate("Monthly Performance Report", content);
+};
+
+// 9. System Announcements Template
+export const getSystemAnnouncementTemplate = (title, message) => {
+    const content = `
+        <h3>System Announcement</h3>
+        <p style="font-size: 15px; line-height: 1.6; color: #334155;">${message}</p>
+        <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+        <p style="font-size: 12px; color: #64748b;">This is a system broadcast sent to all registered partners on VetCloud.</p>
+    `;
+    return wrapTemplate(title || "System Announcement", content);
+};
+
+// 10. Admin Security Alert Template
+export const getSecurityAlertTemplate = (alertType, message, details) => {
+    const content = `
+        <p style="color: #e11d48; font-weight: bold; font-size: 16px;">⚠️ SECURITY ALERT: ${alertType}</p>
+        <p>${message}</p>
+        <div class="details-box" style="background-color: #fff1f2; border-color: #fecdd3;">
+            <p style="margin: 0; font-size: 13px; font-family: monospace; color: #9f1239; word-break: break-all;">
+                ${details || "No technical details available."}
+            </p>
+        </div>
+        <p style="font-size: 12px; color: #64748b;">This alert requires administrator attention immediately.</p>
+    `;
+    return wrapTemplate("System Security Alert", content);
+};
+
+// 11. Admin Failed Payment Report Template
+export const getFailedPaymentReportTemplate = (appointmentId, ownerName, amount, errorMsg) => {
+    const content = `
+        <p style="color: #e11d48; font-weight: bold;">❌ Failed Payment Transaction Detected</p>
+        <p>A billing transaction failed during Stripe processing:</p>
+        
+        <div class="details-box">
+            <div class="details-item">
+                <span class="details-label">Appointment ID:</span>
+                <span class="details-value">#${appointmentId}</span>
+            </div>
+            <div class="details-item">
+                <span class="details-label">Customer Name:</span>
+                <span class="details-value">${ownerName}</span>
+            </div>
+            <div class="details-item">
+                <span class="details-label">Attempted Amount:</span>
+                <span class="details-value">LKR ${parseFloat(amount || 0).toFixed(2)}</span>
+            </div>
+            <div class="details-item">
+                <span class="details-label">Failure Reason:</span>
+                <span class="details-value" style="color: #e11d48;">${errorMsg || "Transaction Cancelled/Failed"}</span>
+            </div>
+        </div>
+    `;
+    return wrapTemplate("Failed Payment Transaction", content);
+};
+
+// 12. Admin User Account Issue Template
+export const getUserAccountIssueTemplate = (issueType, details) => {
+    const content = `
+        <p style="font-weight: bold;">⚠️ User Account Issue Ticket Raised</p>
+        <p>An issue was detected or reported concerning a platform user profile:</p>
+        
+        <div class="details-box">
+            <div class="details-item">
+                <span class="details-label">Issue Category:</span>
+                <span class="details-value">${issueType}</span>
+            </div>
+            <div class="details-item">
+                <span class="details-label">Incident details:</span>
+                <span class="details-value">${details}</span>
+            </div>
+        </div>
+    `;
+    return wrapTemplate("User Account Issue", content);
+};
+
+// 13. Vet Consultation Assignment Template
+export const getNewConsultationAssignmentTemplate = (vetName, ownerName, animalName, date, time) => {
+    const formattedDate = date ? new Date(date).toLocaleDateString("en-US", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : "N/A";
+    const content = `
+        <p>Dear Dr. ${vetName},</p>
+        <p>A new consultation has been requested/assigned to you. Here are the details:</p>
+        
+        <div class="details-box">
+            <div class="details-item">
+                <span class="details-label">Pet Owner:</span>
+                <span class="details-value">${ownerName}</span>
+            </div>
+            <div class="details-item">
+                <span class="details-label">Patient Animal:</span>
+                <span class="details-value">${animalName}</span>
+            </div>
+            <div class="details-item">
+                <span class="details-label">Preferred Date:</span>
+                <span class="details-value">${formattedDate}</span>
+            </div>
+            <div class="details-item">
+                <span class="details-label">Preferred Time:</span>
+                <span class="details-value">${time || "N/A"}</span>
+            </div>
+        </div>
+        
+        <p>Please log in to your dashboard to accept/confirm or reschedule this consultation.</p>
+        <a href="http://localhost:5173/dashboard/doctor/requests" class="button">View Requests</a>
+    `;
+    return wrapTemplate("New Consultation Assignment", content);
+};
