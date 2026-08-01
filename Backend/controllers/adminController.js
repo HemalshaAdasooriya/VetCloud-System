@@ -340,7 +340,7 @@ export const toggleFeedbackHomepage = async (req, res) => {
 // 7. Reports & Analytics
 export const getReports = async (req, res) => {
     try {
-        // Aggregate appointments by month (last 6 months)
+        // 1. User Signup & Consultation Growth (last 6 months)
         const ownerGrowth = await queryPromise(`
             SELECT DATE_FORMAT(created_at, '%b %Y') AS month, COUNT(*) AS count
             FROM appointments
@@ -349,14 +349,14 @@ export const getReports = async (req, res) => {
             ORDER BY MIN(created_at)
         `);
 
-        // Consultations by status
+        // 2. Consultations by status
         const consultationStats = await queryPromise(`
-            SELECT status, COUNT(*) AS count, SUM(fee) AS totalFee
+            SELECT status, COUNT(*) AS count, COALESCE(SUM(fee), 0) AS totalFee
             FROM consultations
             GROUP BY status
         `);
 
-        // Popular specialties
+        // 3. Specialty distribution
         const specialtyStats = await queryPromise(`
             SELECT specialization, COUNT(*) AS count
             FROM veterinarians
@@ -364,10 +364,80 @@ export const getReports = async (req, res) => {
             ORDER BY count DESC
         `);
 
+        // 4. Financial Summary
+        const [grossRevenue] = await queryPromise(`SELECT COALESCE(SUM(fee), 0) AS total FROM consultations`);
+        const [paidPayouts] = await queryPromise(`SELECT COALESCE(SUM(amount), 0) AS total FROM payouts WHERE status = 'Paid'`);
+        const [pendingPayouts] = await queryPromise(`SELECT COALESCE(SUM(amount), 0) AS total FROM payouts WHERE status = 'Pending'`);
+        const [totalConsultationsCount] = await queryPromise(`SELECT COUNT(*) AS count FROM consultations`);
+
+        const financialSummary = {
+            grossRevenue: parseFloat(grossRevenue.total || 0),
+            paidPayouts: parseFloat(paidPayouts.total || 0),
+            pendingPayouts: parseFloat(pendingPayouts.total || 0),
+            totalConsultations: totalConsultationsCount.count || 0
+        };
+
+        // 5. Veterinarian Performance Metrics
+        const vetPerformance = await queryPromise(`
+            SELECT 
+                v.id, 
+                v.fullName, 
+                v.specialization, 
+                v.consultation_fee,
+                COUNT(DISTINCT c.id) AS totalConsultations, 
+                COALESCE(SUM(c.fee), 0) AS totalRevenue,
+                COALESCE(AVG(f.rating), 5.0) AS avgRating
+            FROM veterinarians v
+            LEFT JOIN consultations c ON v.id = c.doctor_id
+            LEFT JOIN feedbacks f ON v.id = f.veterinarian_id
+            GROUP BY v.id, v.fullName, v.specialization, v.consultation_fee
+            ORDER BY totalConsultations DESC, totalRevenue DESC
+            LIMIT 10
+        `);
+
+        // 6. Patient / Animal Species & Clinical Stats
+        const speciesStats = await queryPromise(`
+            SELECT species, COUNT(*) AS count
+            FROM animals
+            GROUP BY species
+            ORDER BY count DESC
+        `);
+
+        const [totalAnimals] = await queryPromise(`SELECT COUNT(*) AS count FROM animals`);
+        const [totalMedicalRecords] = await queryPromise(`SELECT COUNT(*) AS count FROM animal_medical_histories`);
+
+        const patientStats = {
+            totalAnimals: totalAnimals.count || 0,
+            totalMedicalRecords: totalMedicalRecords.count || 0,
+            speciesStats
+        };
+
+        // 7. Recent Financial Audit Logs / Transactions
+        const recentTransactions = await queryPromise(`
+            SELECT 
+                c.id, 
+                'Consultation Fee' AS type, 
+                c.fee AS amount, 
+                c.status, 
+                c.consultation_type AS mode,
+                c.created_at AS date,
+                v.fullName AS doctorName,
+                p.fullName AS ownerName
+            FROM consultations c
+            LEFT JOIN veterinarians v ON c.doctor_id = v.id
+            LEFT JOIN pet_owners p ON c.owner_id = p.id
+            ORDER BY c.created_at DESC
+            LIMIT 20
+        `);
+
         res.status(200).json({
             ownerGrowth,
             consultationStats,
-            specialtyStats
+            specialtyStats,
+            financialSummary,
+            vetPerformance,
+            patientStats,
+            recentTransactions
         });
     } catch (error) {
         console.error("Error in getReports:", error);
