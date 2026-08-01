@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Users, Calendar, Settings, LogOut, Bell, Stethoscope, Bird, ShieldCheck, Activity, Book, ClipboardList, Video, DollarSign, Database, MessageSquare, Star, BarChart3, UserCog, Search, MapPin, Check, Clock, X } from 'lucide-react';
+import { LayoutDashboard, Users, Calendar, Settings, LogOut, Bell, Stethoscope, Bird, ShieldCheck, Activity, Book, ClipboardList, Video, DollarSign, Database, MessageSquare, Star, BarChart3, UserCog, Search, MapPin, Check, Clock, X, Menu } from 'lucide-react';
 import { BsDatabaseCheck } from 'react-icons/bs';
 import { PiDogFill } from "react-icons/pi";
 import io from 'socket.io-client';
@@ -15,7 +15,7 @@ export function DashboardLayout() {
     return savedUser ? JSON.parse(savedUser) : null;
   });
 
-
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
     const handleStorageChange = () => {
@@ -220,16 +220,34 @@ export function DashboardLayout() {
   };
 
   return (
-    <div className="flex h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden">
+    <div className="flex h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden relative">
+      {/* Backdrop for mobile sidebar */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-40 lg:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col">
-        <div className="h-16 flex items-center px-6 border-b border-slate-200">
+      <aside className={`
+        w-64 bg-white border-r border-slate-200 flex flex-col shrink-0 z-50
+        fixed inset-y-0 left-0 transition-transform duration-300 lg:static lg:translate-x-0
+        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+      `}>
+        <div className="h-16 flex items-center justify-between px-6 border-b border-slate-200">
           <Link to="/" className="flex items-center gap-2 group text-green-600">
             <div className="bg-green-100 p-2 rounded-lg">
               <Stethoscope size={20} />
             </div>
             <span className="text-xl font-bold tracking-tight text-slate-800">VetCloud</span>
           </Link>
+          <button 
+            onClick={() => setIsSidebarOpen(false)}
+            className="lg:hidden p-1.5 hover:bg-slate-100 rounded-lg text-slate-500 cursor-pointer"
+          >
+            <X size={18} />
+          </button>
         </div>
 
         <div className="flex-1 overflow-y-auto py-6 px-4 space-y-2">
@@ -239,6 +257,7 @@ export function DashboardLayout() {
               <Link
                 key={link.path}
                 to={link.path}
+                onClick={() => setIsSidebarOpen(false)}
                 className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
                   isActive ? 'bg-green-50 text-green-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                 }`}
@@ -263,19 +282,28 @@ export function DashboardLayout() {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 z-10">
-          <h1 className="text-xl font-semibold text-slate-800">
-            {links.find((l) => l.path === location.pathname)?.name || 'Dashboard'}
-          </h1>
+        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-8 z-10">
+          <div className="flex items-center gap-3 min-w-0">
+            <button
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className="lg:hidden p-2 text-slate-600 hover:text-green-600 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer focus:outline-none"
+              aria-label="Toggle sidebar"
+            >
+              <Menu size={22} />
+            </button>
+            <h1 className="text-base sm:text-xl font-semibold text-slate-800 truncate">
+              {links.find((l) => l.path === location.pathname)?.name || 'Dashboard'}
+            </h1>
+          </div>
           
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             {isAdmin && (
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                 <input 
                   type="text"
                   placeholder="Search..."
-                  className="pl-9 pr-4 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 w-64"
+                  className="pl-9 pr-4 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 w-28 sm:w-48 md:w-64 transition-all"
                 />
               </div>
             )}
@@ -356,17 +384,17 @@ export function DashboardLayout() {
                 </>
               )}
             </div>
-            <div className="flex items-center gap-3 border-l border-slate-200 pl-4">
+            <div className="flex items-center gap-2 sm:gap-3 border-l border-slate-200 pl-2 sm:pl-4">
               
               {/* UPDATED: Dynamic Profile Display using our new logic */}
               <img 
                 src={profileImageUrl} 
                 alt="Profile Avatar" 
-                className="w-8 h-8 rounded-full object-cover shadow-sm"
+                className="w-8 h-8 rounded-full object-cover shadow-sm shrink-0"
                 referrerPolicy="no-referrer"
                 onError={(e) => { e.target.src = defaultAvatar; }} 
               />
-              <div className="text-sm">
+              <div className="text-sm hidden sm:block">
                 <p className="font-medium text-slate-700">
                     {user?.fullName || 'Loading...'}
                 </p>
@@ -378,7 +406,7 @@ export function DashboardLayout() {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto bg-slate-50 p-8">
+        <main className="flex-1 overflow-y-auto bg-slate-50 p-4 md:p-8">
           <Outlet />
         </main>
       </div>

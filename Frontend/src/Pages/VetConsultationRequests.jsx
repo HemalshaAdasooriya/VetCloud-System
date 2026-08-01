@@ -1081,39 +1081,6 @@ export default function VetConsultationRequests() {
                 </div>
               )}
 
-              <Button
-                variant="outline"
-                className="w-full border-slate-200 text-slate-700 hover:bg-slate-50 font-medium flex items-center justify-center gap-2 bg-white"
-                onClick={() => {
-                  setChatInput('');
-                  setShowClientChatDrawer(true);
-                }}
-              >
-                <MessageSquare size={16} />
-                Message Client
-              </Button>
-            </Card>
-
-            {/* Attached Files Card */}
-            <Card className="p-6 border-slate-200 shadow-sm space-y-4 bg-white">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Attached Files</h3>
-                <Badge className="bg-slate-100 text-slate-600 border border-slate-200 text-[10px] px-2 py-0.5">
-                  {mockFiles.length}
-                </Badge>
-              </div>
-
-              <div className="space-y-2">
-                {mockFiles.map((file, i) => (
-                  <div key={i} className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-100 rounded-lg">
-                    <Paperclip size={16} className="text-slate-400 flex-shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-bold text-slate-800 truncate">{file.name}</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">{file.size}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
             </Card>
 
           </div>

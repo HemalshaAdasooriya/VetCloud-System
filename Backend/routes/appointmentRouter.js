@@ -10,7 +10,8 @@ import {
     resubmitAppointment,
     completeAppointment,
     cancelAppointment,
-    removeAppointment
+    removeAppointment,
+    getChatHistory
 } from "../controllers/appointmentController.js";
 
 const appointmentRouter = express.Router();
@@ -60,6 +61,11 @@ appointmentRouter.patch(
 appointmentRouter.delete(
     "/:id",
     removeAppointment
+);
+
+appointmentRouter.get(
+    "/:id/chat-history",
+    getChatHistory
 );
 
 export default appointmentRouter;

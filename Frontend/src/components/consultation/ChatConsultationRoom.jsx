@@ -35,9 +35,20 @@ export default function ChatConsultationRoom({
   useEffect(() => {
     if (!isOpen || !requestDetails?.id) return;
 
-    // Load message history from localStorage
-    const history = JSON.parse(localStorage.getItem(storageKey) || "[]");
-    setChatRoomMessages(history);
+    // Load message history from backend API
+    const token = localStorage.getItem("token");
+    axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/appointments/${requestDetails.id}/chat-history`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    .then(res => {
+      setChatRoomMessages(res.data);
+      localStorage.setItem(storageKey, JSON.stringify(res.data));
+    })
+    .catch(err => {
+      console.error("Failed to load chat history:", err);
+      const history = JSON.parse(localStorage.getItem(storageKey) || "[]");
+      setChatRoomMessages(history);
+    });
 
     // Connect to Socket server
     const socket = io(`${import.meta.env.VITE_BACKEND_URL}`, {
