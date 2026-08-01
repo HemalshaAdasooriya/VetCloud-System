@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import { Activity, Calendar, CheckCircle, Clock, DollarSign, MoreVertical, Search, Video, MessageSquare, AlertCircle, Loader2 } from "lucide-react";
+import { Activity, Calendar, CheckCircle, Clock, DollarSign, MoreVertical, Search, Video, MessageSquare, AlertCircle, Loader2, Printer, FileText } from "lucide-react";
 import { Badge, Button, Card, Input } from "../components/Ui/ui";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import toast from "react-hot-toast";
 
 export default function DoctorDashboard() {
     const navigate = useNavigate();
@@ -168,6 +169,97 @@ export default function DoctorDashboard() {
         ? `Dr. ${doctorProfile.firstName || ""} ${doctorProfile.lastName}` 
         : doctorProfile?.fullName || "Doctor";
 
+    const generateDoctorReport = () => {
+        const printWindow = window.open("", "_blank");
+        if (!printWindow) {
+            toast.error("Please allow popups to generate report");
+            return;
+        }
+
+        const rowsHtml = appointments.map(a => `
+            <tr>
+                <td style="padding: 10px; border-bottom: 1px solid #eee;">${a.appointment_date || 'N/A'} ${a.appointment_time || ''}</td>
+                <td style="padding: 10px; border-bottom: 1px solid #eee;">${a.ownerName || a.pet_owner_name || 'Patient Owner'}</td>
+                <td style="padding: 10px; border-bottom: 1px solid #eee;">${a.animal_name || a.animalName || 'Pet'}</td>
+                <td style="padding: 10px; border-bottom: 1px solid #eee; text-transform: capitalize;">${a.consultation_type || 'Video'}</td>
+                <td style="padding: 10px; border-bottom: 1px solid #eee; font-weight: bold;">LKR ${consultationFee.toFixed(2)}</td>
+                <td style="padding: 10px; border-bottom: 1px solid #eee;">${a.status || 'Pending'}</td>
+            </tr>
+        `).join("");
+
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+                <head>
+                    <title>VetCloud - Doctor Practice & Earnings Report</title>
+                    <style>
+                        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 30px; color: #1e293b; }
+                        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #10b981; padding-bottom: 15px; margin-bottom: 25px; }
+                        .title { font-size: 24px; font-weight: bold; color: #0f172a; margin: 0; }
+                        .subtitle { font-size: 13px; color: #64748b; margin-top: 4px; }
+                        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 25px; }
+                        .stat-card { background: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; text-align: center; }
+                        .stat-val { font-size: 20px; font-weight: bold; color: #059669; }
+                        .stat-lbl { font-size: 11px; color: #64748b; text-transform: uppercase; margin-top: 4px; }
+                        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+                        th { background: #f1f5f9; text-align: left; padding: 10px; font-size: 12px; color: #475569; text-transform: uppercase; }
+                        .footer { margin-top: 40px; font-size: 11px; color: #94a3b8; text-align: center; border-top: 1px solid #eee; padding-top: 15px; }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <div>
+                            <h1 class="title">VetCloud Doctor Practice & Earnings Report</h1>
+                            <div class="subtitle">Generated for <strong>${doctorName}</strong> | ${new Date().toLocaleDateString()}</div>
+                        </div>
+                        <div style="font-weight: bold; color: #059669; font-size: 18px;">VetCloud System</div>
+                    </div>
+
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-val">${completedAppointments.length}</div>
+                            <div class="stat-lbl">Completed Consultations</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-val">LKR ${consultationFee.toFixed(2)}</div>
+                            <div class="stat-lbl">Consultation Fee</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-val">LKR ${totalEarnings.toLocaleString()}</div>
+                            <div class="stat-lbl">Total Gross Earnings</div>
+                        </div>
+                    </div>
+
+                    <h3 style="font-size: 16px; color: #0f172a; margin-bottom: 10px;">Consultation History & Visit Log</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Date / Time</th>
+                                <th>Pet Owner</th>
+                                <th>Animal</th>
+                                <th>Mode</th>
+                                <th>Fee</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rowsHtml.length > 0 ? rowsHtml : '<tr><td colspan="6" style="text-align: center; padding: 20px; color: #94a3b8;">No consultation records found.</td></tr>'}
+                        </tbody>
+                    </table>
+
+                    <div class="footer">
+                        Confidential Practice Report &bull; Issued by VetCloud Automated System
+                    </div>
+
+                    <script>
+                        window.onload = function() { window.print(); }
+                    </script>
+                </body>
+            </html>
+        `);
+        printWindow.document.close();
+    };
+
     return (
         <div className="max-w-6xl mx-auto space-y-6">
             {error && (
@@ -185,7 +277,14 @@ export default function DoctorDashboard() {
                         You have {todayCount} appointment{todayCount === 1 ? "" : "s"} scheduled for today and {pendingCount} pending consultation request{pendingCount === 1 ? "" : "s"}.
                     </p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
+                    <button 
+                        onClick={generateDoctorReport}
+                        className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-xl transition-all shadow-sm"
+                    >
+                        <Printer size={14} />
+                        Export Practice Report
+                    </button>
                     <Badge variant="success" className="px-3 py-1 text-sm font-medium bg-green-100 text-green-700 border-none">
                         <span className="w-2 h-2 rounded-full bg-green-500 mr-2 animate-pulse inline-block"></span> Available
                     </Badge>
