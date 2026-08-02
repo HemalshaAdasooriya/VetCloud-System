@@ -1,5 +1,6 @@
 import dotenv from "dotenv";
 dotenv.config();
+import db from "./config/db.js";
 import express from "express";
 import userRouter from "./routes/userRouter.js";
 import cors from "cors";
@@ -55,13 +56,23 @@ io.on("connection", (socket) => {
 
     socket.on("send-chat-message", ({ appointmentId, text, fileUrl, sender, senderName }) => {
         const roomName = `appointment_chat_${appointmentId}`;
-        io.to(roomName).emit("receive-chat-message", {
-            id: Date.now() + Math.random(),
-            sender,
-            senderName,
-            text,
-            fileUrl,
-            time: new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+        const sql = `
+            INSERT INTO chat_messages (appointment_id, sender, sender_name, text, file_url)
+            VALUES (?, ?, ?, ?, ?)
+        `;
+        db.query(sql, [appointmentId, sender, senderName, text || null, fileUrl || null], (err, result) => {
+            if (err) {
+                console.error("Failed to persist chat message:", err);
+            }
+            const messageId = result ? result.insertId : (Date.now() + Math.random());
+            io.to(roomName).emit("receive-chat-message", {
+                id: messageId,
+                sender,
+                senderName,
+                text,
+                fileUrl,
+                time: new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+            });
         });
     });
 

@@ -264,3 +264,24 @@ export const removeAppointment = (req, res) => {
         });
     });
 };
+
+export const getChatHistory = (req, res) => {
+    const { id } = req.params;
+    const sql = `
+        SELECT id, sender, sender_name AS senderName, text, file_url AS fileUrl, created_at AS time
+        FROM chat_messages 
+        WHERE appointment_id = ? 
+        ORDER BY created_at ASC
+    `;
+    db.query(sql, [id], (err, results) => {
+        if (err) {
+            console.error("Failed to fetch chat history:", err);
+            return res.status(500).json({ message: "Failed to fetch chat history" });
+        }
+        const formattedResults = results.map(msg => ({
+            ...msg,
+            time: new Date(msg.time).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+        }));
+        res.json(formattedResults);
+    });
+};

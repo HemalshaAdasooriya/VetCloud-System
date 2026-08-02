@@ -333,20 +333,32 @@ function handleSocialLogin(req, res, email, name, image, role, provider) {
     const splitFirstName = nameParts[0] || "";
     const splitLastName = nameParts.slice(1).join(" ") || "";
     
-    // Map frontend role to backend database role names
-    const dbRole = (role === "Farmer/PetOwner" || role === "farmer") ? "farmer" : "doctor";
+    // First lookup: check if user exists in pet_owners (farmer)
+    getUserByEmailAndRole(email, "farmer", (errFarmer, farmerResults) => {
+        if (errFarmer) {
+            console.error("Farmer lookup failed during social login:", errFarmer);
+            return res.status(500).json({ message: "Database error during social login." });
+        }
 
-    checkEmailExists(email, (err, results) => {
-        if (err) return res.status(500).json(err);
+        if (farmerResults && farmerResults.length > 0) {
+            // User exists as a farmer! Log them in.
+            return issueTokenAndSession(req, res, farmerResults[0], "farmer");
+        }
 
-        if (results.length > 0) {
-            // User already exists in DB -> Fetch full user details to issue a proper session
-            getUserByEmailAndRole(email, dbRole, (fetchErr, userResults) => {
-                if (fetchErr || userResults.length === 0) return res.status(500).json({ message: "Database error during social login." });
-                issueTokenAndSession(req, res, userResults[0], dbRole);
-            });
-        } else {
-            // New user -> Register them instantly
+        // Second lookup: check if user exists in veterinarians (doctor)
+        getUserByEmailAndRole(email, "doctor", (errDoctor, doctorResults) => {
+            if (errDoctor) {
+                console.error("Doctor lookup failed during social login:", errDoctor);
+                return res.status(500).json({ message: "Database error during social login." });
+            }
+
+            if (doctorResults && doctorResults.length > 0) {
+                // User exists as a doctor! Log them in.
+                return issueTokenAndSession(req, res, doctorResults[0], "doctor");
+            }
+
+            // No existing user found: proceed to register as a new user with selected role
+            const dbRole = (role === "Farmer/PetOwner" || role === "farmer") ? "farmer" : "doctor";
             const userData = { 
                 email, 
                 password: null, 
@@ -374,9 +386,10 @@ function handleSocialLogin(req, res, email, name, image, role, provider) {
             } else {
                 createVeterinarian(userData, callback);
             }
-        }
+        });
     });
 }
+
 
 // --- Standardized Function to Generate Token & Save Session ---
 function issueTokenAndSession(req, res, user, role) {

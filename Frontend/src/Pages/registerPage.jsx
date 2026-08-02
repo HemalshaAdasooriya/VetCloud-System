@@ -81,9 +81,10 @@ export default function RegisterPage() {
                 if (data.user) localStorage.setItem("user", JSON.stringify(data.user));
 
                 // 2. Escort the User: Navigate to the correct dashboard based on role
-                if (role === 'user') {
+                const finalRole = data.user?.role || (role === 'user' ? 'farmer' : 'doctor');
+                if (finalRole === 'farmer') {
                     navigate("/dashboard/user");
-                } else if (role === 'vet') {
+                } else if (finalRole === 'doctor') {
                     navigate("/dashboard/doctor");
                 } 
             } else {
