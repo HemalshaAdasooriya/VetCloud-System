@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { FcGoogle } from "react-icons/fc";
 import { FaRegHeart } from "react-icons/fa";
@@ -21,54 +21,6 @@ export default function LoginPage({ defaultRole = null }) {
     const [showPassword, setShowPassword] = useState(false);
     const navigate = useNavigate();
     const [role, setRole] = useState(defaultRole);
-
-    useEffect(() => {
-        const pending = localStorage.getItem("pendingApproval");
-        if (pending) {
-            try {
-                const { pendingToken, role: pendingRole } = JSON.parse(pending);
-                
-                const checkingToast = toast.loading("Checking approval status...");
-                
-                fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/check-pending-status`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ pendingToken })
-                })
-                .then(res => {
-                    if (!res.ok) throw new Error("Verification failed");
-                    return res.json();
-                })
-                .then(data => {
-                    toast.dismiss(checkingToast);
-                    if (data.approved) {
-                        toast.success("Welcome back! Your account has been approved by the administrator.");
-                        
-                        localStorage.setItem("token", data.token);
-                        localStorage.setItem("user", JSON.stringify(data.user));
-                        if (data.user && data.user.id) {
-                            localStorage.setItem("userId", data.user.id);
-                        }
-                        
-                        localStorage.removeItem("pendingApproval");
-                        
-                        if (pendingRole === "farmer") navigate("/dashboard/user");
-                        else if (pendingRole === "doctor") navigate("/dashboard/doctor");
-                        else if (pendingRole === "admin") navigate("/dashboard/admin");
-                    } else {
-                        toast.info("Your account is still pending administrator approval.");
-                    }
-                })
-                .catch(err => {
-                    toast.dismiss(checkingToast);
-                    localStorage.removeItem("pendingApproval");
-                    console.error("Verification error:", err);
-                });
-            } catch (e) {
-                localStorage.removeItem("pendingApproval");
-            }
-        }
-    }, [navigate]);
 
     const buttonStyle = (value) => `
     group w-[48%] h-[85px] border rounded-[14px] 
@@ -133,13 +85,6 @@ export default function LoginPage({ defaultRole = null }) {
                 if (role === "doctor") navigate("/dashboard/doctor");
                 if (role === "admin") navigate("/dashboard/admin");
             } else {
-                if (response.status === 403 && data.pendingToken) {
-                    localStorage.setItem("pendingApproval", JSON.stringify({
-                        pendingToken: data.pendingToken,
-                        email: data.email,
-                        role: data.role
-                    }));
-                }
                 toast.error(data.message || "Login failed");
             }
         } catch (error) {
