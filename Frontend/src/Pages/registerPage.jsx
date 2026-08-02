@@ -1,4 +1,4 @@
-import { Briefcase, Camera, CheckCircle2, Circle, DollarSign, Eye, EyeOff, HeartPulse, Lock, Mail, MapPin, Parentheses, Phone, ShieldCheck, Stethoscope, User } from "lucide-react";
+import { Briefcase, Camera, CheckCircle2, Circle, DollarSign, Eye, EyeOff, HeartPulse, Lock, Mail, MapPin, Parentheses, Phone, ShieldCheck, Stethoscope, User, X } from "lucide-react";
 import { useState } from "react";
 import { CiHeart } from "react-icons/ci";
 import { TbStethoscope } from "react-icons/tb";
@@ -8,9 +8,6 @@ import toast from "react-hot-toast";
 import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 import CustomGoogleButton from "../layouts/CustomGoogleButton";
 import { useRef } from "react";
-
-
-
 
 export default function RegisterPage() {
     const navigate = useNavigate();
@@ -23,7 +20,6 @@ export default function RegisterPage() {
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
     
-    // const [address, setAddress] = useState("");
     const [numberOfAnimals, setNumberOfAnimals] = useState(""); 
     
     const [license, setLicense] = useState("");
@@ -46,19 +42,36 @@ export default function RegisterPage() {
     const [previewUrl, setPreviewUrl] = useState(null);
     const fileInputRef = useRef(null);
 
+    // Password validation states
+    const [passwordTouched, setPasswordTouched] = useState(false);
+    const [confirmPasswordTouched, setConfirmPasswordTouched] = useState(false);
+
+    // Password validation functions
+    const validatePassword = (pass) => {
+        const errors = [];
+        if (pass.length < 8) errors.push("At least 8 characters");
+        if (!/[A-Z]/.test(pass)) errors.push("At least one uppercase letter");
+        if (!/[a-z]/.test(pass)) errors.push("At least one lowercase letter");
+        if (!/[0-9]/.test(pass)) errors.push("At least one number");
+        if (!/[^A-Za-z0-9]/.test(pass)) errors.push("At least one special character");
+        return errors;
+    };
+
     const getPasswordStrength = () => {
         if (!password) return 0;
         let strength = 0;
         if (password.length >= 8) strength += 1;
-        if (/[A-Z]/.test(password)) strength += 1;
+        if (/[A-Z]/.test(password) && /[a-z]/.test(password)) strength += 1;
         if (/[0-9]/.test(password) && /[^A-Za-z0-9]/.test(password)) strength += 1;
         return strength;
     };
+    
     const strength = getPasswordStrength();
-
+    const passwordErrors = validatePassword(password);
+    const isPasswordValid = passwordErrors.length === 0 && password.length > 0;
+    const doPasswordsMatch = password === confirmPassword && confirmPassword.length > 0;
 
     // GOOGLE HANDLER
-
     const handleGoogleSuccess = async (credentialResponse) => {
         console.log("handleGoogleSuccess (register) triggered. credentialResponse:", credentialResponse);
         setIsLoading(true);
@@ -76,11 +89,9 @@ export default function RegisterPage() {
             
             if (response.ok) {
                 toast.success("Google Authentication Successful!");
-                // 1. Print the ID Badge: Save the token and user data to the browser
                 if (data.token) localStorage.setItem("token", data.token);
                 if (data.user) localStorage.setItem("user", JSON.stringify(data.user));
 
-                // 2. Escort the User: Navigate to the correct dashboard based on role
                 if (role === 'user') {
                     navigate("/dashboard/user");
                 } else if (role === 'vet') {
@@ -97,17 +108,23 @@ export default function RegisterPage() {
         }
     };
 
-    
-
-
-    
     // STANDARD REGISTRATION HANDLER
-
     const handleSubmit = async (e) => {
         e.preventDefault(); 
 
+        // Validate password before submission
+        if (!isPasswordValid) {
+            setSubmitMessage({ 
+                text: "Please ensure your password meets all requirements.", 
+                isError: true 
+            });
+            setPasswordTouched(true);
+            return;
+        }
+
         if (password !== confirmPassword) {
             setSubmitMessage({ text: "Passwords do not match!", isError: true });
+            setConfirmPasswordTouched(true);
             return;
         }
 
@@ -154,7 +171,6 @@ export default function RegisterPage() {
                 if (result.user) localStorage.setItem("user", JSON.stringify(result.user));
                 if (result.user && result.user.id) localStorage.setItem("userId", result.user.id);
 
-                // Redirect user to their dashboard
                 if (role === 'user') {
                     navigate("/dashboard/user");
                 } else if (role === 'vet') {
@@ -218,7 +234,6 @@ export default function RegisterPage() {
 
                         {/* SOCIAL OAUTH BUTTONS AREA */}
                         <div className="space-y-4">
-                            {/* GOOGLE BUTTON */}
                             <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
                                 <CustomGoogleButton 
                                     onSuccess={handleGoogleSuccess}
@@ -226,8 +241,6 @@ export default function RegisterPage() {
                                     isLoading={isLoading}
                                 />
                             </GoogleOAuthProvider>
-
-
                         </div>
 
                         <div className="relative">
@@ -280,15 +293,36 @@ export default function RegisterPage() {
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                {/* Password Field with Validation */}
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1.5">Password</label>
                                     <div className="relative">
                                         <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                                        <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] pr-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" />
-                                        <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none">
+                                        <input 
+                                            type={showPassword ? "text" : "password"} 
+                                            value={password} 
+                                            onChange={(e) => setPassword(e.target.value)} 
+                                            onBlur={() => setPasswordTouched(true)}
+                                            placeholder="••••••••" 
+                                            required 
+                                            className={`w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] pr-[40px] p-[10px] text-[14px] focus:outline-none focus:ring-2 ${
+                                                passwordTouched && !isPasswordValid 
+                                                    ? 'border-red-500 focus:ring-red-500' 
+                                                    : passwordTouched && isPasswordValid
+                                                    ? 'border-green-500 focus:ring-green-500'
+                                                    : 'border-gray-300 focus:ring-green-500'
+                                            }`}
+                                        />
+                                        <button 
+                                            type="button" 
+                                            onClick={() => setShowPassword(!showPassword)} 
+                                            className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none"
+                                        >
                                             {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                                         </button>
                                     </div>
+                                    
+                                    {/* Password Strength Bar */}
                                     {password && (
                                         <div className="mt-2 flex gap-1 h-1.5 w-full">
                                             <div className={`flex-1 rounded-full ${strength >= 1 ? (strength === 1 ? 'bg-red-400' : strength === 2 ? 'bg-amber-400' : 'bg-green-500') : 'bg-slate-200'}`}></div>
@@ -296,16 +330,72 @@ export default function RegisterPage() {
                                             <div className={`flex-1 rounded-full ${strength >= 3 ? 'bg-green-500' : 'bg-slate-200'}`}></div>
                                         </div>
                                     )}
+
+                                    {/* Password Requirements List */}
+                                    {passwordTouched && !isPasswordValid && (
+                                        <div className="mt-3 space-y-1.5 text-xs">
+                                            {passwordErrors.map((error, index) => (
+                                                <div key={index} className="flex items-center gap-2 text-red-600">
+                                                    <X className="h-3 w-3" />
+                                                    <span>{error}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                    
+                                    {passwordTouched && isPasswordValid && (
+                                        <div className="mt-3 flex items-center gap-2 text-xs text-green-600">
+                                            <CheckCircle2 className="h-3 w-3" />
+                                            <span>Password meets all requirements</span>
+                                        </div>
+                                    )}
                                 </div>
+
+                                {/* Confirm Password Field */}
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1.5">Confirm Password</label>
                                     <div className="relative">
                                         <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                                        <input type={showConfirmPassword ? "text" : "password"} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••••" required className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] pr-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" />
-                                        <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none">
+                                        <input 
+                                            type={showConfirmPassword ? "text" : "password"} 
+                                            value={confirmPassword} 
+                                            onChange={(e) => setConfirmPassword(e.target.value)}
+                                            onBlur={() => setConfirmPasswordTouched(true)} 
+                                            placeholder="••••••••" 
+                                            required 
+                                            className={`w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] pr-[40px] p-[10px] text-[14px] focus:outline-none focus:ring-2 ${
+                                                confirmPasswordTouched && confirmPassword.length > 0 && !doPasswordsMatch
+                                                    ? 'border-red-500 focus:ring-red-500'
+                                                    : confirmPasswordTouched && doPasswordsMatch
+                                                    ? 'border-green-500 focus:ring-green-500'
+                                                    : 'border-gray-300 focus:ring-green-500'
+                                            }`}
+                                        />
+                                        <button 
+                                            type="button" 
+                                            onClick={() => setShowConfirmPassword(!showConfirmPassword)} 
+                                            className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none"
+                                        >
                                             {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                                         </button>
                                     </div>
+                                    
+                                    {/* Confirm Password Match Indicator */}
+                                    {confirmPasswordTouched && confirmPassword.length > 0 && (
+                                        <div className="mt-3 flex items-center gap-2 text-xs">
+                                            {doPasswordsMatch ? (
+                                                <div className="flex items-center gap-2 text-green-600">
+                                                    <CheckCircle2 className="h-3 w-3" />
+                                                    <span>Passwords match</span>
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center gap-2 text-red-600">
+                                                    <X className="h-3 w-3" />
+                                                    <span>Passwords do not match</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             </div>  
                         </div>
@@ -321,13 +411,6 @@ export default function RegisterPage() {
 
                             {role === 'user' ? (
                                 <>
-                                {/* <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Farm/Home Address</label>
-                                    <div className="relative">
-                                        <MapPin className="absolute left-4 top-4 h-5 w-5 text-slate-400" />
-                                        <textarea value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Enter your full address..." required className="w-full flex rounded-xl border border-slate-300 bg-transparent pl-11 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 min-h-[80px]"></textarea>
-                                    </div>
-                                </div> */}
                                 <div className="space-y-4 mb-5">
                                     <label className="block text-sm font-medium text-slate-700 mb-1.5">Farm/Home Address</label>
                                     
@@ -408,7 +491,6 @@ export default function RegisterPage() {
                                     onClick={() => fileInputRef.current.click()}
                                     className="border-2 border-dashed border-slate-200 rounded-xl p-6 flex flex-col items-center justify-center text-center hover:border-slate-300 transition-colors cursor-pointer bg-slate-50 relative overflow-hidden"
                                 >
-                                    {/* The hidden input that actually grabs the file */}
                                     <input 
                                         type="file" 
                                         ref={fileInputRef} 
@@ -417,8 +499,8 @@ export default function RegisterPage() {
                                         onChange={(e) => {
                                             const file = e.target.files[0];
                                             if (file) {
-                                                setProfileImage(file); // Save physical file for the server
-                                                setPreviewUrl(URL.createObjectURL(file)); // Show preview to the user
+                                                setProfileImage(file);
+                                                setPreviewUrl(URL.createObjectURL(file));
                                             }
                                         }}
                                     />
@@ -451,12 +533,12 @@ export default function RegisterPage() {
 
                             <button 
                                 type="submit" 
-                                disabled={isLoading}
+                                disabled={isLoading || !isPasswordValid || !doPasswordsMatch}
                                 className={`w-full h-14 rounded-xl text-lg text-white shadow-sm flex items-center justify-center gap-2 transition-all duration-200 active:scale-95 ${
                                     role === 'vet' 
                                     ? 'bg-blue-600 hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2' 
                                     : 'bg-green-600 hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-offset-2'
-                                } ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                } ${(isLoading || !isPasswordValid || !doPasswordsMatch) ? 'opacity-70 cursor-not-allowed' : ''}`}
                             >
                                 {isLoading ? (
                                     "Creating Account..."
