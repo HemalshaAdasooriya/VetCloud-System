@@ -54,7 +54,7 @@ export default function ConsultationRequest() {
         </div>
 
         {/* Stepper */}
-        <div className="flex items-center justify-between mb-8 max-w-3xl mx-auto">
+        <div className="flex items-center justify-between mb-8 max-w-3xl mx-auto overflow-x-auto py-2 px-1 gap-4">
           {['Select Animal', 'Select Vet', 'Details', 'Confirm'].map((s, i) => (
             <div key={i} className="flex flex-col items-center gap-2 relative">
               <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm z-10 transition-colors ${step >= i + 1 ? 'bg-green-600 text-white' : 'bg-slate-200 text-slate-500'}`}>
@@ -70,10 +70,10 @@ export default function ConsultationRequest() {
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
           {step === 1 && (
-            <div className="p-8">
-              <div className="flex justify-between items-center mb-6">
+            <div className="p-4 sm:p-8">
+              <div className="flex flex-col sm:flex-row gap-4 sm:items-center justify-between mb-6">
                 <h2 className="text-xl font-bold text-slate-800">Select Your Animal</h2>
-                <div className="relative w-64">
+                <div className="relative w-full sm:w-64">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                   <Input placeholder="Search your animals..." className="pl-9" />
                 </div>
@@ -128,10 +128,10 @@ export default function ConsultationRequest() {
           )}
 
           {step === 2 && (
-            <div className="p-8">
-              <div className="flex justify-between items-center mb-6">
+            <div className="p-4 sm:p-8">
+              <div className="flex flex-col sm:flex-row gap-4 sm:items-center justify-between mb-6">
                 <h2 className="text-xl font-bold text-slate-800">Select a Veterinarian</h2>
-                <div className="relative w-64">
+                <div className="relative w-full sm:w-64">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                   <Input placeholder="Search by name or specialty..." className="pl-9" />
                 </div>
@@ -174,7 +174,7 @@ export default function ConsultationRequest() {
           )}
 
           {step === 3 && (
-            <div className="p-8">
+            <div className="p-4 sm:p-8">
               <h2 className="text-xl font-bold text-slate-800 mb-6">Consultation Details</h2>
               
               <div className="space-y-8 max-w-3xl">
@@ -185,11 +185,11 @@ export default function ConsultationRequest() {
                       <div className="w-2 h-2 bg-green-600 rounded-full"></div>
                       Selected Animal Details
                     </h3>
-                    <div className="flex gap-4">
+                    <div className="flex flex-col sm:flex-row gap-4">
                       <img 
                         src={getSelectedAnimal().image} 
                         alt={getSelectedAnimal().name} 
-                        className="w-24 h-24 rounded-xl object-cover border-2 border-white shadow-sm" 
+                        className="w-24 h-24 rounded-xl object-cover border-2 border-white shadow-sm mx-auto sm:mx-0" 
                       />
                       <div className="flex-1">
                         <h4 className="font-bold text-xl text-slate-900 mb-1">{getSelectedAnimal().name}</h4>
@@ -223,7 +223,7 @@ export default function ConsultationRequest() {
 
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-3">Consultation Type</label>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <button 
                       onClick={() => setConsultType('video')}
                       className={`p-4 rounded-xl border-2 flex items-center justify-center gap-3 font-semibold transition-colors ${consultType === 'video' ? 'border-green-600 bg-green-50 text-green-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}
@@ -353,7 +353,7 @@ export default function ConsultationRequest() {
           )}
 
           {step === 4 && (
-            <div className="p-8">
+            <div className="p-4 sm:p-8">
               <h2 className="text-xl font-bold text-slate-800 mb-6">Confirm Appointment</h2>
               
               <div className="grid md:grid-cols-2 gap-8 mb-8">

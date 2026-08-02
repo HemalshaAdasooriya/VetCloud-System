@@ -7,7 +7,7 @@ import { IoNavigateOutline } from "react-icons/io5";
 
 
 export default function UserClinics() {
-    const [showMobileMap] = useState(false);
+    const [showMobileMap, setShowMobileMap] = useState(false);
     const [selectedClinic, setSelectedClinic] = useState(null);
     const [clinics, setClinics] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -406,6 +406,30 @@ export default function UserClinics() {
                 </div>
             </div>
 
+            {/* Mobile View Toggle Tabs */}
+            <div className="flex md:hidden border-b border-slate-200 bg-white shrink-0">
+                <button
+                    onClick={() => setShowMobileMap(false)}
+                    className={`flex-1 py-3 text-center text-sm font-semibold border-b-2 transition-all cursor-pointer ${
+                        !showMobileMap
+                            ? "border-green-600 text-green-600 bg-green-50/20"
+                            : "border-transparent text-slate-500 hover:text-slate-700"
+                    }`}
+                >
+                    List View
+                </button>
+                <button
+                    onClick={() => setShowMobileMap(true)}
+                    className={`flex-1 py-3 text-center text-sm font-semibold border-b-2 transition-all cursor-pointer ${
+                        showMobileMap
+                            ? "border-green-600 text-green-600 bg-green-50/20"
+                            : "border-transparent text-slate-500 hover:text-slate-700"
+                    }`}
+                >
+                    Map View
+                </button>
+            </div>
+
             <div className="flex-1 flex overflow-hidden relative">
 
                 {/*  Sidebar */}
@@ -483,7 +507,12 @@ export default function UserClinics() {
                                             ? "border-2 border-green-500 ring-2 ring-green-100 shadow-lg bg-white"
                                             : "border border-slate-200 hover:border-green-300 bg-white"
                                     }`}
-                                    onClick={() => setSelectedClinic(clinic.id)}
+                                    onClick={() => {
+                                        setSelectedClinic(clinic.id);
+                                        if (window.innerWidth < 768) {
+                                            setShowMobileMap(true);
+                                        }
+                                    }}
                                 >
                                     {/* Card header */}
                                     <div className="flex justify-between items-start mb-3">

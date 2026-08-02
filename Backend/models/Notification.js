@@ -95,6 +95,19 @@ export const initializeNotificationTables = () => {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `;
 
+    const createChatMessagesTable = `
+        CREATE TABLE IF NOT EXISTS chat_messages (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            appointment_id INT NOT NULL,
+            sender VARCHAR(50) NOT NULL,
+            sender_name VARCHAR(255) NOT NULL,
+            text TEXT,
+            file_url VARCHAR(255),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_appointment_id (appointment_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `;
+
     db.query(createNotificationsTable, (err) => {
         if (err) console.error("Error creating notifications table:", err);
         else console.log("MySQL 'notifications' table verified.");
@@ -133,6 +146,11 @@ export const initializeNotificationTables = () => {
     db.query(createLicensesSubscriptionsTable, (err) => {
         if (err) console.error("Error creating licenses_subscriptions table:", err);
         else console.log("MySQL 'licenses_subscriptions' table verified.");
+    });
+
+    db.query(createChatMessagesTable, (err) => {
+        if (err) console.error("Error creating chat_messages table:", err);
+        else console.log("MySQL 'chat_messages' table verified.");
     });
 };
 

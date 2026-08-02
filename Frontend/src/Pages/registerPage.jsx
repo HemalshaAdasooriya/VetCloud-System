@@ -92,9 +92,10 @@ export default function RegisterPage() {
                 if (data.token) localStorage.setItem("token", data.token);
                 if (data.user) localStorage.setItem("user", JSON.stringify(data.user));
 
-                if (role === 'user') {
+                const finalRole = data.user?.role || (role === 'user' ? 'farmer' : 'doctor');
+                if (finalRole === 'farmer') {
                     navigate("/dashboard/user");
-                } else if (role === 'vet') {
+                } else if (finalRole === 'doctor') {
                     navigate("/dashboard/doctor");
                 } 
             } else {
