@@ -18,7 +18,7 @@ export default function Navigation() {
     
     const navItems = [
         { name: 'Home', path: '/', icon: HeartPulse },
-        { name: 'Consult a Vet', path: '/consultation', icon: Activity },
+        { name: 'Consult a Vet', path: '/login', icon: Activity },
         { name: 'Diseases', path: '/diseases', icon: BookOpen },
         { name: 'Find Clinic', path: '/clinics', icon: MapPin },
     ];
