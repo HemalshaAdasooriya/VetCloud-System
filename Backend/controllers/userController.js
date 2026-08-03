@@ -335,9 +335,8 @@ function handleSocialLogin(req, res, email, name, image, role, provider) {
     const splitLastName = nameParts.slice(1).join(" ") || "";
     
     const dbRole = (role === "Farmer/PetOwner" || role === "farmer" || role === "Farmer") ? "farmer" : "doctor";
-    const otherRole = dbRole === "farmer" ? "doctor" : "farmer";
 
-    // First lookup: check if user exists in the preferred (selected) role
+    // Lookup user ONLY in the preferred (selected) role
     getUserByEmailAndRole(email, dbRole, (errPreferred, preferredResults) => {
         if (errPreferred) {
             console.error(`${dbRole} lookup failed during social login:`, errPreferred);
@@ -349,60 +348,47 @@ function handleSocialLogin(req, res, email, name, image, role, provider) {
             return issueTokenAndSession(req, res, preferredResults[0], dbRole);
         }
 
-        // Second lookup: check if user exists in the other role
-        getUserByEmailAndRole(email, otherRole, (errOther, otherResults) => {
-            if (errOther) {
-                console.error(`${otherRole} lookup failed during social login:`, errOther);
-                return res.status(500).json({ message: "Database error during social login." });
-            }
-
-            if (otherResults && otherResults.length > 0) {
-                // User exists as the other role! Log them in.
-                return issueTokenAndSession(req, res, otherResults[0], otherRole);
-            }
-
-            // No existing user found in either table: proceed to register as a new user with selected role
-            const userData = { 
-                email, 
-                password: null, 
-                firstName: splitFirstName, 
-                lastName: splitLastName, 
-                image, 
-                provider,
-                contact_No: "",
-                license_number: "TEMP-" + Math.random().toString(36).substring(2, 11).toUpperCase(),
-                specialization: "General"
-            };
+        // No existing user found in the selected role: proceed to register as a new user with selected role
+        const userData = { 
+            email, 
+            password: null, 
+            firstName: splitFirstName, 
+            lastName: splitLastName, 
+            image, 
+            provider,
+            contact_No: "",
+            license_number: "TEMP-" + Math.random().toString(36).substring(2, 11).toUpperCase(),
+            specialization: "General"
+        };
+        
+        const callback = (regErr, result) => {
+            if (regErr) return res.status(500).json(regErr);
             
-            const callback = (regErr, result) => {
-                if (regErr) return res.status(500).json(regErr);
+            // Fetch the newly created user to issue a proper session
+            getUserByEmailAndRole(email, dbRole, (fetchErr, userResults) => {
+                if (fetchErr || userResults.length === 0) return res.status(500).json({ message: "Database error during social registration." });
                 
-                // Fetch the newly created user to issue a proper session
-                getUserByEmailAndRole(email, dbRole, (fetchErr, userResults) => {
-                    if (fetchErr || userResults.length === 0) return res.status(500).json({ message: "Database error during social registration." });
-                    
-                    if (dbRole === "doctor") {
-                        // Notify admins of new veterinarian registration request via Social Login
-                        const io = req.app.get("io");
-                        import("../models/Notification.js").then(({ createAdminNotification }) => {
-                            createAdminNotification(io, {
-                                type: "new_vet_registration",
-                                title: "New Vet Registration Request",
-                                message: `New veterinarian registered via Google: Dr. ${splitFirstName} ${splitLastName} (${email}, License: ${userData.license_number}). Pending approval.`
-                            });
-                        }).catch(console.error);
-                    }
+                if (dbRole === "doctor") {
+                    // Notify admins of new veterinarian registration request via Social Login
+                    const io = req.app.get("io");
+                    import("../models/Notification.js").then(({ createAdminNotification }) => {
+                        createAdminNotification(io, {
+                            type: "new_vet_registration",
+                            title: "New Vet Registration Request",
+                            message: `New veterinarian registered via Google: Dr. ${splitFirstName} ${splitLastName} (${email}, License: ${userData.license_number}). Pending approval.`
+                        });
+                    }).catch(console.error);
+                }
 
-                    issueTokenAndSession(req, res, userResults[0], dbRole);
-                });
-            };
+                issueTokenAndSession(req, res, userResults[0], dbRole);
+            });
+        };
 
-            if (dbRole === "farmer") {
-                createPetOwner(userData, callback);
-            } else {
-                createVeterinarian(userData, callback);
-            }
-        });
+        if (dbRole === "farmer") {
+            createPetOwner(userData, callback);
+        } else {
+            createVeterinarian(userData, callback);
+        }
     });
 }
 
