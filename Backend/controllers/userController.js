@@ -43,7 +43,8 @@ import { updatePayoutSettings } from "../models/Payment.js";
 
 
 
-const googleClient = new OAuth2Client(process.env.VITE_GOOGLE_CLIENT_ID);
+const googleClientId = process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID;
+const googleClient = new OAuth2Client(googleClientId);
 
 export function registerUser(req, res) {
     const data = req.body;
@@ -285,7 +286,7 @@ export async function googleLogin(req, res) {
         if (token && token.split('.').length === 3) {
             const ticket = await googleClient.verifyIdToken({
                 idToken: token,
-                audience: process.env.VITE_GOOGLE_CLIENT_ID, 
+                audience: googleClientId, 
             });
             const payload = ticket.getPayload();
             email = payload.email;
@@ -333,32 +334,34 @@ function handleSocialLogin(req, res, email, name, image, role, provider) {
     const splitFirstName = nameParts[0] || "";
     const splitLastName = nameParts.slice(1).join(" ") || "";
     
-    // First lookup: check if user exists in pet_owners (farmer)
-    getUserByEmailAndRole(email, "farmer", (errFarmer, farmerResults) => {
-        if (errFarmer) {
-            console.error("Farmer lookup failed during social login:", errFarmer);
+    const dbRole = (role === "Farmer/PetOwner" || role === "farmer" || role === "Farmer") ? "farmer" : "doctor";
+    const otherRole = dbRole === "farmer" ? "doctor" : "farmer";
+
+    // First lookup: check if user exists in the preferred (selected) role
+    getUserByEmailAndRole(email, dbRole, (errPreferred, preferredResults) => {
+        if (errPreferred) {
+            console.error(`${dbRole} lookup failed during social login:`, errPreferred);
             return res.status(500).json({ message: "Database error during social login." });
         }
 
-        if (farmerResults && farmerResults.length > 0) {
-            // User exists as a farmer! Log them in.
-            return issueTokenAndSession(req, res, farmerResults[0], "farmer");
+        if (preferredResults && preferredResults.length > 0) {
+            // User exists as the selected role! Log them in.
+            return issueTokenAndSession(req, res, preferredResults[0], dbRole);
         }
 
-        // Second lookup: check if user exists in veterinarians (doctor)
-        getUserByEmailAndRole(email, "doctor", (errDoctor, doctorResults) => {
-            if (errDoctor) {
-                console.error("Doctor lookup failed during social login:", errDoctor);
+        // Second lookup: check if user exists in the other role
+        getUserByEmailAndRole(email, otherRole, (errOther, otherResults) => {
+            if (errOther) {
+                console.error(`${otherRole} lookup failed during social login:`, errOther);
                 return res.status(500).json({ message: "Database error during social login." });
             }
 
-            if (doctorResults && doctorResults.length > 0) {
-                // User exists as a doctor! Log them in.
-                return issueTokenAndSession(req, res, doctorResults[0], "doctor");
+            if (otherResults && otherResults.length > 0) {
+                // User exists as the other role! Log them in.
+                return issueTokenAndSession(req, res, otherResults[0], otherRole);
             }
 
-            // No existing user found: proceed to register as a new user with selected role
-            const dbRole = (role === "Farmer/PetOwner" || role === "farmer") ? "farmer" : "doctor";
+            // No existing user found in either table: proceed to register as a new user with selected role
             const userData = { 
                 email, 
                 password: null, 
@@ -377,6 +380,19 @@ function handleSocialLogin(req, res, email, name, image, role, provider) {
                 // Fetch the newly created user to issue a proper session
                 getUserByEmailAndRole(email, dbRole, (fetchErr, userResults) => {
                     if (fetchErr || userResults.length === 0) return res.status(500).json({ message: "Database error during social registration." });
+                    
+                    if (dbRole === "doctor") {
+                        // Notify admins of new veterinarian registration request via Social Login
+                        const io = req.app.get("io");
+                        import("../models/Notification.js").then(({ createAdminNotification }) => {
+                            createAdminNotification(io, {
+                                type: "new_vet_registration",
+                                title: "New Vet Registration Request",
+                                message: `New veterinarian registered via Google: Dr. ${splitFirstName} ${splitLastName} (${email}, License: ${userData.license_number}). Pending approval.`
+                            });
+                        }).catch(console.error);
+                    }
+
                     issueTokenAndSession(req, res, userResults[0], dbRole);
                 });
             };

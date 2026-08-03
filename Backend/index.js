@@ -101,7 +101,10 @@ io.on("connection", (socket) => {
 // Start Background Reminder Checks
 startReminderScheduler(io);
 
-app.use(cors());
+app.use(cors({
+    origin: "https://vet-cloud-system.vercel.app",
+    credentials: true
+}));
 app.use(express.json());
 
 app.use("/api/users", userRouter);
