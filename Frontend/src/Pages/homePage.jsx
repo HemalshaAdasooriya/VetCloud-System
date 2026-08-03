@@ -32,23 +32,7 @@ export default function HomePage() {
         fetchTestimonials();
     }, []);
 
-    const defaultTestimonials = [
-        {
-            comment: "VetCloud saved my calf's life. Being able to video call a vet at 2 AM from my barn was incredible.",
-            ownerName: "John Davis", ownerRole: "Dairy Farmer", rating: 5,
-            ownerImage: "https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=1974&auto=format&fit=crop"
-        },
-        {
-            comment: "I used to drive 45 minutes to the nearest clinic for basic checkups. Now I just use the app!",
-            ownerName: "Sarah Jenkins", ownerRole: "Pet Owner", rating: 5,
-            ownerImage: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=1976&auto=format&fit=crop"
-        },
-        {
-            comment: "The disease database helps me spot early signs of illness in my flock before it spreads.",
-            ownerName: "Miguel Torres", ownerRole: "Poultry Farmer", rating: 5,
-            ownerImage: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=1974&auto=format&fit=crop"
-        }
-    ];
+    const defaultTestimonials = [];
 
     const displayTestimonials = testimonials.length > 0 ? testimonials : defaultTestimonials;
 
@@ -131,7 +115,7 @@ export default function HomePage() {
                                     {/* Image Container */}
                                     <div className="relative rounded-[80px] overflow-hidden shadow-2xl">
                                         <img
-                                        src="/public/home.jpg"
+                                        src="https://fmuznyrfnjdwxbqsdijw.supabase.co/storage/v1/object/public/uploads/home.jpg"
                                         alt="Veterinarian with Dog"
                                         className="w-full h-[450px] object-cover"
                                         />
@@ -167,7 +151,7 @@ export default function HomePage() {
                             <Stethoscope size={50} className="text-green-600" />
                         </div>
                         <div className="absolute bottom-50 left-40 opacity-15">
-                            <img src="/public/Logo.png" alt="logo" className="w-100 h-65 object-cover" />
+                            <img src="https://fmuznyrfnjdwxbqsdijw.supabase.co/storage/v1/object/public/uploads/Logo.png" alt="logo" className="w-100 h-65 object-cover" />
                         </div>
                     </div>
                 </div>
@@ -254,7 +238,7 @@ export default function HomePage() {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         {/* <img src="" alt="Cows on farm" className="rounded-2xl h-64 object-cover w-full" /> https://images.unsplash.com/photo-1576201836106-db1758fd1c97?q=80&w=2070&auto=format&fit=crop*/}
-                        <img src="/public/dog in field.png" alt="Vet examining dog" className="absolute right-0 bottom-0 rounded-2xl h-full w-90 object-cover translate-y-8 shadow-lg" />
+                        <img src="https://fmuznyrfnjdwxbqsdijw.supabase.co/storage/v1/object/public/uploads/dog%20in%20field.png" alt="Vet examining dog" className="absolute right-0 bottom-0 rounded-2xl h-full w-90 object-cover translate-y-8 shadow-lg" />
                     </div>
                 </div>
             </section>
