@@ -23,27 +23,25 @@ export default function LoginPage({ defaultRole = null }) {
     const [role, setRole] = useState(defaultRole);
 
     const buttonStyle = (value) => `
-    group w-[48%] h-[85px] border rounded-[14px] 
+    group w-full min-h-[76px] p-3 border rounded-xl 
     flex flex-col justify-center items-center text-center
-    font-medium text-[13px] tracking-wide
-    transition-all duration-300 active:scale-95 cursor-pointer
+    font-medium text-xs sm:text-sm tracking-wide
+    transition-all duration-200 active:scale-[0.98] cursor-pointer
 
-    ${
-      role === value
-        ? "border-green-500 text-green-600 bg-green-50/50 shadow-md scale-[1.02]"
-        : "border-[#E2E8F0] text-slate-600 bg-white hover:border-green-400 hover:text-green-600 hover:bg-green-50/20 hover:shadow-sm"
-    }
+    ${role === value
+            ? "border-green-600 text-green-700 bg-green-50/60 shadow-sm ring-1 ring-green-600/30"
+            : "border-slate-200 text-slate-600 bg-white hover:border-green-400 hover:text-green-600 hover:bg-green-50/30"
+        }
   `;
 
-  const iconStyle = (value) => `
-    w-[32px] h-[32px] flex justify-center items-center rounded-[10px] 
-    transition-all duration-300 mb-[6px]
+    const iconStyle = (value) => `
+    w-8 h-8 flex justify-center items-center rounded-lg 
+    transition-all duration-200 mb-1.5
 
-    ${
-      role === value
-        ? "bg-green-600 text-white shadow-sm shadow-green-500/25"
-        : "bg-slate-100 text-slate-500 group-hover:bg-green-600 group-hover:text-white"
-    }
+    ${role === value
+            ? "bg-green-600 text-white shadow-sm shadow-green-500/25"
+            : "bg-slate-100 text-slate-500 group-hover:bg-green-600 group-hover:text-white"
+        }
   `;
 
 
@@ -66,10 +64,10 @@ export default function LoginPage({ defaultRole = null }) {
 
             if (response.ok) {
                 if (data.requires2FA) {
-                setTempLoginData({ userId: data.userId, role: data.role });
-                setShow2FA(true); // Open the 2FA input screen
-                return; // Stop the function here! Do not log them in yet.
-            }
+                    setTempLoginData({ userId: data.userId, role: data.role });
+                    setShow2FA(true); // Open the 2FA input screen
+                    return; // Stop the function here! Do not log them in yet.
+                }
                 toast.success("Login Successful!");
 
                 // Store the JWT token securely in localStorage or a state manager
@@ -93,48 +91,48 @@ export default function LoginPage({ defaultRole = null }) {
         }
     }
 
-  const handleSubmit2FA = async (e) => {
-    e.preventDefault();
-    try {
-        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/verify-login-2fa`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ 
-                userId: tempLoginData.userId, 
-                role: tempLoginData.role, 
-                code: twoFactorCode 
-            })
-        });
+    const handleSubmit2FA = async (e) => {
+        e.preventDefault();
+        try {
+            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/verify-login-2fa`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    userId: tempLoginData.userId,
+                    role: tempLoginData.role,
+                    code: twoFactorCode
+                })
+            });
 
-        const data = await response.json();
+            const data = await response.json();
 
-        if (response.ok) {
-            // 2FA Success! Now we officially log them in.
-            localStorage.setItem("token", data.token);
-            localStorage.setItem("user", JSON.stringify(data.user));
-            // --- updated by navindu on 2026-06-10 START ---
-            if (data.user && data.user.id) localStorage.setItem("userId", data.user.id);
-            // --- updated by navindu on 2026-06-10 END ---
-            const currentRole = tempLoginData.role;
-            
-            if (currentRole === "farmer") {
-                navigate("/dashboard/user");
-            } else if (currentRole === "doctor") {
-                navigate("/dashboard/doctor");
-            } else if (currentRole === "admin") {
-                navigate("/dashboard/admin");
+            if (response.ok) {
+                // 2FA Success! Now we officially log them in.
+                localStorage.setItem("token", data.token);
+                localStorage.setItem("user", JSON.stringify(data.user));
+                // --- updated by navindu on 2026-06-10 START ---
+                if (data.user && data.user.id) localStorage.setItem("userId", data.user.id);
+                // --- updated by navindu on 2026-06-10 END ---
+                const currentRole = tempLoginData.role;
+
+                if (currentRole === "farmer") {
+                    navigate("/dashboard/user");
+                } else if (currentRole === "doctor") {
+                    navigate("/dashboard/doctor");
+                } else if (currentRole === "admin") {
+                    navigate("/dashboard/admin");
+                } else {
+                    // Fallback just in case
+                    navigate("/login");
+                    toast.error("Unknown role. Please login again.");
+                }
             } else {
-                // Fallback just in case
-                navigate("/login");
-                toast.error("Unknown role. Please login again."); 
+                toast.error(data.message || "Invalid Code", "error");
             }
-        } else {
-            toast.error(data.message || "Invalid Code", "error");
+        } catch {
+            toast.error("Server error", "error");
         }
-    } catch {
-        toast.error("Server error", "error");
-    }
-  };
+    };
 
     const [isLoading, setIsLoading] = useState(false);
 
@@ -143,17 +141,17 @@ export default function LoginPage({ defaultRole = null }) {
         console.log("handleGoogleSuccess triggered. tokenResponse:", tokenResponse);
         if (!role) return toast.error("Please select a role first!");
         setIsLoading(true);
-        
+
         try {
             console.log("Sending token to backend at:", `${import.meta.env.VITE_BACKEND_URL}/api/users/google-login`);
             const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/google-login`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ token: tokenResponse.access_token, role: role === 'farmer' ? "Farmer/PetOwner" : role === 'doctor' ? "Veterinary Doctor" : "Admin" }) 
+                body: JSON.stringify({ token: tokenResponse.access_token, role: role === 'farmer' ? "Farmer/PetOwner" : role === 'doctor' ? "Veterinary Doctor" : "Admin" })
             });
             const data = await response.json();
             console.log("Backend response status:", response.status, "data:", data);
-            
+
             if (response.ok) {
                 toast.success("Google Login Successful!");
                 if (data.token) localStorage.setItem("token", data.token); // Save session
@@ -163,7 +161,7 @@ export default function LoginPage({ defaultRole = null }) {
                     if (data.user.id) localStorage.setItem("userId", data.user.id);
                     // --- updated by navindu on 2026-06-10 END ---
                 }
-                
+
                 // Route to correct dashboard based on actual database role
                 const finalRole = data.user?.role || role;
                 if (finalRole === "farmer") navigate("/dashboard/user");
@@ -181,8 +179,7 @@ export default function LoginPage({ defaultRole = null }) {
     };
 
 
-  
-    // Paste this right above your main LoginPage component
+
     const InlineGoogleButton = ({ onSuccess, disabled, role }) => {
         const login = useGoogleLogin({
             onSuccess: onSuccess,
@@ -198,196 +195,254 @@ export default function LoginPage({ defaultRole = null }) {
         };
 
         return (
-            <button 
+            <button
                 type="button"
                 onClick={handleLoginClick}
                 disabled={disabled}
-                // Your exact styling, plus a hover/active effect for click physics
-                className="w-full h-[40px] border border-[#E2E8F0] text-[#314158] font-Inter font-normal text-[14px] rounded-[14px] flex justify-center items-center hover:bg-slate-50 active:scale-95 transition-all shadow-sm disabled:opacity-70"
+                className="w-full h-11 sm:h-12 border border-slate-200 text-slate-700 font-Inter font-medium text-xs sm:text-sm rounded-xl flex justify-center items-center hover:bg-slate-50 active:scale-[0.98] transition-all shadow-sm disabled:opacity-70 cursor-pointer"
             >
-                <FcGoogle className="w-[18px] h-[18px] mr-[9px]" />Google
+                <FcGoogle className="w-5 h-5 mr-2.5 flex-shrink-0" />
+                <span>Continue with Google</span>
             </button>
         );
     };
 
     return (
-    <div className='w-full min-h-screen bg-primary flex flex-col md:flex-row'>
-      <div className="hidden md:flex md:w-1/2 min-h-screen bg-gradient-to-br from-[rgba(0,166,62,0.80)] to-[rgba(28,57,142,0.90)] relative">
-        <div className="max-w-[512px] w-[calc(100%-96px)] h-[202px] backdrop-blur-md bg-white/15 border border-white/30 rounded-[16px] shadow-lg absolute bottom-[48px] left-[48px]">
-          <div className="w-full h-full p-[33px] flex flex-col justify-center">
-            <h1 className="font-Inter text-[28px] text-white font-medium leading-[36px] mb-[17px]">Empowering Animal Health</h1>
-            <p className="text-left text-[#F0FDF4] font-Inter font-light leading-[28px]">Connect with certified veterinary professionals<br /> instantly. The best care for your livestock and pets<br /> is just a click away.</p>
-          </div>
-        </div>
-      </div>
+        <div className="w-full min-h-screen bg-slate-50/60 flex flex-col md:flex-row">
+            {/* Left Hero Column - Visible on md and larger screens */}
+            <div className="hidden md:flex md:w-1/2 min-h-screen bg-gradient-to-br from-[rgba(0,166,62,0.90)] to-[rgba(28,57,142,0.95)] p-8 lg:p-12 xl:p-16 flex-col justify-between relative overflow-hidden">
+                {/* Background decorative glow elements */}
+                <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-white/10 blur-3xl pointer-events-none" />
+                <div className="absolute -bottom-24 -right-24 w-96 h-96 rounded-full bg-green-400/20 blur-3xl pointer-events-none" />
 
-      <div className="w-full md:w-1/2 min-h-screen bg-primary flex items-center justify-center p-4 sm:p-8 overflow-y-auto">
-        <div className='w-full max-w-lg backdrop-blur-lg rounded-lg shadow-2xl flex flex-col items-center justify-center p-6 bg-white/5 border border-white/10 my-auto'>
-            <div className="w-full flex flex-col pt-2">
-                {show2FA ? (
-                    /* --- THE 2FA SCREEN --- */
-                    <form onSubmit={handleSubmit2FA} className="flex flex-col items-center justify-center h-full space-y-6 animate-fade-in-up mt-10">
-                        <div className="w-[60px] h-[60px] bg-green-50 rounded-full flex items-center justify-center mb-2">
-                            <MdOutlineShield className="w-8 h-8 text-green-600" />
-                        </div>
-                        <h2 className="text-[28px] font-bold text-secondary font-Inter text-center">Security Verification</h2>
-                        <p className="text-center text-[#62748E] text-[14px] font-Inter mb-8">
-                            Enter the 6-digit code from your Authenticator app to continue.
+                {/* Hero Header Branding */}
+                <div className="relative z-10 flex items-center space-x-3">
+                    <img 
+                        src="https://fmuznyrfnjdwxbqsdijw.supabase.co/storage/v1/object/public/uploads/Logo.png" 
+                        className="w-10 h-10 object-contain drop-shadow-md brightness-0 invert" 
+                        alt="VetCloud Logo" 
+                    />
+                    <span className="text-2xl font-bold text-white tracking-tight font-Inter">VetCloud</span>
+                </div>
+
+                {/* Hero Middle Content Card */}
+                <div className="relative z-10 my-auto py-6">
+                    <div className="w-full max-w-lg backdrop-blur-md bg-white/15 border border-white/25 rounded-2xl p-6 lg:p-8 shadow-2xl space-y-4">
+                        <h1 className="font-Inter text-2xl lg:text-3xl text-white font-bold leading-tight">
+                            Empowering Animal Health
+                        </h1>
+                        <p className="text-[#F0FDF4] font-Inter font-light text-sm lg:text-base leading-relaxed">
+                            Connect with certified veterinary professionals instantly. The best care for your livestock and pets is just a click away.
                         </p>
-                        
-                        <div className="w-full">
-                            <input 
-                                type="text" 
-                                maxLength="6"
-                                value={twoFactorCode}
-                                onChange={(e) => setTwoFactorCode(e.target.value)}
-                                placeholder="000000"
-                                className="w-full h-[60px] px-4 py-3 text-center tracking-[0.7em] text-3xl font-bold rounded-[14px] border border-gray-300 shadow-sm focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 text-slate-700"
-                                required
-                                autoFocus
-                            />
-                        </div>
-                        
-                        <button type="submit" className="w-full h-[45px] mt-6 bg-accent hover:bg-green-700 text-[16px] font-Inter font-medium text-white rounded-[25px] cursor-pointer transition-all duration-200 active:scale-95 shadow-md">
-                            Verify & Login
-                        </button>
-                        
-                        <button type="button" onClick={() => setShow2FA(false)} className="w-full py-2 text-gray-500 text-[14px] font-Inter hover:text-gray-700 transition-colors">
-                            Cancel & Go Back
-                        </button>
-                    </form>
-                ) : (
-                    /* --- THE NORMAL LOGIN SCREEN --- */
-                    <form onSubmit={(e) => { e.preventDefault(); handleLogin(); }} className="w-full flex flex-col">
-                        <div className="text-secondary text-[24px] font-bold font-[Inter] text-left flex items-center mb-[10px]">
-                        <img src="/public/Logo.png" className="w-[50px] h-[35px] mr-1 object-fill" alt="VetCloud Logo" />
-                        VetCloud
-                        </div>
+                    </div>
+                </div>
 
-                        <div className="text-secondary text-[30px] font-bold ">Welcome back!</div>
+                {/* Hero Footer */}
+                <div className="relative z-10 text-white/70 text-xs font-Inter">
+                    © {new Date().getFullYear()} VetCloud System. All rights reserved.
+                </div>
+            </div>
 
-                        <p className="text-[#62748E] text-[14px] font-[Inter] italic font-normal mt-[2px]">Access veterinary care anytime, anywhere.</p>
+            {/* Right Form Column */}
+            <div className="w-full md:w-1/2 min-h-screen flex items-center justify-center p-4 sm:p-6 lg:p-10 overflow-y-auto">
+                <div className="w-full max-w-md lg:max-w-lg bg-white rounded-2xl shadow-xl sm:shadow-2xl border border-slate-100 p-6 sm:p-8 lg:p-10 my-auto">
+                    <div className="w-full flex flex-col">
+                        {show2FA ? (
+                            /* --- THE 2FA SCREEN --- */
+                            <form onSubmit={handleSubmit2FA} className="flex flex-col items-center justify-center w-full space-y-5 py-2">
+                                <div className="w-14 h-14 bg-green-50 rounded-full flex items-center justify-center text-green-600 shadow-sm border border-green-100">
+                                    <MdOutlineShield className="w-7 h-7" />
+                                </div>
+                                <div className="text-center">
+                                    <h2 className="text-2xl font-bold text-slate-900 font-Inter">Security Verification</h2>
+                                    <p className="text-center text-slate-500 text-xs sm:text-sm font-Inter mt-1.5">
+                                        Enter the 6-digit code from your Authenticator app to continue.
+                                    </p>
+                                </div>
 
-                        {defaultRole === "admin" ? (
-                            <div className="text-secondary text-[18px] font-semibold mt-[10px] mb-[15px] font-[Inter]">
-                                Sign in as Administrator
-                            </div>
+                                <div className="w-full max-w-xs">
+                                    <input
+                                        type="text"
+                                        maxLength="6"
+                                        value={twoFactorCode}
+                                        onChange={(e) => setTwoFactorCode(e.target.value)}
+                                        placeholder="000000"
+                                        className="w-full h-14 px-4 text-center tracking-[0.4em] sm:tracking-[0.6em] text-2xl sm:text-3xl font-bold rounded-xl border border-slate-300 shadow-sm focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 text-slate-800"
+                                        required
+                                        autoFocus
+                                    />
+                                </div>
+
+                                <button 
+                                    type="submit" 
+                                    className="w-full h-11 sm:h-12 bg-green-600 hover:bg-green-700 text-white text-sm sm:text-base font-Inter font-medium rounded-xl cursor-pointer transition-all duration-200 active:scale-[0.98] shadow-md hover:shadow-lg mt-2"
+                                >
+                                    Verify & Login
+                                </button>
+
+                                <button 
+                                    type="button" 
+                                    onClick={() => setShow2FA(false)} 
+                                    className="w-full py-2 text-slate-500 text-xs sm:text-sm font-Inter font-medium hover:text-slate-700 transition-colors"
+                                >
+                                    Cancel & Go Back
+                                </button>
+                            </form>
                         ) : (
-                            <>
-                                <p className="text-[#45556C] text-[14px] font-[Inter] font-normal mt-[10px]">Sign in as</p>
+                            /* --- THE NORMAL LOGIN SCREEN --- */
+                            <form onSubmit={(e) => { e.preventDefault(); handleLogin(); }} className="w-full flex flex-col">
+                                {/* Mobile Header Logo */}
+                                <div className="flex items-center gap-2 mb-4">
+                                    <img 
+                                        src="https://fmuznyrfnjdwxbqsdijw.supabase.co/storage/v1/object/public/uploads/Logo.png" 
+                                        className="w-9 h-7 object-contain" 
+                                        alt="VetCloud Logo" 
+                                    />
+                                    <span className="text-xl font-bold text-slate-900 font-Inter">VetCloud</span>
+                                </div>
 
-                                {/* user section */}
-                                <div className="flex flex-wrap justify-between w-full mt-[6px] font-bold gap-3">  
-                                    <button type="button" onClick={() => setRole("farmer")} className={buttonStyle("farmer")}>
-                                    <div className={iconStyle("farmer")}>
-                                        <CiHeart className="h-[20px] w-[20px]" />
+                                <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 font-Inter tracking-tight">
+                                    Welcome back!
+                                </h2>
+                                <p className="text-slate-500 text-xs sm:text-sm font-Inter font-normal mt-1">
+                                    Access veterinary care anytime, anywhere.
+                                </p>
+
+                                {defaultRole === "admin" ? (
+                                    <div className="text-slate-800 text-base font-semibold mt-4 mb-2 font-Inter bg-slate-100 p-3 rounded-xl border border-slate-200 text-center">
+                                        Sign in as Administrator
                                     </div>
-                                    Pet Owner / Farmer
-                                    </button>
+                                ) : (
+                                    <div className="mt-4">
+                                        <label className="block text-slate-700 text-xs sm:text-sm font-medium font-Inter mb-2">
+                                            Sign in as
+                                        </label>
 
-                                    <button type="button" onClick={() => setRole("doctor")} className={buttonStyle("doctor")}>
-                                    <div className={iconStyle("doctor")}>
-                                        <TbStethoscope className="h-[18px] w-[18px]" />
+                                        {/* Role selection Grid */}
+                                        <div className="grid grid-cols-2 gap-3 w-full">
+                                            <button 
+                                                type="button" 
+                                                onClick={() => setRole("farmer")} 
+                                                className={buttonStyle("farmer")}
+                                            >
+                                                <div className={iconStyle("farmer")}>
+                                                    <CiHeart className="h-5 w-5" />
+                                                </div>
+                                                <span>Pet Owner / Farmer</span>
+                                            </button>
+
+                                            <button 
+                                                type="button" 
+                                                onClick={() => setRole("doctor")} 
+                                                className={buttonStyle("doctor")}
+                                            >
+                                                <div className={iconStyle("doctor")}>
+                                                    <TbStethoscope className="h-5 w-5" />
+                                                </div>
+                                                <span>Veterinary Doctor</span>
+                                            </button>
+                                        </div>
                                     </div>
-                                    Veterinary Doctor
-                                    </button>
+                                )}
+
+                                {/* Inputs Section */}
+                                <div className="space-y-4 mt-4">
+                                    {/* Email Field */}
+                                    <div>
+                                        <label className="block text-slate-700 font-medium text-xs sm:text-sm font-Inter mb-1.5">
+                                            Email Address
+                                        </label>
+                                        <div className="relative w-full">
+                                            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                                                <HiOutlineMail className="w-5 h-5" />
+                                            </span>
+                                            <input 
+                                                type="email"
+                                                value={email}
+                                                onChange={(e) => setEmail(e.target.value)}
+                                                placeholder="Enter Your Email"
+                                                className="w-full h-11 sm:h-12 rounded-xl border border-slate-300 shadow-sm pl-11 pr-4 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all"
+                                                required
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Password Field */}
+                                    <div>
+                                        <div className="flex justify-between items-center mb-1.5 font-Inter">
+                                            <label className="text-slate-700 font-medium text-xs sm:text-sm">
+                                                Password
+                                            </label>
+                                            <Link to="/forgot-password" className="text-xs text-green-600 hover:text-green-700 hover:underline font-normal">
+                                                Forgot Password?
+                                            </Link>
+                                        </div>
+                                        <div className="relative w-full">
+                                            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                                                <LuLock className="w-5 h-5" />
+                                            </span>
+                                            <input
+                                                type={showPassword ? "text" : "password"}
+                                                value={password}
+                                                onChange={(e) => setPassword(e.target.value)}
+                                                placeholder="Your Password"
+                                                className="w-full h-11 sm:h-12 rounded-xl border border-slate-300 shadow-sm pl-11 pr-11 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all"
+                                                required
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowPassword(!showPassword)}
+                                                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none transition-colors p-1"
+                                                aria-label={showPassword ? "Hide password" : "Show password"}
+                                            >
+                                                {showPassword ? <PiEyeLight className="w-5 h-5" /> : <PiEyeSlash className="w-5 h-5" />}
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
-                            </>
+
+                                {defaultRole !== "admin" && (
+                                    <>
+                                        <div className="relative flex items-center justify-center my-4">
+                                            <div className="w-full border-t border-slate-200"></div>
+                                            <span className="absolute bg-white px-3 text-xs text-slate-400 font-Inter font-normal">
+                                                or continue with
+                                            </span>
+                                        </div>
+
+                                        {/* Google login button */}
+                                        <div className="w-full">
+                                            <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
+                                                <InlineGoogleButton
+                                                    onSuccess={handleGoogleSuccess}
+                                                    disabled={isLoading}
+                                                    role={role}
+                                                />
+                                            </GoogleOAuthProvider>
+                                        </div>
+                                    </>
+                                )}
+
+                                <button 
+                                    type="submit" 
+                                    className={`w-full h-11 sm:h-12 bg-green-600 hover:bg-green-700 text-white text-sm sm:text-base font-Inter font-medium rounded-xl cursor-pointer transition-all duration-200 active:scale-[0.98] shadow-md hover:shadow-lg flex items-center justify-center ${defaultRole === "admin" ? "mt-6" : "mt-4"}`}
+                                >
+                                    Login to Dashboard
+                                </button>
+
+                                {defaultRole !== "admin" && (
+                                    <p className="mt-4 text-center text-xs sm:text-sm text-slate-500 font-Inter font-normal">
+                                        Don't have an account?{" "}
+                                        <Link to="/register" className="text-green-600 font-medium hover:underline hover:text-green-700">
+                                            Register here
+                                        </Link>
+                                    </p>
+                                )}
+                            </form>
                         )}
-
-                        {/* Email Input */}
-                        <p className="text-secondary mt-[10px] font-[Inter] font-medium text-[14px] mb-[8.5px]">Email Address</p>
-
-                        <div className="relative w-full">
-
-                        <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">
-                            <HiOutlineMail />
-                        </span>
-
-                        <input type="Email"
-                            onChange={
-                                (e)=>
-                                    {
-                                        setEmail(e.target.value);
-                                }}   
-                            placeholder="Enter Your Email" 
-                            className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" 
-                        />
-                        </div>
-                        
-                        {/* Password Field */}
-                        <div className="flex flex-row justify-between items-center font-[Inter] font-medium text-[14px] mt-[10px] mb-[5px]">
-                        <p className="text-secondary">Password</p>
-                        <p className="text-gray italic">
-                                <Link to="/forgot-password" className="text-accent font-normal hover:underline">
-                                Forgot Password?
-                                </Link>
-                        </p>
-                        </div>
-
-                        <div className="relative w-full">
-
-                        <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">
-                            <LuLock />
-                        </span>
-            
-                        <input
-                            type={showPassword ? "text" : "password"}
-                            onChange={(e) => setPassword(e.target.value)}
-                            placeholder="Your Password"
-                            className="w-full h-[50px] rounded-[14px] border border-gray-300 shadow-sm pl-[40px] pr-[40px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500"
-                        />
-
-                        <span
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-3 top-1/2 transform -translate-y-1/2 cursor-pointer text-gray-500"
-                        >
-                            {showPassword ? <PiEyeLight /> : <PiEyeSlash /> }
-                        </span>
-
-                        </div>
-
-                        {defaultRole !== "admin" && (
-                            <>
-                                <div className="flex items-center my-3">
-                                    <div className="flex-grow border-t border-gray-300"></div>
-                                    <span className="mx-3 text-gray-500 font-[Inter] font-normal text-[12px]">or continue with</span>
-                                    <div className="flex-grow border-t border-gray-300"></div>
-                                </div>
-                                
-                                {/* google login button */}
-                                <div className="w-full mb-[10px]">
-                                    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
-                                        <InlineGoogleButton 
-                                            onSuccess={handleGoogleSuccess} 
-                                            disabled={isLoading} 
-                                            role={role}
-                                        />
-                                    </GoogleOAuthProvider>
-                                </div>
-                            </>
-                        )}
-
-
-                        <button type="submit" className={`w-full h-[40px] bg-accent hover:bg-green-700 text-[16px] font-Inter font-medium text-white rounded-[25px] cursor-pointer transition-all duration-200 active:scale-95 ${defaultRole === "admin" ? "mt-[20px]" : ""}`}>
-                                Login to Dashboard
-                        </button>
-
-                        {defaultRole !== "admin" && (
-                            <p className="mt-[5px] text-gray flex justify-center items-center text-[14px] font-[Inter] font-normal">
-                                    Don't have an account? 
-                                    <Link to="/register" className="text-accent font-normal hover:underline ml-1">
-                                    Register here
-                                    </Link>
-                            </p>
-                        )}
-                    </form>
-                )}
+                    </div>
+                </div>
             </div>
         </div>
-      </div>
-    </div>
-    
-
-    )
+    );
 }

@@ -7,7 +7,7 @@ export default function Footer() {
         <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-4 gap-8">
           <div>
             <div className="flex items-center gap-2 mb-4 text-white">
-              <img src="/public/Logo.png" className="w-[50px] h-[35px] mr-1 object-fill" />
+              <img src="https://fmuznyrfnjdwxbqsdijw.supabase.co/storage/v1/object/public/uploads/Logo.png" className="w-[50px] h-[35px] mr-1 object-fill" />
               <span className="text-xl font-bold">VetCloud</span>
             </div>
             <p className="mb-4">Connecting farmers and pet owners with qualified veterinary professionals anytime, anywhere.</p>
