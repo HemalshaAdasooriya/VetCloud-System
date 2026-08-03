@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { 
   Clock, CheckCircle2, XCircle, AlertCircle, FileText, 
@@ -16,6 +16,9 @@ export default function DoctorConsultations() {
   const location = useLocation();
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // eslint-disable-next-line no-unused-vars
+  const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('upcoming'); // 'upcoming', 'completed', 'cancelled'
   const [selectedRequestDetails, setSelectedRequestDetails] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
@@ -28,7 +31,12 @@ export default function DoctorConsultations() {
   const [showVideoRoom, setShowVideoRoom] = useState(false);
   const [showChatRoom, setShowChatRoom] = useState(false);
   const [showClientChatDrawer, setShowClientChatDrawer] = useState(false);
+  // eslint-disable-next-line no-unused-vars
   const [chatInput, setChatInput] = useState('');
+  // eslint-disable-next-line no-unused-vars
+  const [chatMessages, setChatMessages] = useState([]);
+  // eslint-disable-next-line no-unused-vars
+  const [callDuration, setCallDuration] = useState(0);
 
   const getVetId = () => {
     return localStorage.getItem('userId');
@@ -465,7 +473,6 @@ export default function DoctorConsultations() {
           <button
             onClick={() => {
               setSelectedRequestDetails(null);
-              setCancelReason('');
             }}
             className="flex items-center gap-2 text-slate-500 hover:text-slate-700 transition-colors group font-semibold"
           >

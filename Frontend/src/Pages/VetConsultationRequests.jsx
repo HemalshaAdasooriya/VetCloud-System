@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { 
   Clock, CheckCircle2, XCircle, AlertCircle, FileText, 
@@ -18,8 +18,10 @@ export default function VetConsultationRequests() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedRequestDetails, setSelectedRequestDetails] = useState(null);
-  const [declineReason, setDeclineReason] = useState('');
+  
+  // eslint-disable-next-line no-unused-vars
   const [successMessage, setSuccessMessage] = useState('');
+  // eslint-disable-next-line no-unused-vars
   const [selectedSlotId, setSelectedSlotId] = useState({});
   const [actionLoading, setActionLoading] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState('');
@@ -28,7 +30,12 @@ export default function VetConsultationRequests() {
   const [showVideoRoom, setShowVideoRoom] = useState(false);
   const [showChatRoom, setShowChatRoom] = useState(false);
   const [showClientChatDrawer, setShowClientChatDrawer] = useState(false);
+  // eslint-disable-next-line no-unused-vars
   const [chatInput, setChatInput] = useState('');
+  // eslint-disable-next-line no-unused-vars
+  const [chatMessages, setChatMessages] = useState([]);
+  // eslint-disable-next-line no-unused-vars
+  const [callDuration, setCallDuration] = useState(0);
 
   const [vetScheduleSlots, setVetScheduleSlots] = useState([]);
   const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
@@ -476,7 +483,7 @@ export default function VetConsultationRequests() {
     }
     return symptomsList;
   };
-  // Helper to get mock files based on animal name
+  // eslint-disable-next-line no-unused-vars
   const getMockFiles = (animalName, species) => {
     const cleanName = animalName || 'Patient';
     const cleanSpecies = (species || 'Animal').charAt(0).toUpperCase() + (species || 'Animal').slice(1).toLowerCase();
@@ -710,7 +717,6 @@ export default function VetConsultationRequests() {
           onClick={() => {
             setSelectedRequestDetails(null);
             setSelectedSlot('');
-            setDeclineReason('');
           }}
           className="flex items-center gap-2 text-slate-500 hover:text-slate-700 transition-colors group"
         >

@@ -106,6 +106,8 @@ export default function Scheduling() {
 
   // Vets state
   const [vets, setVets] = useState([]);
+  // eslint-disable-next-line no-unused-vars
+  const [loadingVets, setLoadingVets] = useState(true);
   // GET animals from DB
   useEffect(() => {
     const fetchAnimals = async () => {

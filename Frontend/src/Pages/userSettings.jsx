@@ -123,6 +123,13 @@ const [passwordData, setPasswordData] = useState({
   // --- Feedback States ---
   const [toast, setToast] = useState(null); // { message: string, type: 'success' | 'info' | 'error' }
 
+  function showToast(message, type = 'success') {
+    setToast({ message, type });
+    setTimeout(() => {
+      setToast(null);
+    }, 4000);
+  }
+
 
   // --- Fetch Active Sessions on Load ---
   useEffect(() => {
@@ -209,12 +216,6 @@ const [passwordData, setPasswordData] = useState({
   }, [activeTab]);
   //-------------
 
-  function showToast(message, type = 'success') {
-    setToast({ message, type });
-    setTimeout(() => {
-      setToast(null);
-    }, 4000);
-  }
 
   // --- Profile Photo Handlers ---
   const handlePhotoUpload = async (e) => {
