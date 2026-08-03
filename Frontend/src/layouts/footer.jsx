@@ -15,7 +15,7 @@ export default function Footer() {
           <div>
             <h4 className="text-white font-semibold mb-4">Quick Links</h4>
             <ul className="space-y-2">
-              <li><Link to="/consultation" className="hover:text-green-400">Online Consultation</Link></li>
+              <li><Link to="/login" className="hover:text-green-400">Online Consultation</Link></li>
               <li><Link to="/clinics" className="hover:text-green-400">Find a Clinic</Link></li>
               <li><Link to="/diseases" className="hover:text-green-400">Disease Database</Link></li>
             </ul>
