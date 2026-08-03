@@ -13,15 +13,11 @@ import ClientChatDrawer from '../components/consultation/ClientChatDrawer';
 import JitsiVideoCall from '../components/consultation/JitsiVideoCall';
 
 export default function DoctorConsultations() {
-  const navigate = useNavigate();
   const location = useLocation();
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('upcoming'); // 'upcoming', 'completed', 'cancelled'
-  const [selectedRequest, setSelectedRequest] = useState(null);
   const [selectedRequestDetails, setSelectedRequestDetails] = useState(null);
-  const [cancelReason, setCancelReason] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
@@ -32,20 +28,13 @@ export default function DoctorConsultations() {
   const [showVideoRoom, setShowVideoRoom] = useState(false);
   const [showChatRoom, setShowChatRoom] = useState(false);
   const [showClientChatDrawer, setShowClientChatDrawer] = useState(false);
-  const [isVideoMuted, setIsVideoMuted] = useState(false);
-  const [isVideoPaused, setIsVideoPaused] = useState(false);
-  const [isScreenSharing, setIsScreenSharing] = useState(false);
-  const [callDuration, setCallDuration] = useState(0);
-  const [showChatSidebar, setShowChatSidebar] = useState(false);
-  const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
 
   const getVetId = () => {
     return localStorage.getItem('userId');
   };
 
-  const vetId = getVetId();
+  // const vetId = getVetId();
 
   const getDoctorName = () => {
     try {
@@ -167,7 +156,8 @@ export default function DoctorConsultations() {
     return () => timers.forEach(clearTimeout);
   }, [showVideoRoom, selectedRequestDetails]);
 
-  // Handle send message in call
+  // Handle send message in call (unused)
+  /*
   const handleSendMessageInCall = () => {
     if (!chatInput.trim()) return;
     const msgText = chatInput;
@@ -198,13 +188,16 @@ export default function DoctorConsultations() {
       ]);
     }, 2000);
   };
+  */
 
-  // Helper for duration strings
+  // Helper for duration strings (unused)
+  /*
   const formatDuration = (sec) => {
     const m = Math.floor(sec / 60).toString().padStart(2, '0');
     const s = (sec % 60).toString().padStart(2, '0');
     return `${m}:${s}`;
   };
+  */
 
   // Helper: Format time
   const formatTime = (timeStr) => {
@@ -236,7 +229,8 @@ export default function DoctorConsultations() {
     }
   };
 
-  // Helper: timeAgo relative format
+  // Helper: timeAgo relative format (unused)
+  /*
   const timeAgo = (dateStr) => {
     if (!dateStr) return 'Recently';
     try {
@@ -252,11 +246,12 @@ export default function DoctorConsultations() {
       if (interval >= 1) return `${interval}h ago`;
       interval = Math.floor(seconds / 60);
       if (interval >= 1) return `${interval}m ago`;
-      return 'Just now';
+      return `${Math.floor(seconds)}s ago`;
     } catch {
       return 'Recently';
     }
   };
+  */
 
   // Filter lists based on status
   const upcomingConsultations = appointments.filter(a => 

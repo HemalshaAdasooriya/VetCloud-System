@@ -70,6 +70,7 @@ export function DashboardLayout() {
     }
   };
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchNotifications();
     if (!user) return;
     const socket = io(import.meta.env.VITE_BACKEND_URL || "http://localhost:5000");

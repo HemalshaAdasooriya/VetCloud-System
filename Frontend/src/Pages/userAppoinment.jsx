@@ -12,7 +12,7 @@ const parseRequestPayload = (reason) => {
         availability: parsed.availability
       };
     }
-  } catch (e) {
+  } catch {
     // Reason may be plain text if not structured.
   }
   return { notes: reason, availability: [] };
@@ -35,6 +35,7 @@ export default function UserAppoinment() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchAppointments();
   }, []);
 

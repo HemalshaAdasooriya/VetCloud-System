@@ -42,7 +42,6 @@ export default function ConsultationPage() {
 
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [verifyingPayment, setVerifyingPayment] = useState(false);
 
   // Payment Gateway States
   const [showPaymentModal, setShowPaymentModal] = useState(false);

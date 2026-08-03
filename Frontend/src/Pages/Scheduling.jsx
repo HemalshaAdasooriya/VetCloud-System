@@ -106,8 +106,6 @@ export default function Scheduling() {
 
   // Vets state
   const [vets, setVets] = useState([]);
-  const [loadingVets, setLoadingVets] = useState(true);
-
   // GET animals from DB
   useEffect(() => {
     const fetchAnimals = async () => {

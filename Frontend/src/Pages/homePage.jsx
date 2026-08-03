@@ -6,6 +6,7 @@ import Navigation from "../layouts/navigation";
 import Footer from "../layouts/footer";
 import { FaInstagram } from "react-icons/fa6";
 import { BsFacebook, BsInstagram, BsTwitter } from "react-icons/bs";
+// eslint-disable-next-line no-unused-vars
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 
@@ -27,6 +28,7 @@ export default function HomePage() {
     };
 
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         fetchTestimonials();
     }, []);
 

@@ -57,7 +57,7 @@ export default function ForgotPassword() {
         setStep("otp");
       }, 1500);
 
-    } catch (error) {
+    } catch {
       setError("Server connection failed");
     }
   };

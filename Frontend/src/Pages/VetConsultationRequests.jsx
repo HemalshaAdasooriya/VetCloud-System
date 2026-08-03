@@ -13,36 +13,23 @@ import ClientChatDrawer from '../components/consultation/ClientChatDrawer';
 import JitsiVideoCall from '../components/consultation/JitsiVideoCall';
 
 export default function VetConsultationRequests() {
-  const navigate = useNavigate();
   const location = useLocation();
   const [activeTab, setActiveTab] = useState('pending');
-  const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [selectedRequest, setSelectedRequest] = useState(null);
   const [selectedRequestDetails, setSelectedRequestDetails] = useState(null);
   const [declineReason, setDeclineReason] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [selectedSlotId, setSelectedSlotId] = useState({});
   const [actionLoading, setActionLoading] = useState(false);
-  const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [selectedSlot, setSelectedSlot] = useState('');
-  const [availableSlots, setAvailableSlots] = useState([]);
   
   // Calling & Chat State hooks
   const [showVideoRoom, setShowVideoRoom] = useState(false);
   const [showChatRoom, setShowChatRoom] = useState(false);
   const [showClientChatDrawer, setShowClientChatDrawer] = useState(false);
-  const [isVideoMuted, setIsVideoMuted] = useState(false);
-  const [isVideoPaused, setIsVideoPaused] = useState(false);
-  const [isScreenSharing, setIsScreenSharing] = useState(false);
-  const [callDuration, setCallDuration] = useState(0);
-  const [showChatSidebar, setShowChatSidebar] = useState(false);
-  const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
 
-  const [showApproveModal, setShowApproveModal] = useState(false);
   const [vetScheduleSlots, setVetScheduleSlots] = useState([]);
   const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
   const [prescriptionText, setPrescriptionText] = useState("");
@@ -85,7 +72,7 @@ export default function VetConsultationRequests() {
     return localStorage.getItem('userId');
   };
 
-  const vetId = getVetId();
+  // const vetId = getVetId();
 
   const getDoctorName = () => {
     try {
@@ -333,7 +320,8 @@ export default function VetConsultationRequests() {
     return () => timers.forEach(clearTimeout);
   }, [showVideoRoom, selectedRequestDetails]);
 
-  // Handle send message in call
+  // Handle send message in call (unused)
+  /*
   const handleSendMessageInCall = () => {
     if (!chatInput.trim()) return;
     const msgText = chatInput;
@@ -365,13 +353,16 @@ export default function VetConsultationRequests() {
       ]);
     }, 2000);
   };
+  */
 
-  // Helper for duration strings
+  // Helper for duration strings (unused)
+  /*
   const formatDuration = (sec) => {
     const m = Math.floor(sec / 60).toString().padStart(2, '0');
     const s = (sec % 60).toString().padStart(2, '0');
     return `${m}:${s}`;
   };
+  */
 
   // Helper: Time ago
   const timeAgo = (dateStr) => {
@@ -403,7 +394,8 @@ export default function VetConsultationRequests() {
     }
   };
 
-  // Handle approve
+  // Handle approve (unused)
+  /*
   const handleApprove = async (requestId) => {
     const slotId = selectedSlotId[requestId];
     if (!slotId) {
@@ -438,7 +430,8 @@ export default function VetConsultationRequests() {
     } finally {
       setLoading(false);
     }
-  }  // Get urgency badge based on symptoms or reason
+  }
+  */  // Get urgency badge based on symptoms or reason
   const getUrgencyBadge = (reasonStr) => {
     const lower = (reasonStr || '').toLowerCase();
     if (lower.includes('emergency') || lower.includes('urgent') || lower.includes('severe') || lower.includes('dying') || lower.includes('bleeding') || lower.includes('breathing')) {
@@ -519,7 +512,8 @@ export default function VetConsultationRequests() {
     }
   };
 
-  // Handle decline
+  // Handle decline (unused)
+  /*
   const handleDecline = async (requestId) => {
     if (!declineReason.trim()) {
       alert('Please provide a reason for declining this request.');
@@ -550,6 +544,7 @@ export default function VetConsultationRequests() {
       setLoading(false);
     }
   };
+  */
 
   // Handle complete
   const handleCompleteClick = (appointmentId) => {
@@ -704,7 +699,7 @@ export default function VetConsultationRequests() {
   const availability = request?.slots || [];
   const notes = request?.symptoms || request?.originalData?.reason_notes || request?.originalData?.reason || '';
   const symptoms = request ? extractSymptoms(notes) : [];
-  const mockFiles = request ? getMockFiles(request.animal_name, request.animal_species) : [];
+  // const mockFiles = request ? getMockFiles(request.animal_name, request.animal_species) : [];
 
   return (
     <div className="space-y-6">
@@ -882,7 +877,6 @@ export default function VetConsultationRequests() {
                   <Button
                     onClick={() => {
                       setShowChatRoom(true);
-                      setChatRoomMessages([]);
                     }}
                     className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all flex items-center gap-2 cursor-pointer mt-2"
                   >
@@ -905,7 +899,6 @@ export default function VetConsultationRequests() {
                   <Button
                     onClick={() => {
                       setShowVideoRoom(true);
-                      setChatMessages([]);
                     }}
                     className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all flex items-center gap-2 cursor-pointer mt-2"
                   >

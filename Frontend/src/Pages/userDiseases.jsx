@@ -2,6 +2,7 @@ import { useState, useMemo,  useEffect } from 'react';
 import { Badge, Button, Card, Input } from '../components/Ui/ui';
 import { BsDatabaseCheck } from "react-icons/bs";
 import { Search, Filter, BookOpen, AlertTriangle, ShieldCheck, Activity, Info, X, ChevronRight } from 'lucide-react';
+// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 
 const DISEASES_DATA = [

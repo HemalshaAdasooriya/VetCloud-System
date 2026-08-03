@@ -43,7 +43,7 @@ export default function ConsultationRequest() {
   ];
 
   const getSelectedAnimal = () => animals.find(a => a.id === selectedAnimal);
-  const getSelectedVet = () => vets.find(v => v.id === selectedVet);
+  // const getSelectedVet = () => vets.find(v => v.id === selectedVet);
 
   return (
     <div className="bg-slate-50 min-h-[calc(100vh-4rem)] py-12">

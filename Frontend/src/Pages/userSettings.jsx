@@ -209,12 +209,12 @@ const [passwordData, setPasswordData] = useState({
   }, [activeTab]);
   //-------------
 
-  const showToast = (message, type = 'success') => {
+  function showToast(message, type = 'success') {
     setToast({ message, type });
     setTimeout(() => {
       setToast(null);
     }, 4000);
-  };
+  }
 
   // --- Profile Photo Handlers ---
   const handlePhotoUpload = async (e) => {
@@ -1163,7 +1163,7 @@ const verify2FACode = async (e) => {
                                     } else {
                                         showToast("Failed to send verification email.", "error");
                                     }
-                                } catch (err) {
+                                } catch {
                                     showToast("Server connection failed.", "error");
                                 }
                             }}
@@ -1227,7 +1227,7 @@ const verify2FACode = async (e) => {
                                     } else {
                                         showToast("Simulation failed. Check console.", "error");
                                     }
-                                } catch (err) {
+                                } catch {
                                     showToast("Server connection failed.", "error");
                                 }
                             }}
@@ -1303,7 +1303,7 @@ const verify2FACode = async (e) => {
                                         } else {
                                             showToast("Failed to create vaccination schedule.", "error");
                                         }
-                                    } catch (err) {
+                                    } catch {
                                         showToast("Server connection failed.", "error");
                                     }
                                 }}

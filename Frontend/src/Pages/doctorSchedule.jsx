@@ -7,18 +7,10 @@ import {
 import { Button, Card, Badge } from "../components/Ui/ui"; 
 
 export default function DoctorSchedule() {
-  // ── LIVE CALENDAR STATE ────────────────────────────────────────────────
-  const [currentViewDate, setCurrentViewDate] = useState(new Date()); // Tracks the month being viewed
-  const [selectedDate, setSelectedDate] = useState(new Date()); // Tracks the specifically clicked day
-  
   // ── DATA STATE ─────────────────────────────────────────────────────────
   const [appointments, setAppointments] = useState([]);
   const [selectedSlots, setSelectedSlots] = useState({});
   const user = JSON.parse(localStorage.getItem("user"));
-
-  const [newSlotTime, setNewSlotTime] = useState('04:00 PM');
-  const [newSlotType, setNewSlotType] = useState('video');
-  const [isAdding, setIsAdding] = useState(false);
 
   // ── FETCH APPOINTMENTS FROM BACKEND ────────────────────────────────────
   const fetchAppointments = async () => {
@@ -31,6 +23,7 @@ export default function DoctorSchedule() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchAppointments();
   }, []);
 
@@ -44,7 +37,7 @@ export default function DoctorSchedule() {
           availability: parsed.availability
         };
       }
-    } catch (e) {
+    } catch {
       // fallback when reason is plain text
     }
     return { notes: reason, availability: [] };
@@ -70,9 +63,9 @@ export default function DoctorSchedule() {
     }
   };
 
-  const handleRemoveSlot = (id) => {
-    setAvailableSlots(availableSlots.filter(slot => slot.id !== id));
-  };
+  // const handleRemoveSlot = (id) => {
+  //   setAvailableSlots(availableSlots.filter(slot => slot.id !== id));
+  // };
 
   return (
     <div className="p-6">
