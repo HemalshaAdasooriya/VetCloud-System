@@ -17,7 +17,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 
-import { Button, Card, Input, Badge } from '../components/ui/ui';
+import { Button, Card, Input, Badge } from '../components/Ui/ui';
 
 // Default high-quality images based on species
 const SPECIES_IMAGES = {

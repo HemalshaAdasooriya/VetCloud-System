@@ -7,7 +7,7 @@ import {
   MoreVertical, FileText, AlertCircle, XCircle, HourglassIcon, CreditCard, ShieldAlert,
   Star, MessageSquare
 } from 'lucide-react';
-import { Button, Card, Badge } from '../components/ui/ui';
+import { Button, Card, Badge } from '../components/Ui/ui';
 import JitsiVideoCall from '../components/consultation/JitsiVideoCall';
 import FarmerChatRoom from '../components/consultation/FarmerChatRoom';
 

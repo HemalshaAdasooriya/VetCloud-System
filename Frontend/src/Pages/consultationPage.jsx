@@ -5,7 +5,7 @@ import {
   Video, Calendar as CalendarIcon, Clock, CheckCircle2,
   MoreVertical, FileText, AlertCircle, XCircle, HourglassIcon
 } from 'lucide-react';
-import { Button, Card, Badge } from '../components/ui/ui';
+import { Button, Card, Badge } from '../components/Ui/ui';
 
 const TAB_STYLES = {
   pending: { text: 'text-amber-600', underline: 'bg-amber-600' },

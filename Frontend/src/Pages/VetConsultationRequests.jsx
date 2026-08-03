@@ -7,7 +7,7 @@ import {
   HourglassIcon, Stethoscope, ArrowLeft, Paperclip, MessageSquare,
   Mic, MicOff, VideoOff, Monitor, Send, X, MessageCircle, Loader2
 } from 'lucide-react';
-import { Button, Card, Badge, Textarea } from '../components/ui/ui';
+import { Button, Card, Badge, Textarea } from '../components/Ui/ui';
 import ChatConsultationRoom from '../components/consultation/ChatConsultationRoom';
 import ClientChatDrawer from '../components/consultation/ClientChatDrawer';
 import JitsiVideoCall from '../components/consultation/JitsiVideoCall';
