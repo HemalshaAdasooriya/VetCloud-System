@@ -174,71 +174,35 @@ export const createNotification = (data, callback) => {
     );
 };
 
-// Get notifications for a user (supporting role aliases)
+// Get notifications for a user
 export const getNotificationsByUser = (userId, userRole, callback) => {
-    let roleCondition = "user_role = ?";
-    let params = [userId, userRole];
-
-    const lower = (userRole || '').toLowerCase();
-    if (lower.includes('farmer') || lower.includes('petowner') || lower.includes('owner')) {
-        roleCondition = "user_role IN ('Farmer/PetOwner', 'farmer', 'pet_owner')";
-        params = [userId];
-    } else if (lower.includes('doctor') || lower.includes('vet')) {
-        roleCondition = "user_role IN ('Veterinary Doctor', 'doctor', 'vet')";
-        params = [userId];
-    }
-
     const sql = `
         SELECT * FROM notifications
-        WHERE user_id = ? AND ${roleCondition}
+        WHERE user_id = ? AND user_role = ?
         ORDER BY created_at DESC
         LIMIT 50
     `;
-    db.query(sql, params, callback);
+    db.query(sql, [userId, userRole], callback);
 };
 
 // Mark notification as read
 export const markAsRead = (notificationId, userId, userRole, callback) => {
-    let roleCondition = "user_role = ?";
-    let params = [notificationId, userId, userRole];
-
-    const lower = (userRole || '').toLowerCase();
-    if (lower.includes('farmer') || lower.includes('petowner') || lower.includes('owner')) {
-        roleCondition = "user_role IN ('Farmer/PetOwner', 'farmer', 'pet_owner')";
-        params = [notificationId, userId];
-    } else if (lower.includes('doctor') || lower.includes('vet')) {
-        roleCondition = "user_role IN ('Veterinary Doctor', 'doctor', 'vet')";
-        params = [notificationId, userId];
-    }
-
     const sql = `
         UPDATE notifications
         SET is_read = 1
-        WHERE id = ? AND user_id = ? AND ${roleCondition}
+        WHERE id = ? AND user_id = ? AND user_role = ?
     `;
-    db.query(sql, params, callback);
+    db.query(sql, [notificationId, userId, userRole], callback);
 };
 
 // Mark all notifications as read
 export const markAllAsRead = (userId, userRole, callback) => {
-    let roleCondition = "user_role = ?";
-    let params = [userId, userRole];
-
-    const lower = (userRole || '').toLowerCase();
-    if (lower.includes('farmer') || lower.includes('petowner') || lower.includes('owner')) {
-        roleCondition = "user_role IN ('Farmer/PetOwner', 'farmer', 'pet_owner')";
-        params = [userId];
-    } else if (lower.includes('doctor') || lower.includes('vet')) {
-        roleCondition = "user_role IN ('Veterinary Doctor', 'doctor', 'vet')";
-        params = [userId];
-    }
-
     const sql = `
         UPDATE notifications
         SET is_read = 1
-        WHERE user_id = ? AND ${roleCondition}
+        WHERE user_id = ? AND user_role = ?
     `;
-    db.query(sql, params, callback);
+    db.query(sql, [userId, userRole], callback);
 };
 
 // Get vaccination schedules for an owner's animals

@@ -37,22 +37,12 @@ const verifyToken = (req) => {
 
 // Push real-time notification via Socket.io
 const pushRealtimeNotification = (req, userId, userRole, notification) => {
-    const io = req.app ? req.app.get("io") : null;
+    const io = req.app.get("io");
     if (io) {
-        const rooms = [`${userRole}_${userId}`];
-        const lower = (userRole || '').toLowerCase();
-        if (lower.includes('farmer') || lower.includes('petowner') || lower.includes('owner')) {
-            rooms.push(`Farmer/PetOwner_${userId}`, `farmer_${userId}`, `pet_owner_${userId}`);
-        } else if (lower.includes('doctor') || lower.includes('vet')) {
-            rooms.push(`Veterinary Doctor_${userId}`, `doctor_${userId}`, `vet_${userId}`);
-        }
-        
-        // Emit to all matching rooms
-        const uniqueRooms = [...new Set(rooms)];
-        uniqueRooms.forEach(room => {
-            io.to(room).emit("new-notification", notification);
-        });
-        console.log(`Socket: Pushed realtime notification to rooms: ${uniqueRooms.join(', ')}`);
+        // Emit to specific user room
+        const roomName = `${userRole}_${userId}`;
+        io.to(roomName).emit("new-notification", notification);
+        console.log(`Socket: Pushed realtime notification to room '${roomName}'`);
     }
 };
 
@@ -346,17 +336,16 @@ export const triggerAppointmentNotification = (app, appointmentId, triggerType) 
 
         const apt = results[0];
         
-        // Slot query with fallback to vet_schedule / appointments
-        const processNotificationWithSlot = (slotDate, slotTime) => {
+        // Slot query
+        const slotSql = "SELECT slot_date, slot_time FROM appointment_slots WHERE id = ?";
+        db.query(slotSql, [apt.selected_slot_id], (errSlot, slotResults) => {
+            const slot = (!errSlot && slotResults && slotResults.length > 0) ? slotResults[0] : { slot_date: null, slot_time: null };
+            
             let formattedDate = "";
-            if (slotDate) {
-                try {
-                    formattedDate = new Date(slotDate).toLocaleDateString("en-US", { year: 'numeric', month: 'long', day: 'numeric' });
-                } catch {
-                    formattedDate = String(slotDate);
-                }
+            if (slot.slot_date) {
+                formattedDate = new Date(slot.slot_date).toLocaleDateString("en-US", { year: 'numeric', month: 'long', day: 'numeric' });
             }
-            const formattedTime = slotTime || "";
+            const formattedTime = slot.slot_time || "";
 
             let ownerNotify = null;
             let vetNotify = null;
@@ -551,14 +540,14 @@ export const triggerAppointmentNotification = (app, appointmentId, triggerType) 
             if (ownerNotify) {
                 createNotification(ownerNotify, (nErr, dbNotify) => {
                     if (!nErr && dbNotify) {
-                        pushRealtimeNotification({ app }, apt.pet_owner_id, "Farmer/PetOwner", dbNotify);
+                        if (io) io.to(`Farmer/PetOwner_${apt.pet_owner_id}`).emit("new-notification", dbNotify);
                     }
                 });
             }
             if (vetNotify) {
                 createNotification(vetNotify, (nErr, dbNotify) => {
                     if (!nErr && dbNotify) {
-                        pushRealtimeNotification({ app }, apt.veterinarian_id, "Veterinary Doctor", dbNotify);
+                        if (io) io.to(`Veterinary Doctor_${apt.veterinarian_id}`).emit("new-notification", dbNotify);
                     }
                 });
             }
@@ -579,22 +568,6 @@ export const triggerAppointmentNotification = (app, appointmentId, triggerType) 
                     html: emailToVet.html,
                     text: emailToVet.text
                 }).catch(console.error);
-            }
-        };
-
-        // Query selected slot from appointment_slots with fallback to vet_schedule / appointments
-        const slotSql = "SELECT slot_date, slot_time FROM appointment_slots WHERE id = ?";
-        db.query(slotSql, [apt.selected_slot_id], (errSlot, slotResults) => {
-            if (!errSlot && slotResults && slotResults.length > 0 && slotResults[0].slot_date) {
-                processNotificationWithSlot(slotResults[0].slot_date, slotResults[0].slot_time);
-            } else {
-                db.query("SELECT slot_date, slot_time FROM vet_schedule WHERE appointment_id = ? OR id = ?", [appointmentId, apt.selected_slot_id], (errVetSched, schedResults) => {
-                    if (!errVetSched && schedResults && schedResults.length > 0 && schedResults[0].slot_date) {
-                        processNotificationWithSlot(schedResults[0].slot_date, schedResults[0].slot_time);
-                    } else {
-                        processNotificationWithSlot(apt.appointment_date, apt.appointment_time);
-                    }
-                });
             }
         });
     });

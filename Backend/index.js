@@ -43,23 +43,11 @@ io.on("connection", (socket) => {
       // Socket room registration for real-time alerts
     socket.on("register", (data) => {
         if (data && data.userId && data.role) {
-            const primaryRoom = `${data.role}_${data.userId}`;
-            socket.join(primaryRoom);
-
-            const lowerRole = String(data.role).toLowerCase();
-            if (lowerRole.includes('farmer') || lowerRole.includes('petowner') || lowerRole.includes('owner')) {
-                socket.join(`Farmer/PetOwner_${data.userId}`);
-                socket.join(`farmer_${data.userId}`);
-                socket.join(`pet_owner_${data.userId}`);
-            } else if (lowerRole.includes('doctor') || lowerRole.includes('vet')) {
-                socket.join(`Veterinary Doctor_${data.userId}`);
-                socket.join(`doctor_${data.userId}`);
-                socket.join(`vet_${data.userId}`);
-            }
-
-            console.log(`Socket client registered (${socket.id}) for user ${data.userId} role ${data.role}`);
+            const roomName = `${data.role}_${data.userId}`;
+            socket.join(roomName);
+            console.log(`Socket client registered and joined room: ${roomName}`);
         }
-    });
+    });//isuri-notification
 
     // Chat Room Events
     socket.on("join-chat-room", ({ appointmentId }) => {
