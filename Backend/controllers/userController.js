@@ -457,6 +457,7 @@ export function sendForgotPasswordOTP(req, res) {
             });
         }
 
+        const userObj = results[0];
         const otp = otpGenerator.generate(6, {
             upperCaseAlphabets: false,
             lowerCaseAlphabets: false,
@@ -466,23 +467,42 @@ export function sendForgotPasswordOTP(req, res) {
         const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
         savePasswordResetOTP(email, otp, expiresAt, async (err) => {
-
             if (err) {
                 return res.status(500).json(err);
             }
 
             try {
-                await transporter.sendMail({
-                    from: process.env.EMAIL_USER,
+                // 1. Send Email Notification using VetCloud Password Reset Template
+                const { getPasswordResetTemplate } = await import("../config/email.js");
+                const html = getPasswordResetTemplate(userObj.fullName || userObj.name || "User", otp);
+
+                await sendEmail({
                     to: email,
                     subject: "VetCloud Password Reset OTP",
-                    html: `
-                        <h2>Password Reset Request</h2>
-                        <p>Your OTP code is:</p>
-                        <h1>${otp}</h1>
-                        <p>This OTP expires in 10 minutes.</p>
-                    `
+                    html,
+                    text: `Your VetCloud Password Reset OTP is: ${otp}. It expires in 10 minutes.`
                 });
+
+                // 2. Create In-App Notification for User
+                if (userObj.id) {
+                    const { createNotification } = await import("../models/Notification.js");
+                    const userRole = (userObj.role && (userObj.role.toLowerCase().includes('vet') || userObj.role.toLowerCase().includes('doctor')))
+                        ? "Veterinary Doctor" 
+                        : "Farmer/PetOwner";
+
+                    createNotification({
+                        userId: userObj.id,
+                        userRole,
+                        type: "password_reset_requested",
+                        title: "Password Reset Requested",
+                        message: "A password reset request was initiated for your account. Please check your email for your 6-digit OTP code."
+                    }, (nErr, dbNotify) => {
+                        const io = req.app ? req.app.get("io") : null;
+                        if (!nErr && dbNotify && io) {
+                            io.to(`${userRole}_${userObj.id}`).emit("new-notification", dbNotify);
+                        }
+                    });
+                }
 
                 return res.status(200).json({
                     message: "OTP sent successfully"
@@ -543,6 +563,34 @@ export async function resetPassword(req, res) {
 
         const hashedPassword = await bcrypt.hash(newPassword, 11);
 
+        const notifyPasswordChanged = async (userRole) => {
+            checkEmailExists(email, async (err, results) => {
+                if (!err && results && results.length > 0) {
+                    const u = results[0];
+                    const { createNotification } = await import("../models/Notification.js");
+                    createNotification({
+                        userId: u.id,
+                        userRole: userRole || "Farmer/PetOwner",
+                        type: "password_reset_success",
+                        title: "Password Changed Successfully",
+                        message: "Your VetCloud account password was successfully updated."
+                    }, (nErr, dbNotify) => {
+                        const io = req.app ? req.app.get("io") : null;
+                        if (!nErr && dbNotify && io) {
+                            io.to(`${userRole}_${u.id}`).emit("new-notification", dbNotify);
+                        }
+                    });
+
+                    sendEmail({
+                        to: email,
+                        subject: "Security Notification: VetCloud Password Changed",
+                        html: `<p>Dear ${u.fullName || "User"},</p><p>This email confirms that your VetCloud account password was successfully updated.</p><p>If you did not perform this change, please contact VetCloud support immediately.</p>`,
+                        text: `Your VetCloud account password was successfully updated.`
+                    }).catch(console.error);
+                }
+            });
+        };
+
         updatePetOwnerPassword(email, hashedPassword, (err, result) => {
 
             if (err) {
@@ -550,6 +598,7 @@ export async function resetPassword(req, res) {
             }
 
             if (result.affectedRows > 0) {
+                notifyPasswordChanged("Farmer/PetOwner");
                 return res.status(200).json({
                     message: "Password updated successfully"
                 });
@@ -562,6 +611,7 @@ export async function resetPassword(req, res) {
                 }
 
                 if (result2.affectedRows > 0) {
+                    notifyPasswordChanged("Veterinary Doctor");
                     return res.status(200).json({
                         message: "Password updated successfully"
                     });

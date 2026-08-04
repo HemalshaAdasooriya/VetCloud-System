@@ -432,3 +432,54 @@ export const getNewConsultationAssignmentTemplate = (vetName, ownerName, animalN
     `;
     return wrapTemplate("New Consultation Assignment", content);
 };
+
+// 14. Appointment Cancelled Email Template
+export const getAppointmentCancelledTemplate = (ownerName, animalName, vetName, date, time) => {
+    const formattedDate = date ? new Date(date).toLocaleDateString("en-US", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : "N/A";
+    const content = `
+        <p>Dear ${ownerName || "Client"},</p>
+        <p>Your scheduled consultation appointment has been <strong>cancelled</strong>.</p>
+        
+        <div class="details-box">
+            <div class="details-item">
+                <span class="details-label">Patient:</span>
+                <span class="details-value">${animalName || "Patient"}</span>
+            </div>
+            <div class="details-item">
+                <span class="details-label">Veterinarian:</span>
+                <span class="details-value">${vetName || "Veterinary Doctor"}</span>
+            </div>
+            <div class="details-item">
+                <span class="details-label">Scheduled Date:</span>
+                <span class="details-value">${formattedDate}</span>
+            </div>
+            <div class="details-item">
+                <span class="details-label">Scheduled Time:</span>
+                <span class="details-value">${time || "N/A"}</span>
+            </div>
+        </div>
+
+        <p>If you need to book a new appointment slot, please visit your VetCloud dashboard.</p>
+        <a href="http://localhost:5173/dashboard/user/consultations" class="button">Book New Consultation</a>
+    `;
+    return wrapTemplate("Appointment Cancelled", content);
+};
+
+// 15. Doctor Feedback Request Email Template
+export const getFeedbackRequestTemplate = (ownerName, vetName, animalName, appointmentId) => {
+    const content = `
+        <p>Dear ${ownerName || "Valued Client"},</p>
+        <p>Your virtual consultation for <strong>${animalName || "your animal"}</strong> with <strong>Dr. ${vetName || "the doctor"}</strong> (Appointment #${appointmentId}) has been successfully completed!</p>
+        
+        <p>We would love to hear about your experience. Your feedback helps us maintain the highest quality of veterinary care on VetCloud.</p>
+
+        <div style="text-align: center; margin: 25px 0;">
+            <a href="http://localhost:5173/dashboard/user/consultations" class="button" style="background-color: #059669; font-size: 16px; padding: 14px 28px;">
+                ⭐ Rate & Review Doctor
+            </a>
+        </div>
+
+        <p>Thank you for choosing VetCloud for your animal healthcare needs!</p>
+    `;
+    return wrapTemplate("Doctor Feedback Request", content);
+};

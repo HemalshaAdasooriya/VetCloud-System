@@ -224,6 +224,8 @@ export const completeAppointment = (req, res) => {
                 });
             }
 
+            triggerAppointmentNotification(req.app, req.params.id, "appointment_completed");
+
             res.json({
                 message: "Appointment completed"
             });

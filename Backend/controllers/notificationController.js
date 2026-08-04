@@ -454,7 +454,7 @@ export const triggerAppointmentNotification = (app, appointmentId, triggerType) 
                     userRole: "Farmer/PetOwner",
                     type: "appointment_cancelled",
                     title: "Appointment Cancelled",
-                    message: `Your appointment with Dr. ${apt.vet_name} has been cancelled.`
+                    message: `Your appointment with Dr. ${apt.vet_name} for ${apt.animal_name} has been cancelled.`
                 };
                 vetNotify = {
                     userId: apt.veterinarian_id,
@@ -463,25 +463,54 @@ export const triggerAppointmentNotification = (app, appointmentId, triggerType) 
                     title: "Appointment Cancelled",
                     message: `The appointment for ${apt.owner_name}'s animal ${apt.animal_name} has been cancelled.`
                 };
-                emailToOwner = {
-                    subject: "Appointment Cancelled - VetCloud",
-                    html: `<p>Dear ${apt.owner_name}, your appointment with Dr. ${apt.vet_name} has been cancelled.</p>`,
-                    text: `Dear ${apt.owner_name}, your appointment was cancelled.`
-                };
+
+                // Cancellation email to owner using HTML template
+                import("../config/email.js").then(({ getAppointmentCancelledTemplate }) => {
+                    const html = getAppointmentCancelledTemplate(
+                        apt.owner_name,
+                        apt.animal_name,
+                        apt.vet_name,
+                        slot.slot_date,
+                        formattedTime
+                    );
+                    sendEmail({
+                        to: apt.owner_email,
+                        subject: `Appointment Cancelled - VetCloud #${appointmentId}`,
+                        html,
+                        text: `Dear ${apt.owner_name}, your appointment with Dr. ${apt.vet_name} has been cancelled.`
+                    }).catch(console.error);
+                });
+
                 emailToVet = {
-                    subject: "Appointment Cancelled - VetCloud",
+                    subject: `Appointment Cancelled - VetCloud #${appointmentId}`,
                     html: `<p>Dear Dr. ${apt.vet_name}, the appointment for ${apt.owner_name}'s animal ${apt.animal_name} has been cancelled.</p>`,
                     text: `Dear Dr. ${apt.vet_name}, the appointment was cancelled.`
                 };
             } 
             else if (triggerType === "appointment_completed") {
+                // 1. In-app notification for Medical Report Delivery
+                const medicalReportNotify = {
+                    userId: apt.pet_owner_id,
+                    userRole: "Farmer/PetOwner",
+                    type: "medical_report_delivered",
+                    title: "Medical Report Delivered",
+                    message: `Dr. ${apt.vet_name} has delivered the clinical report & prescription for ${apt.animal_name}.`
+                };
+                createNotification(medicalReportNotify, (nErr, dbNotify) => {
+                    if (!nErr && dbNotify && io) {
+                        io.to(`Farmer/PetOwner_${apt.pet_owner_id}`).emit("new-notification", dbNotify);
+                    }
+                });
+
+                // 2. In-app notification for Doctor Feedback Request
                 ownerNotify = {
                     userId: apt.pet_owner_id,
                     userRole: "Farmer/PetOwner",
                     type: "feedback_request",
-                    title: "Feedback Request",
-                    message: `Feedback request: Please tell us about your experience consulting Dr. ${apt.vet_name} for ${apt.animal_name}.`
+                    title: "Doctor's Feedback Request",
+                    message: `How was your consultation with Dr. ${apt.vet_name} for ${apt.animal_name}? Please share your rating and review!`
                 };
+
                 vetNotify = {
                     userId: apt.veterinarian_id,
                     userRole: "Veterinary Doctor",
@@ -489,6 +518,22 @@ export const triggerAppointmentNotification = (app, appointmentId, triggerType) 
                     title: "Appointment Completed",
                     message: `Your consultation for ${apt.animal_name} has been marked as completed.`
                 };
+
+                // 3. Email invitation for Doctor Feedback Request
+                import("../config/email.js").then(({ getFeedbackRequestTemplate }) => {
+                    const html = getFeedbackRequestTemplate(
+                        apt.owner_name,
+                        apt.vet_name,
+                        apt.animal_name,
+                        appointmentId
+                    );
+                    sendEmail({
+                        to: apt.owner_email,
+                        subject: `Feedback Request: Rate Your Consultation with Dr. ${apt.vet_name}`,
+                        html,
+                        text: `Dear ${apt.owner_name}, please rate your consultation experience with Dr. ${apt.vet_name} for ${apt.animal_name}.`
+                    }).catch(console.error);
+                });
             }
 
             // Save In-App notifications & Push socket updates
