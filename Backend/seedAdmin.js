@@ -3,8 +3,8 @@ dotenv.config();
 import db from "./config/db.js";
 import bcrypt from "bcryptjs";
 
-const adminEmail = process.env.ADMIN_EMAIL || "admin@vetcloud.com";
-const adminPassword = process.env.ADMIN_PASSWORD || "adminpassword123";
+const adminEmail = process.env.ADMIN_EMAIL || "vetcloudnew@gmail.com";
+const adminPassword = process.env.ADMIN_PASSWORD || "icayrhqgdsjacytn";
 const adminName = "System Administrator";
 
 export function seedAdminAuto(exitOnComplete = false) {
@@ -18,8 +18,16 @@ export function seedAdminAuto(exitOnComplete = false) {
         }
 
         if (results && results.length > 0) {
-            console.log(`Admin account already exists (${adminEmail}).`);
-            if (exitOnComplete) process.exit(0);
+            // Update existing admin password to match new credential
+            const updateSql = "UPDATE admins SET password = ?, is_Active = 1 WHERE email = ?";
+            db.query(updateSql, [hashedPassword, adminEmail], (upErr) => {
+                if (upErr) {
+                    console.error("Failed to update admin password:", upErr.message);
+                } else {
+                    console.log(`[AutoSeed] Admin credentials updated successfully for: ${adminEmail}`);
+                }
+                if (exitOnComplete) process.exit(0);
+            });
         } else {
             const insertSql = `
                 INSERT INTO admins (email, password, fullName, contact_No, isEmailVerified, is_Active)
@@ -29,7 +37,7 @@ export function seedAdminAuto(exitOnComplete = false) {
                 if (insertErr) {
                     console.error("Failed to auto-seed admin:", insertErr.message);
                 } else {
-                    console.log(`[AutoSeed] Successfully created default admin user: ${adminEmail}`);
+                    console.log(`[AutoSeed] Successfully created admin account: ${adminEmail}`);
                 }
                 if (exitOnComplete) process.exit(0);
             });
