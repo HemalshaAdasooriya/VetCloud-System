@@ -125,14 +125,13 @@ export const createStripeCheckoutSession = async (req, res) => {
                     return createMockCheckoutResponse();
                 }
 
-                try {
-                    const currency = (process.env.STRIPE_CURRENCY || 'usd').toLowerCase();
-                    const session = await stripeClient.checkout.sessions.create({
+                const createSessionWithCurrency = async (curr) => {
+                    return await stripeClient.checkout.sessions.create({
                         payment_method_types: ['card'],
                         line_items: [
                             {
                                 price_data: {
-                                    currency: currency,
+                                    currency: curr,
                                     product_data: {
                                         name: `Online Consultation Fee (Dr. ${appointment.vetName})`,
                                         description: `Appointment for ${appointment.animalName || 'Pet'} (${appointment.animalBreed || 'Unknown Breed'})`,
@@ -143,7 +142,7 @@ export const createStripeCheckoutSession = async (req, res) => {
                             },
                             {
                                 price_data: {
-                                    currency: currency,
+                                    currency: curr,
                                     product_data: {
                                         name: 'Platform Commission Fee',
                                         description: 'VetCloud service charge',
@@ -157,8 +156,23 @@ export const createStripeCheckoutSession = async (req, res) => {
                         success_url: `${clientUrl}/dashboard/user/consultations?payment_success=true&session_id={CHECKOUT_SESSION_ID}&appointment_id=${appointmentId}`,
                         cancel_url: `${clientUrl}/dashboard/user/consultations?payment_cancel=true`,
                     });
+                };
 
-                    console.log("Stripe Session URL generated successfully:", session.url);
+                try {
+                    let currency = (process.env.STRIPE_CURRENCY || 'usd').toLowerCase();
+                    let session;
+                    try {
+                        session = await createSessionWithCurrency(currency);
+                    } catch (primaryErr) {
+                        if (currency !== 'usd' && primaryErr.message && primaryErr.message.toLowerCase().includes('currency')) {
+                            console.warn(`Currency '${currency}' not enabled on Stripe account. Retrying with 'usd'...`);
+                            session = await createSessionWithCurrency('usd');
+                        } else {
+                            throw primaryErr;
+                        }
+                    }
+
+                    console.log("Stripe Sandbox Session URL created successfully:", session.url);
                     return res.status(200).json({
                         url: session.url,
                         sessionId: session.id,
@@ -306,6 +320,55 @@ export const verifyStripeSession = async (req, res) => {
         console.error("Error verifying stripe session:", error);
         res.status(500).json({ message: "Failed to verify payment session", error: error.message });
     }
+};
+
+// ── Stripe Webhook Endpoint (Processes asynchronous payments & stores orders) ─
+export const handleStripeWebhook = (req, res) => {
+    const sig = req.headers['stripe-signature'];
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    const stripeClient = getStripeInstance();
+
+    let event;
+
+    try {
+        if (webhookSecret && stripeClient && sig) {
+            event = stripeClient.webhooks.constructEvent(req.body, sig, webhookSecret);
+        } else {
+            // Raw Buffer or JSON payload parsing fallback
+            const rawBody = Buffer.isBuffer(req.body) ? req.body.toString('utf8') : req.body;
+            event = typeof rawBody === 'string' ? JSON.parse(rawBody) : rawBody;
+        }
+    } catch (err) {
+        console.error(`Stripe Webhook Signature Verification Failed: ${err.message}`);
+        return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    if (!event || !event.type) {
+        return res.status(400).send("Invalid event payload");
+    }
+
+    console.log(`[Stripe Webhook Event] ${event.type}`);
+
+    // Process checkout session completed or payment intent succeeded
+    if (event.type === 'checkout.session.completed' || event.type === 'payment_intent.succeeded') {
+        const session = event.data.object;
+        const appointmentId = session.metadata?.appointmentId || session.client_reference_id;
+
+        if (appointmentId) {
+            console.log(`Storing order, generating invoice & emailing receipt for appointment #${appointmentId}...`);
+            processSuccessfulPayment(req, appointmentId, (err) => {
+                if (err) {
+                    console.error(`Error processing webhook payment for appointment #${appointmentId}:`, err);
+                    return res.status(500).json({ error: "Database error storing order" });
+                }
+                console.log(`[Order Stored] Appointment #${appointmentId} marked as Paid. Invoice emailed & notifications sent!`);
+                return res.status(200).json({ received: true, appointmentId, status: "Paid" });
+            });
+            return;
+        }
+    }
+
+    res.status(200).json({ received: true });
 };
 
 // ── Test Payment (Offline Bypass / Stripe Mock Checkout) ──────────────────────

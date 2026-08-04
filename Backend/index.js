@@ -104,9 +104,12 @@ io.on("connection", (socket) => {
 startReminderScheduler(io);
 
 app.use(cors({
-    origin: "https://vet-cloud-system.vercel.app",
+    origin: ["https://vet-cloud-system.vercel.app", "http://localhost:5173", "http://localhost:3000", "http://localhost:5000"],
     credentials: true
 }));
+
+// Stripe webhook requires raw body for signature verification
+app.use("/api/payments/webhook", express.raw({ type: 'application/json' }));
 app.use(express.json());
 
 app.use("/api/users", userRouter);
