@@ -17,7 +17,10 @@ import {
     sendEmail, 
     getInvoiceTemplate, 
     getAccountVerificationTemplate,
-    getNewConsultationAssignmentTemplate
+    getNewConsultationAssignmentTemplate,
+    getAppointmentConfirmationTemplate,
+    getAppointmentCancelledTemplate,
+    getFeedbackRequestTemplate
 } from "../config/email.js";
 import db from "../config/db.js";
 
@@ -349,9 +352,9 @@ export const triggerAppointmentNotification = (app, appointmentId, triggerType) 
 
         const apt = results[0];
         
-        // Slot query
-        const slotSql = "SELECT slot_date, slot_time FROM appointment_slots WHERE id = ?";
-        db.query(slotSql, [apt.selected_slot_id], (errSlot, slotResults) => {
+        // Slot query - check selected_slot_id or selected slot for this appointment
+        const slotSql = "SELECT slot_date, slot_time FROM appointment_slots WHERE id = ? OR (appointment_id = ? AND is_selected = 1) LIMIT 1";
+        db.query(slotSql, [apt.selected_slot_id || 0, appointmentId], (errSlot, slotResults) => {
             const slot = (!errSlot && slotResults && slotResults.length > 0) ? slotResults[0] : { slot_date: null, slot_time: null };
             
             let formattedDate = "";
@@ -421,24 +424,21 @@ export const triggerAppointmentNotification = (app, appointmentId, triggerType) 
                     message: `You confirmed the appointment slot for ${apt.owner_name}'s animal ${apt.animal_name}.`
                 };
                 
-                // Email confirmation details
-                import("../config/email.js").then(({ getAppointmentConfirmationTemplate }) => {
-                    const html = getAppointmentConfirmationTemplate(
-                        apt.owner_name,
-                        apt.animal_name,
-                        apt.vet_name,
-                        slot.slot_date,
-                        formattedTime,
-                        apt.consultation_type,
-                        apt.reason
-                    );
-                    sendEmail({
-                        to: apt.owner_email,
-                        subject: "Appointment Confirmation Details - VetCloud",
-                        html,
-                        text: `Your appointment is confirmed for ${formattedDate} at ${formattedTime}.`
-                    }).catch(console.error);
-                });
+                // Email confirmation details to owner upon doctor approval
+                const confirmationHtml = getAppointmentConfirmationTemplate(
+                    apt.owner_name,
+                    apt.animal_name,
+                    apt.vet_name,
+                    slot.slot_date,
+                    formattedTime,
+                    apt.consultation_type,
+                    apt.reason
+                );
+                emailToOwner = {
+                    subject: `Appointment Approved & Confirmed - VetCloud #${appointmentId}`,
+                    html: confirmationHtml,
+                    text: `Dear ${apt.owner_name}, Dr. ${apt.vet_name} has approved your consultation request for ${apt.animal_name}. Your appointment is confirmed for ${formattedDate} at ${formattedTime}.`
+                };
             } 
             else if (triggerType === "appointment_rescheduled") {
                 ownerNotify = {
