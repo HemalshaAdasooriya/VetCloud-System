@@ -90,21 +90,45 @@ const wrapTemplate = (title, content) => `
 </html>
 `;
 
+// Helper to safely extract plain text notes from reason field
+const parseReasonNotes = (reason) => {
+    if (!reason) return "";
+    if (typeof reason === "object") return reason.notes || "";
+    try {
+        const parsed = JSON.parse(reason);
+        if (parsed && typeof parsed === "object") {
+            return parsed.notes || "";
+        }
+    } catch {
+        // Plain string
+    }
+    return String(reason);
+};
+
 // 1. Appointment Confirmation Email Template
 export const getAppointmentConfirmationTemplate = (ownerName, animalName, vetName, date, time, type, reason) => {
-    const formattedDate = new Date(date).toLocaleDateString("en-US", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    let formattedDate = "";
+    try {
+        const dateObj = date ? new Date(date) : new Date();
+        formattedDate = isNaN(dateObj.getTime()) ? String(date || "") : dateObj.toLocaleDateString("en-US", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    } catch {
+        formattedDate = String(date || "");
+    }
+    const safeType = (type || 'General').toUpperCase();
+    const cleanReason = parseReasonNotes(reason);
+
     const content = `
-        <p>Dear ${ownerName},</p>
-        <p>Your appointment booking has been **successfully confirmed**! Here are the details of your upcoming consultation:</p>
+        <p>Dear ${ownerName || 'Valued Client'},</p>
+        <p>Your appointment booking has been <strong>successfully confirmed</strong>! Here are the details of your upcoming consultation:</p>
         
         <div class="details-box">
             <div class="details-item">
                 <span class="details-label">Patient:</span>
-                <span class="details-value">${animalName}</span>
+                <span class="details-value">${animalName || 'Patient'}</span>
             </div>
             <div class="details-item">
                 <span class="details-label">Veterinarian:</span>
-                <span class="details-value">${vetName}</span>
+                <span class="details-value">${vetName || 'Veterinarian'}</span>
             </div>
             <div class="details-item">
                 <span class="details-label">Date:</span>
@@ -112,16 +136,16 @@ export const getAppointmentConfirmationTemplate = (ownerName, animalName, vetNam
             </div>
             <div class="details-item">
                 <span class="details-label">Time:</span>
-                <span class="details-value">${time}</span>
+                <span class="details-value">${time || 'Scheduled Time'}</span>
             </div>
             <div class="details-item">
                 <span class="details-label">Consultation Type:</span>
-                <span class="details-value">${type.toUpperCase()}</span>
+                <span class="details-value">${safeType}</span>
             </div>
-            ${reason ? `
+            ${cleanReason ? `
             <div class="details-item">
                 <span class="details-label">Reason:</span>
-                <span class="details-value">${reason}</span>
+                <span class="details-value">${cleanReason}</span>
             </div>
             ` : ""}
         </div>

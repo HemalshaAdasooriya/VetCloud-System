@@ -105,69 +105,102 @@ export const getVetAppointments = (req, res) => {
 //Approve appointment with slot selection AND mark slot as booked
 export const approveAppointment = (req, res) => {
     const { id } = req.params;
-    const { slotId } = req.body;
+    const { slotId, appointment_date, appointment_time } = req.body;
 
-    if (!slotId) {
-        return res.status(400).json({ 
-            message: "Slot ID is required for approval" 
-        });
-    }
-
-    // First, select the appointment slot
-    selectAppointmentSlot(id, slotId, "Approved", (err, result) => {
-        if (err) {
-            console.error('Error approving appointment:', err);
-            return res.status(500).json({
-                message: "Failed to approve appointment: " + err.message
-            });
-        }
-
-        // Mark the schedule slot as booked
-        markSlotAsBooked(slotId, id, (scheduleErr, scheduleResult) => {
-            if (scheduleErr) {
-                console.error('Error marking schedule slot as booked:', scheduleErr);
-                // Still return success for the appointment, but log the error
-                // The slot might not exist in the schedule table yet
+    const proceedWithApproval = (targetSlotId) => {
+        // First, select the appointment slot
+        selectAppointmentSlot(id, targetSlotId, "Approved", (err, result) => {
+            if (err) {
+                console.error('Error approving appointment:', err);
+                return res.status(500).json({
+                    message: "Failed to approve appointment: " + err.message
+                });
             }
 
-            // Conflict Check
-            db.query(
-                `SELECT a.id, s.slot_date, s.slot_time, v.fullName AS vet_name
-                 FROM appointments a 
-                 JOIN appointment_slots s ON a.selected_slot_id = s.id 
-                 JOIN veterinarians v ON a.veterinarian_id = v.id
-                 WHERE a.status = 'Approved' 
-                   AND a.veterinarian_id = (SELECT veterinarian_id FROM appointments WHERE id = ?)
-                   AND a.id != ?
-                   AND s.slot_date = (SELECT slot_date FROM appointment_slots WHERE id = ?)
-                   AND s.slot_time = (SELECT slot_time FROM appointment_slots WHERE id = ?)`,
-                [id, id, slotId, slotId],
-                (errConflict, conflictResults) => {
-                    if (!errConflict && conflictResults && conflictResults.length > 0) {
-                        const conflict = conflictResults[0];
-                        const io = req.app.get("io");
-                        import("../models/Notification.js").then(({ createAdminNotification }) => {
-                            createAdminNotification(io, {
-                                type: "appointment_conflict",
-                                title: "Appointment Conflict Detected",
-                                message: `Conflict detected for Dr. ${conflict.vet_name}: overlapping approved appointments (#${id} and #${conflict.id}) on ${new Date(conflict.slot_date).toLocaleDateString()} at ${conflict.slot_time}.`
-                            });
-                        }).catch(console.error);
+            // Mark the schedule slot as booked
+            markSlotAsBooked(targetSlotId, id, (scheduleErr, scheduleResult) => {
+                if (scheduleErr) {
+                    console.error('Error marking schedule slot as booked:', scheduleErr);
+                }
+
+                // Conflict Check
+                db.query(
+                    `SELECT a.id, s.slot_date, s.slot_time, v.fullName AS vet_name
+                     FROM appointments a 
+                     JOIN appointment_slots s ON a.selected_slot_id = s.id 
+                     JOIN veterinarians v ON a.veterinarian_id = v.id
+                     WHERE a.status = 'Approved' 
+                       AND a.veterinarian_id = (SELECT veterinarian_id FROM appointments WHERE id = ?)
+                       AND a.id != ?
+                       AND s.slot_date = (SELECT slot_date FROM appointment_slots WHERE id = ?)
+                       AND s.slot_time = (SELECT slot_time FROM appointment_slots WHERE id = ?)`,
+                    [id, id, targetSlotId, targetSlotId],
+                    (errConflict, conflictResults) => {
+                        if (!errConflict && conflictResults && conflictResults.length > 0) {
+                            const conflict = conflictResults[0];
+                            const io = req.app.get("io");
+                            import("../models/Notification.js").then(({ createAdminNotification }) => {
+                                createAdminNotification(io, {
+                                    type: "appointment_conflict",
+                                    title: "Appointment Conflict Detected",
+                                    message: `Conflict detected for Dr. ${conflict.vet_name}: overlapping approved appointments (#${id} and #${conflict.id}) on ${new Date(conflict.slot_date).toLocaleDateString()} at ${conflict.slot_time}.`
+                                });
+                            }).catch(console.error);
+                        }
                     }
-                }
-            );
+                );
 
-            //Send notification
-            triggerAppointmentNotification(req.app, id, "appointment_confirmed");
+                // Send notification
+                triggerAppointmentNotification(req.app, id, "appointment_confirmed");
 
-            res.json({
-                message: "Appointment approved successfully and slot booked",
-                data: {
-                    appointment: result,
-                    schedule: scheduleResult || null
-                }
+                res.json({
+                    message: "Appointment approved successfully and slot booked",
+                    data: {
+                        appointment: result,
+                        schedule: scheduleResult || null
+                    }
+                });
             });
         });
+    };
+
+    if (slotId) {
+        return proceedWithApproval(slotId);
+    }
+
+    // Lookup slotId dynamically by date/time or existing slots
+    let lookupSql = "SELECT id FROM appointment_slots WHERE appointment_id = ?";
+    let params = [id];
+
+    if (appointment_date && appointment_time) {
+        lookupSql += " AND slot_date = ? AND slot_time = ?";
+        params.push(appointment_date, appointment_time);
+    }
+
+    lookupSql += " ORDER BY id ASC LIMIT 1";
+
+    db.query(lookupSql, params, (err, slotRows) => {
+        if (!err && slotRows && slotRows.length > 0) {
+            return proceedWithApproval(slotRows[0].id);
+        }
+
+        if (appointment_date && appointment_time) {
+            db.query("SELECT id FROM appointment_slots WHERE appointment_id = ? ORDER BY id ASC LIMIT 1", [id], (errAny, anySlotRows) => {
+                if (!errAny && anySlotRows && anySlotRows.length > 0) {
+                    return proceedWithApproval(anySlotRows[0].id);
+                }
+
+                const insertSql = "INSERT INTO appointment_slots (appointment_id, slot_date, slot_time, is_selected) VALUES (?, ?, ?, 1)";
+                db.query(insertSql, [id, appointment_date, appointment_time], (errIns, insRes) => {
+                    if (errIns) {
+                        return res.status(400).json({ message: "Slot ID is required for approval: " + errIns.message });
+                    }
+                    proceedWithApproval(insRes.insertId);
+                });
+            });
+        } else {
+            return res.status(400).json({ message: "Slot ID or slot details are required for approval" });
+        }
     });
 };
 

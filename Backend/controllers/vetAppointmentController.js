@@ -90,43 +90,76 @@ export const getAvailableSlots = (req, res) => {
 //Approve appointment with slot selection AND mark slot as booked
 export const approveAppointment = (req, res) => {
     const { id } = req.params;
-    const { slotId } = req.body;
+    const { slotId, appointment_date, appointment_time } = req.body;
 
-    if (!slotId) {
-        return res.status(400).json({ 
-            message: "Slot ID is required for approval" 
-        });
-    }
-
-    // 1. Select the appointment slot
-    selectAppointmentSlot(id, slotId, "Approved", (err, result) => {
-        if (err) {
-            console.error('Error approving appointment:', err);
-            return res.status(500).json({
-                message: "Failed to approve appointment: " + err.message
-            });
-        }
-
-        // 2. Mark the schedule slot as booked
-        markSlotAsBooked(slotId, id, (scheduleErr, scheduleResult) => {
-            if (scheduleErr) {
-                console.error('Error marking schedule slot as booked:', scheduleErr);
-                // Don't fail the request - the appointment is already approved
-                // Just log the error and continue
+    const proceedWithApproval = (targetSlotId) => {
+        // 1. Select the appointment slot
+        selectAppointmentSlot(id, targetSlotId, "Approved", (err, result) => {
+            if (err) {
+                console.error('Error approving appointment:', err);
+                return res.status(500).json({
+                    message: "Failed to approve appointment: " + err.message
+                });
             }
 
-            // 3. Send notification
-            triggerAppointmentNotification(req.app, id, "appointment_confirmed");
-
-            // 4. Return success response
-            res.json({
-                message: "Appointment approved successfully and slot booked",
-                data: {
-                    appointment: result,
-                    schedule: scheduleResult || null
+            // 2. Mark the schedule slot as booked
+            markSlotAsBooked(targetSlotId, id, (scheduleErr, scheduleResult) => {
+                if (scheduleErr) {
+                    console.error('Error marking schedule slot as booked:', scheduleErr);
                 }
+
+                // 3. Send notification
+                triggerAppointmentNotification(req.app, id, "appointment_confirmed");
+
+                // 4. Return success response
+                res.json({
+                    message: "Appointment approved successfully and slot booked",
+                    data: {
+                        appointment: result,
+                        schedule: scheduleResult || null
+                    }
+                });
             });
         });
+    };
+
+    if (slotId) {
+        return proceedWithApproval(slotId);
+    }
+
+    // Lookup slotId dynamically by date/time or existing slots
+    let lookupSql = "SELECT id FROM appointment_slots WHERE appointment_id = ?";
+    let params = [id];
+
+    if (appointment_date && appointment_time) {
+        lookupSql += " AND slot_date = ? AND slot_time = ?";
+        params.push(appointment_date, appointment_time);
+    }
+
+    lookupSql += " ORDER BY id ASC LIMIT 1";
+
+    db.query(lookupSql, params, (err, slotRows) => {
+        if (!err && slotRows && slotRows.length > 0) {
+            return proceedWithApproval(slotRows[0].id);
+        }
+
+        if (appointment_date && appointment_time) {
+            db.query("SELECT id FROM appointment_slots WHERE appointment_id = ? ORDER BY id ASC LIMIT 1", [id], (errAny, anySlotRows) => {
+                if (!errAny && anySlotRows && anySlotRows.length > 0) {
+                    return proceedWithApproval(anySlotRows[0].id);
+                }
+
+                const insertSql = "INSERT INTO appointment_slots (appointment_id, slot_date, slot_time, is_selected) VALUES (?, ?, ?, 1)";
+                db.query(insertSql, [id, appointment_date, appointment_time], (errIns, insRes) => {
+                    if (errIns) {
+                        return res.status(400).json({ message: "Slot ID is required for approval: " + errIns.message });
+                    }
+                    proceedWithApproval(insRes.insertId);
+                });
+            });
+        } else {
+            return res.status(400).json({ message: "Slot ID or slot details are required for approval" });
+        }
     });
 };
 

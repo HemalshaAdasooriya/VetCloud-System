@@ -338,9 +338,9 @@ export const triggerAppointmentNotification = (app, appointmentId, triggerType) 
                v.fullName AS vet_name, v.email AS vet_email,
                an.name AS animal_name
         FROM appointments a
-        JOIN pet_owners po ON a.pet_owner_id = po.id
-        JOIN veterinarians v ON a.veterinarian_id = v.id
-        JOIN animals an ON a.animal_id = an.id
+        LEFT JOIN pet_owners po ON a.pet_owner_id = po.id
+        LEFT JOIN veterinarians v ON a.veterinarian_id = v.id
+        LEFT JOIN animals an ON a.animal_id = an.id
         WHERE a.id = ?
     `;
 
@@ -357,11 +357,18 @@ export const triggerAppointmentNotification = (app, appointmentId, triggerType) 
         db.query(slotSql, [apt.selected_slot_id || 0, appointmentId], (errSlot, slotResults) => {
             const slot = (!errSlot && slotResults && slotResults.length > 0) ? slotResults[0] : { slot_date: null, slot_time: null };
             
+            const effectiveDate = slot.slot_date || apt.appointment_date || null;
+            const effectiveTime = slot.slot_time || apt.appointment_time || "";
+
             let formattedDate = "";
-            if (slot.slot_date) {
-                formattedDate = new Date(slot.slot_date).toLocaleDateString("en-US", { year: 'numeric', month: 'long', day: 'numeric' });
+            if (effectiveDate) {
+                try {
+                    formattedDate = new Date(effectiveDate).toLocaleDateString("en-US", { year: 'numeric', month: 'long', day: 'numeric' });
+                } catch {
+                    formattedDate = String(effectiveDate);
+                }
             }
-            const formattedTime = slot.slot_time || "";
+            const formattedTime = effectiveTime;
 
             let ownerNotify = null;
             let vetNotify = null;
@@ -374,23 +381,23 @@ export const triggerAppointmentNotification = (app, appointmentId, triggerType) 
                     userRole: "Farmer/PetOwner",
                     type: "appointment_assigned",
                     title: "Appointment Requested",
-                    message: `Your appointment request for ${apt.animal_name} with Dr. ${apt.vet_name} is pending approval.`
+                    message: `Your appointment request for ${apt.animal_name || 'Patient'} with Dr. ${apt.vet_name || 'Doctor'} is pending approval.`
                 };
                 vetNotify = {
                     userId: apt.veterinarian_id,
                     userRole: "Veterinary Doctor",
                     type: "appointment_assigned",
                     title: "New Consultation Request",
-                    message: `You have a new consultation request from ${apt.owner_name} for ${apt.animal_name}.`
+                    message: `You have a new consultation request from ${apt.owner_name || 'Client'} for ${apt.animal_name || 'Patient'}.`
                 };
                 emailToOwner = {
                     subject: "Appointment Request Submitted - VetCloud",
-                    html: `<h3>Appointment Request Submitted</h3><p>Dear ${apt.owner_name}, your request to consult Dr. ${apt.vet_name} for ${apt.animal_name} is pending approval.</p>`,
-                    text: `Dear ${apt.owner_name}, your appointment request is pending.`
+                    html: `<h3>Appointment Request Submitted</h3><p>Dear ${apt.owner_name || 'Client'}, your request to consult Dr. ${apt.vet_name || 'Doctor'} for ${apt.animal_name || 'your animal'} is pending approval.</p>`,
+                    text: `Dear ${apt.owner_name || 'Client'}, your appointment request is pending.`
                 };
                 emailToVet = {
                     subject: "New Consultation Assignment - VetCloud",
-                    html: getNewConsultationAssignmentTemplate(apt.vet_name, apt.owner_name, apt.animal_name, slot.slot_date, slot.slot_time),
+                    html: getNewConsultationAssignmentTemplate(apt.vet_name, apt.owner_name, apt.animal_name, effectiveDate, effectiveTime),
                     text: `Dear Dr. ${apt.vet_name}, a new consultation has been assigned to you by ${apt.owner_name}.`
                 };
             } 
@@ -400,7 +407,7 @@ export const triggerAppointmentNotification = (app, appointmentId, triggerType) 
                     userRole: "Farmer/PetOwner",
                     type: "appointment_confirmed",
                     title: "Appointment Confirmed",
-                    message: `Dr. ${apt.vet_name} confirmed your appointment for ${apt.animal_name} on ${formattedDate} at ${formattedTime}.`
+                    message: `Dr. ${apt.vet_name || 'Doctor'} confirmed your appointment for ${apt.animal_name || 'Patient'} on ${formattedDate} at ${formattedTime}.`
                 };
                 // Extra in-app alert for vet assignment
                 const vetAssignedNotify = {
@@ -408,7 +415,7 @@ export const triggerAppointmentNotification = (app, appointmentId, triggerType) 
                     userRole: "Farmer/PetOwner",
                     type: "vet_assigned",
                     title: "Veterinarian Assigned",
-                    message: `Dr. ${apt.vet_name} has been assigned to your appointment on ${formattedDate} at ${formattedTime}.`
+                    message: `Dr. ${apt.vet_name || 'Doctor'} has been assigned to your appointment on ${formattedDate} at ${formattedTime}.`
                 };
                 createNotification(vetAssignedNotify, (nErr, dbNotify) => {
                     if (!nErr && dbNotify && io) {
@@ -421,24 +428,28 @@ export const triggerAppointmentNotification = (app, appointmentId, triggerType) 
                     userRole: "Veterinary Doctor",
                     type: "appointment_confirmed",
                     title: "Appointment Confirmed",
-                    message: `You confirmed the appointment slot for ${apt.owner_name}'s animal ${apt.animal_name}.`
+                    message: `You confirmed the appointment slot for ${apt.owner_name || 'Client'}'s animal ${apt.animal_name || 'Patient'}.`
                 };
                 
                 // Email confirmation details to owner upon doctor approval
-                const confirmationHtml = getAppointmentConfirmationTemplate(
-                    apt.owner_name,
-                    apt.animal_name,
-                    apt.vet_name,
-                    slot.slot_date,
-                    formattedTime,
-                    apt.consultation_type,
-                    apt.reason
-                );
-                emailToOwner = {
-                    subject: `Appointment Approved & Confirmed - VetCloud #${appointmentId}`,
-                    html: confirmationHtml,
-                    text: `Dear ${apt.owner_name}, Dr. ${apt.vet_name} has approved your consultation request for ${apt.animal_name}. Your appointment is confirmed for ${formattedDate} at ${formattedTime}.`
-                };
+                try {
+                    const confirmationHtml = getAppointmentConfirmationTemplate(
+                        apt.owner_name,
+                        apt.animal_name,
+                        apt.vet_name,
+                        effectiveDate,
+                        formattedTime,
+                        apt.consultation_type,
+                        apt.reason
+                    );
+                    emailToOwner = {
+                        subject: `Appointment Approved & Confirmed - VetCloud #${appointmentId}`,
+                        html: confirmationHtml,
+                        text: `Dear ${apt.owner_name || 'Client'}, Dr. ${apt.vet_name || 'Doctor'} has approved your consultation request for ${apt.animal_name || 'your animal'}. Your appointment is confirmed for ${formattedDate} at ${formattedTime}.`
+                    };
+                } catch (htmlErr) {
+                    console.error("[NOTIFICATION EMAIL ERROR] Failed to generate confirmation template:", htmlErr);
+                }
             } 
             else if (triggerType === "appointment_rescheduled") {
                 ownerNotify = {
