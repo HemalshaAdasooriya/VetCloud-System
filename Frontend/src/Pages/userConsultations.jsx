@@ -52,11 +52,20 @@ export default function ConsultationPage() {
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [processingStripe, setProcessingStripe] = useState(false);
 
+  // Card Payment States (Sandbox Direct Gateway)
+  const [paymentTab, setPaymentTab] = useState('card'); // 'card' or 'stripe'
+  const [cardNumber, setCardNumber] = useState('4242 4242 4242 4242');
+  const [cardExp, setCardExp] = useState('12/28');
+  const [cardCvv, setCardCvv] = useState('123');
+  const [cardName, setCardName] = useState('');
+  const [processingCard, setProcessingCard] = useState(false);
+
   const handleInitiatePayment = async (appointment) => {
     setPaymentAppointment(appointment);
     setShowPaymentModal(true);
     setPaymentLoading(true);
     setPaymentBreakdown(null);
+    setCardName(getFarmerName());
     try {
       const res = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/payments/info`, {
         appointmentId: appointment.id
@@ -68,6 +77,56 @@ export default function ConsultationPage() {
       setShowPaymentModal(false);
     } finally {
       setPaymentLoading(false);
+    }
+  };
+
+  const handleDirectCardPayment = async (e) => {
+    if (e) e.preventDefault();
+    if (!paymentAppointment) return;
+
+    const rawNum = cardNumber.replace(/\s/g, '');
+    if (rawNum.length < 13) {
+      toast.error("Please enter a valid 16-digit card number.");
+      return;
+    }
+    if (!cardExp || !cardExp.includes('/')) {
+      toast.error("Please enter expiry date (MM/YY).");
+      return;
+    }
+    if (!cardCvv || cardCvv.length < 3) {
+      toast.error("Please enter a 3-digit CVV code.");
+      return;
+    }
+
+    setProcessingCard(true);
+    try {
+      const res = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/payments/test-payment`, {
+        appointmentId: paymentAppointment.id,
+        cardDetails: {
+          number: cardNumber,
+          exp: cardExp,
+          cvv: cardCvv,
+          name: cardName || getFarmerName()
+        }
+      });
+
+      if (res.status === 200) {
+        toast.success(`Payment of LKR ${parseFloat(paymentBreakdown?.amount || 0).toLocaleString()} completed successfully!`);
+        setShowPaymentModal(false);
+        fetchAppointments();
+
+        if (paymentAppointment && paymentAppointment.consultation_type === 'chat') {
+          setSelectedRequestDetails(paymentAppointment);
+          setShowChatRoom(true);
+        }
+      } else {
+        toast.error(res.data?.message || "Card payment failed.");
+      }
+    } catch (err) {
+      console.error("Card payment error:", err);
+      toast.error(err.response?.data?.message || "Failed to process card payment.");
+    } finally {
+      setProcessingCard(false);
     }
   };
 
@@ -943,19 +1002,25 @@ export default function ConsultationPage() {
         />
       )}
 
-      {/* Dynamic Payment Modal */}
+      {/* Dynamic Payment Modal with Card Gateway & Stripe */}
       {showPaymentModal && paymentAppointment && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
           <Card className="w-full max-w-xl bg-white p-0 rounded-2xl shadow-2xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             {/* Header */}
-            <div className="bg-slate-50 border-b border-slate-100 p-6 flex justify-between items-center">
+            <div className="bg-slate-900 text-white p-6 flex justify-between items-center relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-green-500/10 rounded-full blur-2xl pointer-events-none" />
               <div>
-                <h3 className="text-xl font-bold text-slate-900">Secure Checkout</h3>
-                <p className="text-xs text-slate-500 mt-1">Complete your virtual consultation booking</p>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xl font-bold text-white">Secure Payment Gateway</h3>
+                  <span className="bg-green-500/20 text-green-400 text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full border border-green-500/30">
+                    256-Bit SSL Sandbox
+                  </span>
+                </div>
+                <p className="text-xs text-slate-300 mt-1">Complete your virtual consultation booking</p>
               </div>
               <button 
                 onClick={() => setShowPaymentModal(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer border-0 bg-transparent"
+                className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer border-0 bg-transparent"
               >
                 <XCircle size={20} />
               </button>
@@ -964,18 +1029,18 @@ export default function ConsultationPage() {
             {paymentLoading ? (
               <div className="p-12 flex flex-col items-center justify-center space-y-4">
                 <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-green-600"></div>
-                <p className="text-sm font-medium text-slate-500">Calculating fees and generating secure keys...</p>
+                <p className="text-sm font-medium text-slate-500">Calculating charges and platform commission...</p>
               </div>
             ) : paymentBreakdown ? (
               <div className="p-6 space-y-6">
-                {/* Appointment Info */}
+                {/* Appointment & Vet Info */}
                 <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex items-start gap-4">
                   <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center text-green-700 font-bold text-lg border border-green-200 shrink-0">
                     {paymentAppointment.animal_name?.charAt(0) || '?'}
                   </div>
-                  <div>
+                  <div className="flex-1">
                     <h4 className="font-bold text-slate-800 text-sm">Dr. {paymentAppointment.veterinarian_name}</h4>
-                    <p className="text-xs text-slate-500 mt-0.5">Consultation for {paymentAppointment.animal_name} ({paymentAppointment.animal_breed})</p>
+                    <p className="text-xs text-slate-500 mt-0.5">Consultation for {paymentAppointment.animal_name} ({paymentAppointment.animal_breed || 'Pet'})</p>
                     <p className="text-xs text-slate-400 mt-1 font-medium flex items-center gap-1">
                       <Clock size={12} className="text-slate-400" />
                       {paymentAppointment.appointment_date} at {paymentAppointment.appointment_time}
@@ -983,50 +1048,179 @@ export default function ConsultationPage() {
                   </div>
                 </div>
 
-                {/* Price Breakdown */}
-                <div className="space-y-3 border-b border-slate-100 pb-4">
-                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Price Details</h4>
+                {/* Itemized Price & Commission Breakdown */}
+                <div className="p-4 bg-slate-50/70 rounded-xl border border-slate-200/60 space-y-2.5">
+                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Fee Breakdown</h4>
                   <div className="flex justify-between text-sm">
-                    <span className="text-slate-500">Consultation Fee (Vet)</span>
-                    <span className="font-medium text-slate-800">LKR {parseFloat(paymentBreakdown.doctorFee).toLocaleString()}</span>
+                    <span className="text-slate-600">Doctor Consultation Fee</span>
+                    <span className="font-semibold text-slate-800">LKR {parseFloat(paymentBreakdown.doctorFee || 0).toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-slate-500">Platform Commission Fee</span>
-                    <span className="font-medium text-slate-800">LKR {parseFloat(paymentBreakdown.commissionFee).toLocaleString()}</span>
+                    <span className="text-slate-600">Platform Commission Service Charge (10%)</span>
+                    <span className="font-semibold text-slate-800">LKR {parseFloat(paymentBreakdown.commissionFee || 0).toLocaleString()}</span>
                   </div>
-                  <div className="flex justify-between items-center pt-3 border-t border-slate-100">
-                    <span className="text-base font-bold text-slate-800">Total Amount Due</span>
-                    <span className="text-xl font-extrabold text-green-600">LKR {parseFloat(paymentBreakdown.amount).toLocaleString()}</span>
+                  <div className="flex justify-between items-center pt-2.5 border-t border-slate-200">
+                    <span className="text-sm font-bold text-slate-900">Total Amount Payable</span>
+                    <span className="text-xl font-extrabold text-green-600">LKR {parseFloat(paymentBreakdown.amount || 0).toLocaleString()}</span>
                   </div>
                 </div>
 
-                {/* Specific Checkout Fields */}
-                <div className="space-y-4 animate-in fade-in duration-200">
-                  <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl flex items-start gap-3">
-                    <CreditCard size={18} className="text-blue-600 mt-0.5 shrink-0" />
-                    <p className="text-xs text-blue-800 leading-normal">
-                      You will be securely redirected to the **Stripe Hosted Checkout** page to finalize your payment.
-                    </p>
-                  </div>
-                  <div className="flex gap-3 pt-2">
+                {/* Payment Option Tabs */}
+                <div className="flex border-b border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentTab('card')}
+                    className={`flex-1 py-2.5 text-xs font-bold transition-all border-b-2 cursor-pointer ${
+                      paymentTab === 'card' 
+                        ? 'border-green-600 text-green-700 bg-green-50/40' 
+                        : 'border-transparent text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    Credit / Debit Card (Sandbox)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentTab('stripe')}
+                    className={`flex-1 py-2.5 text-xs font-bold transition-all border-b-2 cursor-pointer ${
+                      paymentTab === 'stripe' 
+                        ? 'border-blue-600 text-blue-700 bg-blue-50/40' 
+                        : 'border-transparent text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    Stripe Hosted Checkout
+                  </button>
+                </div>
+
+                {/* Card Payment Tab Content */}
+                {paymentTab === 'card' && (
+                  <form onSubmit={handleDirectCardPayment} className="space-y-4 animate-in fade-in duration-150">
+                    <div className="flex justify-between items-center">
+                      <label className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                        <CreditCard size={14} className="text-green-600" />
+                        Card Details
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCardNumber("4242 4242 4242 4242");
+                          setCardExp("12/28");
+                          setCardCvv("123");
+                          setCardName(getFarmerName());
+                        }}
+                        className="text-[11px] font-bold text-green-600 hover:text-green-700 bg-green-50 hover:bg-green-100 px-2.5 py-1 rounded-lg transition-colors border-0 cursor-pointer"
+                      >
+                        ✨ Auto-fill Test Card
+                      </button>
+                    </div>
+
+                    {/* Visual Card Preview Box */}
+                    <div className="p-4 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-xl text-white shadow-lg space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] uppercase font-bold tracking-widest text-slate-400">VetCloud Payment Card</span>
+                        <span className="text-xs font-black italic tracking-wider text-slate-200">VISA</span>
+                      </div>
+                      <div className="font-mono text-base font-bold tracking-widest text-emerald-400">
+                        {cardNumber || '•••• •••• •••• ••••'}
+                      </div>
+                      <div className="flex justify-between items-end text-xs text-slate-300">
+                        <div>
+                          <span className="block text-[9px] uppercase text-slate-400">Cardholder</span>
+                          <span className="font-bold uppercase text-white truncate max-w-[150px] inline-block">{cardName || getFarmerName() || 'FARMER NAME'}</span>
+                        </div>
+                        <div>
+                          <span className="block text-[9px] uppercase text-slate-400">Expires</span>
+                          <span className="font-bold text-white">{cardExp || 'MM/YY'}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-xs font-medium text-slate-600 block mb-1">Cardholder Name</label>
+                        <input
+                          type="text"
+                          value={cardName}
+                          onChange={(e) => setCardName(e.target.value)}
+                          placeholder="Full name on card"
+                          className="w-full h-10 px-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-800 font-medium"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-medium text-slate-600 block mb-1">Card Number</label>
+                        <input
+                          type="text"
+                          value={cardNumber}
+                          onChange={(e) => {
+                            let val = e.target.value.replace(/\D/g, '').slice(0, 16);
+                            val = val.replace(/(.{4})/g, '$1 ').trim();
+                            setCardNumber(val);
+                          }}
+                          placeholder="4242 4242 4242 4242"
+                          className="w-full h-10 px-3 border border-slate-200 rounded-xl text-sm font-mono tracking-wider focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-800 font-bold"
+                          maxLength={19}
+                          required
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-xs font-medium text-slate-600 block mb-1">Expiry Date</label>
+                          <input
+                            type="text"
+                            value={cardExp}
+                            onChange={(e) => setCardExp(e.target.value)}
+                            placeholder="MM/YY"
+                            className="w-full h-10 px-3 border border-slate-200 rounded-xl text-sm font-mono text-center focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-800 font-bold"
+                            maxLength={5}
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-slate-600 block mb-1">CVV / CVC Code</label>
+                          <input
+                            type="password"
+                            value={cardCvv}
+                            onChange={(e) => setCardCvv(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                            placeholder="123"
+                            className="w-full h-10 px-3 border border-slate-200 rounded-xl text-sm font-mono text-center focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-800 font-bold"
+                            maxLength={4}
+                            required
+                          />
+                        </div>
+                      </div>
+                    </div>
+
                     <Button 
-                      variant="outline" 
-                      onClick={handleSimulateTestPayment}
-                      className="flex-1 border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold cursor-pointer"
-                      type="button"
+                      type="submit"
+                      disabled={processingCard}
+                      className="w-full bg-green-600 hover:bg-green-700 text-white font-bold h-11 rounded-xl shadow-lg shadow-green-600/20 transition-all active:scale-98 cursor-pointer mt-2"
                     >
-                      Simulate Success (Bypass)
+                      {processingCard ? "Processing Card Payment..." : `Complete Card Payment (LKR ${parseFloat(paymentBreakdown.amount || 0).toLocaleString()})`}
                     </Button>
+                  </form>
+                )}
+
+                {/* Stripe Hosted Checkout Tab Content */}
+                {paymentTab === 'stripe' && (
+                  <div className="space-y-4 animate-in fade-in duration-150">
+                    <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl flex items-start gap-3">
+                      <CreditCard size={18} className="text-blue-600 mt-0.5 shrink-0" />
+                      <p className="text-xs text-blue-800 leading-relaxed">
+                        You will be securely redirected to the **Stripe Hosted Checkout** page to complete your payment with test credentials.
+                      </p>
+                    </div>
                     <Button 
                       onClick={handleConfirmStripe}
                       disabled={processingStripe}
-                      className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold cursor-pointer"
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold h-11 rounded-xl shadow-lg shadow-blue-600/20 cursor-pointer"
                       type="button"
                     >
-                      {processingStripe ? "Processing..." : `Pay LKR ${parseFloat(paymentBreakdown.amount).toLocaleString()}`}
+                      {processingStripe ? "Redirecting to Stripe..." : `Proceed to Stripe Checkout (LKR ${parseFloat(paymentBreakdown.amount || 0).toLocaleString()})`}
                     </Button>
                   </div>
-                </div>
+                )}
               </div>
             ) : (
               <div className="p-8 text-center space-y-4">

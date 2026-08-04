@@ -371,20 +371,28 @@ export const handleStripeWebhook = (req, res) => {
     res.status(200).json({ received: true });
 };
 
-// ── Test Payment (Offline Bypass / Stripe Mock Checkout) ──────────────────────
+// ── Test Payment / Direct Card Sandbox Gateway ────────────────────────────────
 export const testPayment = (req, res) => {
-    const { appointmentId } = req.body;
+    const { appointmentId, cardDetails } = req.body;
     if (!appointmentId) {
         return res.status(400).json({ message: "appointmentId is required" });
     }
 
-    console.log(`Processing test payment for Appointment ID: ${appointmentId}`);
+    if (cardDetails && cardDetails.number) {
+        const cleanNum = String(cardDetails.number).replace(/\s/g, '');
+        if (cleanNum.length < 13) {
+            return res.status(400).json({ message: "Invalid card number format. Please enter a valid 16-digit card number." });
+        }
+    }
+
+    console.log(`[Sandbox Card Gateway] Processing payment for Appointment #${appointmentId}...`);
     processSuccessfulPayment(req, appointmentId, (err) => {
         if (err) {
-            console.error("Failed to process test payment:", err);
+            console.error("Failed to process card payment:", err);
             return res.status(500).json({ message: "Failed to process payment", detail: err.message });
         }
-        res.status(200).json({ message: "Test payment successful!" });
+        console.log(`[Sandbox Card Gateway] Payment authorized & saved for Appointment #${appointmentId}`);
+        res.status(200).json({ success: true, message: "Card payment processed & consultation authorized!" });
     });
 };
 
