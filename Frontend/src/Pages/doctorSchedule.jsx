@@ -12,10 +12,14 @@ export default function DoctorSchedule() {
   const [selectedSlots, setSelectedSlots] = useState({});
   const user = JSON.parse(localStorage.getItem("user"));
 
+  const API_BASE = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+  const vetId = localStorage.getItem("userId") || (user ? user.id : null);
+
   // ── FETCH APPOINTMENTS FROM BACKEND ────────────────────────────────────
   const fetchAppointments = async () => {
+    if (!vetId) return;
     try {
-      const res = await axios.get(`http://localhost:5000/api/appointments/vet/${user.id}`);
+      const res = await axios.get(`${API_BASE}/api/appointments/vet/${vetId}`);
       setAppointments(res.data);
     } catch (err) {
       console.error("Error fetching appointments:", err);
@@ -53,9 +57,9 @@ export default function DoctorSchedule() {
   const updateStatus = async (id, status, payload = null) => {
     try {
       if (status === "approve" && payload) {
-        await axios.patch(`http://localhost:5000/api/appointments/${id}/approve`, payload);
+        await axios.patch(`${API_BASE}/api/appointments/${id}/approve`, payload);
       } else {
-        await axios.patch(`http://localhost:5000/api/appointments/${id}/${status}`);
+        await axios.patch(`${API_BASE}/api/appointments/${id}/${status}`);
       }
       fetchAppointments();
     } catch (err) {

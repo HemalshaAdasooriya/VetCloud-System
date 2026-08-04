@@ -56,12 +56,14 @@ export default function VetConsultationRequests() {
     }
   };
 
+  const API_BASE = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+
   // Fetch vet's schedule slots as fallbacks if request has no slots
   useEffect(() => {
     if (selectedRequestDetails && (!selectedRequestDetails.slots || selectedRequestDetails.slots.length === 0)) {
       const vetIdVal = getVetId();
       if (vetIdVal) {
-        axios.get(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/schedule/vet/${vetIdVal}`)
+        axios.get(`${API_BASE}/api/schedule/vet/${vetIdVal}`)
           .then(res => {
             const openSlots = res.data.filter(slot => slot.status === 'Available' || !slot.is_booked);
             setVetScheduleSlots(openSlots);
@@ -74,9 +76,20 @@ export default function VetConsultationRequests() {
     }
   }, [selectedRequestDetails]);
 
-  // Get vet ID from localStorage
+  // Get vet ID from localStorage with fallback
   const getVetId = () => {
-    return localStorage.getItem('userId');
+    const userId = localStorage.getItem('userId');
+    if (userId) return userId;
+    try {
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        const u = JSON.parse(userStr);
+        return u.id || u.vetId || u.user_id || null;
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    return null;
   };
 
   // const vetId = getVetId();
@@ -117,7 +130,7 @@ export default function VetConsultationRequests() {
       }
 
       // Fetch all appointments for this vet
-      const response = await axios.get(`http://localhost:5000/api/vet-appointments/vet/${vetId}`);
+      const response = await axios.get(`${API_BASE}/api/vet-appointments/vet/${vetId}`);
       const appointments = response.data || [];
 
       console.log('📊 Appointments from API:', appointments);
@@ -138,7 +151,7 @@ export default function VetConsultationRequests() {
         pending.map(async (app) => {
           try {
             const slotsResponse = await axios.get(
-              `http://localhost:5000/api/vet-appointments/${app.id}/slots`
+              `${API_BASE}/api/vet-appointments/${app.id}/slots`
             );
             return { ...app, all_slots: slotsResponse.data || [] };
           } catch (slotErr) {
