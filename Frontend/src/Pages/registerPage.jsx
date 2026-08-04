@@ -19,9 +19,9 @@ export default function RegisterPage() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
-    
-    const [numberOfAnimals, setNumberOfAnimals] = useState(""); 
-    
+
+    const [numberOfAnimals, setNumberOfAnimals] = useState("");
+
     const [license, setLicense] = useState("");
     const [specialization, setSpecialization] = useState("");
     const [experience, setExperience] = useState("");
@@ -65,7 +65,7 @@ export default function RegisterPage() {
         if (/[0-9]/.test(password) && /[^A-Za-z0-9]/.test(password)) strength += 1;
         return strength;
     };
-    
+
     const strength = getPasswordStrength();
     const passwordErrors = validatePassword(password);
     const isPasswordValid = passwordErrors.length === 0 && password.length > 0;
@@ -76,7 +76,7 @@ export default function RegisterPage() {
         console.log("handleGoogleSuccess (register) triggered. credentialResponse:", credentialResponse);
         setIsLoading(true);
         const backendRole = role === 'user' ? "Farmer/PetOwner" : "Veterinary Doctor";
-        
+
         try {
             console.log("Sending token to backend at:", `${import.meta.env.VITE_BACKEND_URL}/api/users/google-login`);
             const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/google-login`, {
@@ -86,7 +86,7 @@ export default function RegisterPage() {
             });
             const data = await response.json();
             console.log("Backend response status:", response.status, "data:", data);
-            
+
             if (response.ok) {
                 toast.success("Google Authentication Successful!");
                 if (data.token) localStorage.setItem("token", data.token);
@@ -97,7 +97,7 @@ export default function RegisterPage() {
                     navigate("/dashboard/user");
                 } else if (finalRole === 'doctor') {
                     navigate("/dashboard/doctor");
-                } 
+                }
             } else {
                 setSubmitMessage({ text: data.message || "Google registration failed", isError: true });
             }
@@ -111,13 +111,13 @@ export default function RegisterPage() {
 
     // STANDARD REGISTRATION HANDLER
     const handleSubmit = async (e) => {
-        e.preventDefault(); 
+        e.preventDefault();
 
         // Validate password before submission
         if (!isPasswordValid) {
-            setSubmitMessage({ 
-                text: "Please ensure your password meets all requirements.", 
-                isError: true 
+            setSubmitMessage({
+                text: "Please ensure your password meets all requirements.",
+                isError: true
             });
             setPasswordTouched(true);
             return;
@@ -129,8 +129,8 @@ export default function RegisterPage() {
             return;
         }
 
-        setIsLoading(true); 
-        setSubmitMessage({ text: "", isError: false }); 
+        setIsLoading(true);
+        setSubmitMessage({ text: "", isError: false });
 
         const backendRole = role === 'user' ? "Farmer/PetOwner" : "Veterinary Doctor";
         const formData = new FormData();
@@ -183,7 +183,7 @@ export default function RegisterPage() {
         } catch {
             setSubmitMessage({ text: "Server connection failed.", isError: true });
         } finally {
-            setIsLoading(false); 
+            setIsLoading(false);
         }
     };
 
@@ -195,18 +195,18 @@ export default function RegisterPage() {
                     {/* logo */}
                     <Link to="/" className="flex items-center gap-2 group mb-10 w-fit">
                         <div>
-                            <img src="/public/Logo.png" alt="Logo" className="w-[50px] h-[35px] mr-1 object-fill" />
+                            <img src="https://fmuznyrfnjdwxbqsdijw.supabase.co/storage/v1/object/public/uploads/Logo.png" alt="Logo" className="w-[50px] h-[35px] mr-1 object-fill" />
                         </div>
                         <span className="text-2xl font-bold text-slate-800 tracking-tight">VetCloud</span>
                     </Link>
-                    
+
                     <div>
                         <h1 className="text-3xl font-bold text-slate-900 mb-2">Create an Account</h1>
                         <p className="text-slate-500 mb-8">Join VetCloud to access professional veterinary care.</p>
                     </div>
 
                     <form className="space-y-8" onSubmit={handleSubmit}>
-                        
+
                         {submitMessage.text && (
                             <div className={`p-4 rounded-xl text-sm font-bold ${submitMessage.isError ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
                                 {submitMessage.text}
@@ -222,7 +222,7 @@ export default function RegisterPage() {
                                     <User size={32} className={`mb-2 ${role === 'user' ? 'text-green-600' : 'text-slate-400'}`} />
                                     <span className={`font-semibold ${role === 'user' ? 'text-green-800' : 'text-slate-600'}`}>Pet Owner / Farmer</span>
                                 </label>
-                                
+
                                 <label className={`cursor-pointer flex flex-col items-center p-4 border-2 rounded-2xl transition-all duration-300 active:scale-95 ${role === 'vet' ? 'border-blue-600 bg-blue-50' : 'border-slate-200 hover:border-blue-200 bg-white'}`}>
                                     <input type="radio" name="role" value="vet" checked={role === 'vet'} onChange={() => setRole('vet')} className="sr-only" />
                                     <Stethoscope size={32} className={`mb-2 ${role === 'vet' ? 'text-blue-600' : 'text-slate-400'}`} />
@@ -236,7 +236,7 @@ export default function RegisterPage() {
                         {/* SOCIAL OAUTH BUTTONS AREA */}
                         <div className="space-y-4">
                             <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
-                                <CustomGoogleButton 
+                                <CustomGoogleButton
                                     onSuccess={handleGoogleSuccess}
                                     onError={() => setSubmitMessage({ text: "Google Authentication failed.", isError: true })}
                                     isLoading={isLoading}
@@ -252,7 +252,7 @@ export default function RegisterPage() {
                                 <span className="px-4 bg-white text-slate-500 font-medium">Or continue with email</span>
                             </div>
                         </div>
-                        
+
                         {/* 2. Basic Information */}
                         <div className="space-y-5">
                             <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
@@ -299,30 +299,29 @@ export default function RegisterPage() {
                                     <label className="block text-sm font-medium text-slate-700 mb-1.5">Password</label>
                                     <div className="relative">
                                         <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                                        <input 
-                                            type={showPassword ? "text" : "password"} 
-                                            value={password} 
-                                            onChange={(e) => setPassword(e.target.value)} 
+                                        <input
+                                            type={showPassword ? "text" : "password"}
+                                            value={password}
+                                            onChange={(e) => setPassword(e.target.value)}
                                             onBlur={() => setPasswordTouched(true)}
-                                            placeholder="••••••••" 
-                                            required 
-                                            className={`w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] pr-[40px] p-[10px] text-[14px] focus:outline-none focus:ring-2 ${
-                                                passwordTouched && !isPasswordValid 
-                                                    ? 'border-red-500 focus:ring-red-500' 
+                                            placeholder="••••••••"
+                                            required
+                                            className={`w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] pr-[40px] p-[10px] text-[14px] focus:outline-none focus:ring-2 ${passwordTouched && !isPasswordValid
+                                                    ? 'border-red-500 focus:ring-red-500'
                                                     : passwordTouched && isPasswordValid
-                                                    ? 'border-green-500 focus:ring-green-500'
-                                                    : 'border-gray-300 focus:ring-green-500'
-                                            }`}
+                                                        ? 'border-green-500 focus:ring-green-500'
+                                                        : 'border-gray-300 focus:ring-green-500'
+                                                }`}
                                         />
-                                        <button 
-                                            type="button" 
-                                            onClick={() => setShowPassword(!showPassword)} 
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword(!showPassword)}
                                             className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none"
                                         >
                                             {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                                         </button>
                                     </div>
-                                    
+
                                     {/* Password Strength Bar */}
                                     {password && (
                                         <div className="mt-2 flex gap-1 h-1.5 w-full">
@@ -343,7 +342,7 @@ export default function RegisterPage() {
                                             ))}
                                         </div>
                                     )}
-                                    
+
                                     {passwordTouched && isPasswordValid && (
                                         <div className="mt-3 flex items-center gap-2 text-xs text-green-600">
                                             <CheckCircle2 className="h-3 w-3" />
@@ -357,30 +356,29 @@ export default function RegisterPage() {
                                     <label className="block text-sm font-medium text-slate-700 mb-1.5">Confirm Password</label>
                                     <div className="relative">
                                         <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                                        <input 
-                                            type={showConfirmPassword ? "text" : "password"} 
-                                            value={confirmPassword} 
+                                        <input
+                                            type={showConfirmPassword ? "text" : "password"}
+                                            value={confirmPassword}
                                             onChange={(e) => setConfirmPassword(e.target.value)}
-                                            onBlur={() => setConfirmPasswordTouched(true)} 
-                                            placeholder="••••••••" 
-                                            required 
-                                            className={`w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] pr-[40px] p-[10px] text-[14px] focus:outline-none focus:ring-2 ${
-                                                confirmPasswordTouched && confirmPassword.length > 0 && !doPasswordsMatch
+                                            onBlur={() => setConfirmPasswordTouched(true)}
+                                            placeholder="••••••••"
+                                            required
+                                            className={`w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] pr-[40px] p-[10px] text-[14px] focus:outline-none focus:ring-2 ${confirmPasswordTouched && confirmPassword.length > 0 && !doPasswordsMatch
                                                     ? 'border-red-500 focus:ring-red-500'
                                                     : confirmPasswordTouched && doPasswordsMatch
-                                                    ? 'border-green-500 focus:ring-green-500'
-                                                    : 'border-gray-300 focus:ring-green-500'
-                                            }`}
+                                                        ? 'border-green-500 focus:ring-green-500'
+                                                        : 'border-gray-300 focus:ring-green-500'
+                                                }`}
                                         />
-                                        <button 
-                                            type="button" 
-                                            onClick={() => setShowConfirmPassword(!showConfirmPassword)} 
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                                             className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none"
                                         >
                                             {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                                         </button>
                                     </div>
-                                    
+
                                     {/* Confirm Password Match Indicator */}
                                     {confirmPasswordTouched && confirmPassword.length > 0 && (
                                         <div className="mt-3 flex items-center gap-2 text-xs">
@@ -398,11 +396,11 @@ export default function RegisterPage() {
                                         </div>
                                     )}
                                 </div>
-                            </div>  
+                            </div>
                         </div>
 
                         <div className="h-px w-full bg-slate-100" />
-                        
+
                         {/* 3. Conditional Fields */}
                         <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
                             <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
@@ -412,35 +410,35 @@ export default function RegisterPage() {
 
                             {role === 'user' ? (
                                 <>
-                                <div className="space-y-4 mb-5">
-                                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Farm/Home Address</label>
-                                    
-                                    <div className="relative">
-                                        <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                                        <input type="text" value={street} onChange={(e) => setStreet(e.target.value)} placeholder="Street Address (e.g., 123 Farm Road)" required className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" />
-                                    </div>
+                                    <div className="space-y-4 mb-5">
+                                        <label className="block text-sm font-medium text-slate-700 mb-1.5">Farm/Home Address</label>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <input type="text" value={city} onChange={(e) => setCity(e.target.value)} placeholder="City" required className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm px-[15px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" />
-                                        <input type="text" value={state} onChange={(e) => setState(e.target.value)} placeholder="State / Province" required className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm px-[15px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" />
-                                    </div>
+                                        <div className="relative">
+                                            <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                                            <input type="text" value={street} onChange={(e) => setStreet(e.target.value)} placeholder="Street Address (e.g., 123 Farm Road)" required className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" />
+                                        </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <input type="text" value={zip} onChange={(e) => setZip(e.target.value)} placeholder="ZIP / Postal Code" required className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm px-[15px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" />
-                                        <input type="text" value={country} onChange={(e) => setCountry(e.target.value)} placeholder="Country" required className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm px-[15px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" />
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <input type="text" value={city} onChange={(e) => setCity(e.target.value)} placeholder="City" required className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm px-[15px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" />
+                                            <input type="text" value={state} onChange={(e) => setState(e.target.value)} placeholder="State / Province" required className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm px-[15px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" />
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <input type="text" value={zip} onChange={(e) => setZip(e.target.value)} placeholder="ZIP / Postal Code" required className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm px-[15px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" />
+                                            <input type="text" value={country} onChange={(e) => setCountry(e.target.value)} placeholder="Country" required className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm px-[15px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" />
+                                        </div>
                                     </div>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Approximate Number of Animals (Optional)</label>
-                                    <input 
-                                        type="number" 
-                                        value={numberOfAnimals} 
-                                        onChange={(e) => setNumberOfAnimals(e.target.value)} 
-                                        placeholder="e.g., 20" 
-                                        onWheel={(e) => e.target.blur()}
-                                        className="w-full h-12 rounded-xl border border-slate-300 bg-transparent pl-4 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" 
-                                    />
-                                </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-1.5">Approximate Number of Animals (Optional)</label>
+                                        <input
+                                            type="number"
+                                            value={numberOfAnimals}
+                                            onChange={(e) => setNumberOfAnimals(e.target.value)}
+                                            placeholder="e.g., 20"
+                                            onWheel={(e) => e.target.blur()}
+                                            className="w-full h-12 rounded-xl border border-slate-300 bg-transparent pl-4 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                                        />
+                                    </div>
                                 </>
                             ) : (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -488,15 +486,15 @@ export default function RegisterPage() {
                             {/* Profile Picture Upload */}
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Profile Picture (Optional)</label>
-                                <div 
+                                <div
                                     onClick={() => fileInputRef.current.click()}
                                     className="border-2 border-dashed border-slate-200 rounded-xl p-6 flex flex-col items-center justify-center text-center hover:border-slate-300 transition-colors cursor-pointer bg-slate-50 relative overflow-hidden"
                                 >
-                                    <input 
-                                        type="file" 
-                                        ref={fileInputRef} 
+                                    <input
+                                        type="file"
+                                        ref={fileInputRef}
                                         accept="image/*"
-                                        className="hidden" 
+                                        className="hidden"
                                         onChange={(e) => {
                                             const file = e.target.files[0];
                                             if (file) {
@@ -505,7 +503,7 @@ export default function RegisterPage() {
                                             }
                                         }}
                                     />
-                                    
+
                                     {previewUrl ? (
                                         <img src={previewUrl} alt="Preview" className="h-24 w-24 object-cover rounded-full shadow-sm mb-3 z-10" />
                                     ) : (
@@ -513,7 +511,7 @@ export default function RegisterPage() {
                                             <Camera className="h-6 w-6 text-slate-400" />
                                         </div>
                                     )}
-                                    
+
                                     <p className="text-sm font-medium text-slate-700">Click to upload photo</p>
                                 </div>
                             </div>
@@ -532,21 +530,20 @@ export default function RegisterPage() {
                                 </span>
                             </label>
 
-                            <button 
-                                type="submit" 
+                            <button
+                                type="submit"
                                 disabled={isLoading || !isPasswordValid || !doPasswordsMatch}
-                                className={`w-full h-14 rounded-xl text-lg text-white shadow-sm flex items-center justify-center gap-2 transition-all duration-200 active:scale-95 ${
-                                    role === 'vet' 
-                                    ? 'bg-blue-600 hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2' 
-                                    : 'bg-green-600 hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-offset-2'
-                                } ${(isLoading || !isPasswordValid || !doPasswordsMatch) ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                className={`w-full h-14 rounded-xl text-lg text-white shadow-sm flex items-center justify-center gap-2 transition-all duration-200 active:scale-95 ${role === 'vet'
+                                        ? 'bg-blue-600 hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
+                                        : 'bg-green-600 hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-offset-2'
+                                    } ${(isLoading || !isPasswordValid || !doPasswordsMatch) ? 'opacity-70 cursor-not-allowed' : ''}`}
                             >
                                 {isLoading ? (
                                     "Creating Account..."
                                 ) : (
                                     "Create Account"
                                 )}
-                            </button> 
+                            </button>
                         </div>
                     </form>
 
@@ -562,9 +559,9 @@ export default function RegisterPage() {
             {/* Right Side - Image / Illustration */}
             <div className="hidden xl:flex xl:w-5/12 relative bg-slate-900 overflow-hidden">
                 <div className={`absolute inset-0 bg-gradient-to-br mix-blend-multiply z-10 ${role === 'vet' ? 'from-blue-600/80 to-slate-900/90' : 'from-green-600/80 to-blue-900/90'}`} />
-                <img 
-                    src={role === 'vet' ? "/public/vetcat.jpg" : "https://images.unsplash.com/photo-1544568100-847a948585b9?q=80&w=1974&auto=format&fit=crop"} 
-                    alt="Veterinary Care" 
+                <img
+                    src={role === 'vet' ? "/public/vetcat.jpg" : "https://images.unsplash.com/photo-1544568100-847a948585b9?q=80&w=1974&auto=format&fit=crop"}
+                    alt="Veterinary Care"
                     className="absolute inset-0 w-full h-full object-cover"
                 />
                 <div className="relative z-20 flex flex-col justify-center p-16 text-white h-full">
@@ -592,7 +589,7 @@ export default function RegisterPage() {
                         )}
                     </div>
                 </div>
-            </div>  
+            </div>
         </div>
     );
 }
