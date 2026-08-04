@@ -35,14 +35,27 @@ const verifyToken = (req) => {
     }
 };
 
+// Helper to emit real-time notification to all socket room variants for a user
+const emitToUserRooms = (io, userId, userRole, notification) => {
+    if (!io || !userId) return;
+    const r = (userRole || '').toLowerCase();
+    let rooms = [`${userRole}_${userId}`];
+    if (r.includes('farmer') || r.includes('owner') || r.includes('pet')) {
+        rooms = [`Farmer/PetOwner_${userId}`, `farmer_${userId}`, `Farmer_${userId}`];
+    } else if (r.includes('doctor') || r.includes('vet')) {
+        rooms = [`Veterinary Doctor_${userId}`, `doctor_${userId}`, `Doctor_${userId}`];
+    }
+    rooms.forEach(roomName => {
+        io.to(roomName).emit("new-notification", notification);
+    });
+    console.log(`Socket: Pushed realtime notification to rooms: ${rooms.join(', ')}`);
+};
+
 // Push real-time notification via Socket.io
 const pushRealtimeNotification = (req, userId, userRole, notification) => {
     const io = req.app.get("io");
     if (io) {
-        // Emit to specific user room
-        const roomName = `${userRole}_${userId}`;
-        io.to(roomName).emit("new-notification", notification);
-        console.log(`Socket: Pushed realtime notification to room '${roomName}'`);
+        emitToUserRooms(io, userId, userRole, notification);
     }
 };
 
@@ -396,7 +409,7 @@ export const triggerAppointmentNotification = (app, appointmentId, triggerType) 
                 };
                 createNotification(vetAssignedNotify, (nErr, dbNotify) => {
                     if (!nErr && dbNotify && io) {
-                        io.to(`Farmer/PetOwner_${apt.pet_owner_id}`).emit("new-notification", dbNotify);
+                        emitToUserRooms(io, apt.pet_owner_id, "Farmer/PetOwner", dbNotify);
                     }
                 });
 
@@ -498,7 +511,7 @@ export const triggerAppointmentNotification = (app, appointmentId, triggerType) 
                 };
                 createNotification(medicalReportNotify, (nErr, dbNotify) => {
                     if (!nErr && dbNotify && io) {
-                        io.to(`Farmer/PetOwner_${apt.pet_owner_id}`).emit("new-notification", dbNotify);
+                        emitToUserRooms(io, apt.pet_owner_id, "Farmer/PetOwner", dbNotify);
                     }
                 });
 
@@ -539,15 +552,15 @@ export const triggerAppointmentNotification = (app, appointmentId, triggerType) 
             // Save In-App notifications & Push socket updates
             if (ownerNotify) {
                 createNotification(ownerNotify, (nErr, dbNotify) => {
-                    if (!nErr && dbNotify) {
-                        if (io) io.to(`Farmer/PetOwner_${apt.pet_owner_id}`).emit("new-notification", dbNotify);
+                    if (!nErr && dbNotify && io) {
+                        emitToUserRooms(io, apt.pet_owner_id, "Farmer/PetOwner", dbNotify);
                     }
                 });
             }
             if (vetNotify) {
                 createNotification(vetNotify, (nErr, dbNotify) => {
-                    if (!nErr && dbNotify) {
-                        if (io) io.to(`Veterinary Doctor_${apt.veterinarian_id}`).emit("new-notification", dbNotify);
+                    if (!nErr && dbNotify && io) {
+                        emitToUserRooms(io, apt.veterinarian_id, "Veterinary Doctor", dbNotify);
                     }
                 });
             }
