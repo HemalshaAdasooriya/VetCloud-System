@@ -551,14 +551,14 @@ export const triggerAppointmentNotification = (app, appointmentId, triggerType) 
             if (ownerNotify) {
                 createNotification(ownerNotify, (nErr, dbNotify) => {
                     if (!nErr && dbNotify) {
-                        if (io) io.to(`Farmer/PetOwner_${apt.pet_owner_id}`).emit("new-notification", dbNotify);
+                        pushRealtimeNotification({ app }, apt.pet_owner_id, "Farmer/PetOwner", dbNotify);
                     }
                 });
             }
             if (vetNotify) {
                 createNotification(vetNotify, (nErr, dbNotify) => {
                     if (!nErr && dbNotify) {
-                        if (io) io.to(`Veterinary Doctor_${apt.veterinarian_id}`).emit("new-notification", dbNotify);
+                        pushRealtimeNotification({ app }, apt.veterinarian_id, "Veterinary Doctor", dbNotify);
                     }
                 });
             }
@@ -579,6 +579,22 @@ export const triggerAppointmentNotification = (app, appointmentId, triggerType) 
                     html: emailToVet.html,
                     text: emailToVet.text
                 }).catch(console.error);
+            }
+        };
+
+        // Query selected slot from appointment_slots with fallback to vet_schedule / appointments
+        const slotSql = "SELECT slot_date, slot_time FROM appointment_slots WHERE id = ?";
+        db.query(slotSql, [apt.selected_slot_id], (errSlot, slotResults) => {
+            if (!errSlot && slotResults && slotResults.length > 0 && slotResults[0].slot_date) {
+                processNotificationWithSlot(slotResults[0].slot_date, slotResults[0].slot_time);
+            } else {
+                db.query("SELECT slot_date, slot_time FROM vet_schedule WHERE appointment_id = ? OR id = ?", [appointmentId, apt.selected_slot_id], (errVetSched, schedResults) => {
+                    if (!errVetSched && schedResults && schedResults.length > 0 && schedResults[0].slot_date) {
+                        processNotificationWithSlot(schedResults[0].slot_date, schedResults[0].slot_time);
+                    } else {
+                        processNotificationWithSlot(apt.appointment_date, apt.appointment_time);
+                    }
+                });
             }
         });
     });
