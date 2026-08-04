@@ -53,8 +53,12 @@ export default function LoginPage({ defaultRole = null }) {
             return toast.error("Please enter email and password");
         }
 
+        const API_BASE = (import.meta.env.VITE_BACKEND_URL && import.meta.env.VITE_BACKEND_URL.trim() !== "") 
+            ? import.meta.env.VITE_BACKEND_URL 
+            : 'http://localhost:5000';
+
         try {
-            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/login`, {
+            const response = await fetch(`${API_BASE}/api/users/login`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email, password, role })
@@ -93,8 +97,11 @@ export default function LoginPage({ defaultRole = null }) {
 
     const handleSubmit2FA = async (e) => {
         e.preventDefault();
+        const API_BASE = (import.meta.env.VITE_BACKEND_URL && import.meta.env.VITE_BACKEND_URL.trim() !== "") 
+            ? import.meta.env.VITE_BACKEND_URL 
+            : 'http://localhost:5000';
         try {
-            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/verify-login-2fa`, {
+            const response = await fetch(`${API_BASE}/api/users/verify-login-2fa`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
