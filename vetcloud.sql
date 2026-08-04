@@ -27,6 +27,12 @@ CREATE TABLE `admins` (
 ) ENGINE = InnoDB AUTO_INCREMENT = 2 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
 -- ----------------------------
+-- Records of admins
+-- ----------------------------
+INSERT INTO `admins` (`id`, `email`, `password`, `fullName`, `contact_No`, `image`, `isEmailVerified`, `is_Active`, `is_two_factor_enabled`) VALUES
+(1, 'admin@vetcloud.com', '$2b$11$Pmqf2PZG8SzhXlt7/tkW6.rs.hDVH9UrNLDdFaRz./Q4udUJumFiy', 'System Administrator', '0771234567', '/default.jpg', 1, 1, 0);
+
+-- ----------------------------
 -- Table structure for pet_owners
 -- ----------------------------
 DROP TABLE IF EXISTS `pet_owners`;

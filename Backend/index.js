@@ -17,10 +17,12 @@ import notificationRouter from "./routes/notificationRouter.js";
 import { startReminderScheduler } from "./config/scheduler.js";
 import adminRouter from "./routes/adminRouter.js";
 import scheduleRouter from "./routes/scheduleRouter.js";
+import { seedAdminAuto } from "./seedAdmin.js";
 
-// Create notifications table on startup
+// Create notifications table and seed admin on startup
 initializeNotificationTables();
 initializePaymentSettingsTable();
+seedAdminAuto();
 
 const app = express();
 const server = http.createServer(app);
