@@ -1094,45 +1094,106 @@ export default function ConsultationPage() {
                 {/* Card Payment Tab Content */}
                 {paymentTab === 'card' && (
                   <form onSubmit={handleDirectCardPayment} className="space-y-4 animate-in fade-in duration-150">
-                    <div className="flex justify-between items-center">
-                      <label className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                        <CreditCard size={14} className="text-green-600" />
-                        Card Details
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCardNumber("4242 4242 4242 4242");
-                          setCardExp("12/28");
-                          setCardCvv("123");
-                          setCardName(getFarmerName());
-                        }}
-                        className="text-[11px] font-bold text-green-600 hover:text-green-700 bg-green-50 hover:bg-green-100 px-2.5 py-1 rounded-lg transition-colors border-0 cursor-pointer"
-                      >
-                        ✨ Auto-fill Test Card
-                      </button>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <label className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                          <CreditCard size={14} className="text-green-600" />
+                          Card Details & Test Cards
+                        </label>
+                        <span className="text-[10px] text-slate-400 font-medium">Sandbox Mode</span>
+                      </div>
+
+                      {/* Quick Test Cards Presets */}
+                      <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5">
+                        <p className="text-[11px] font-semibold text-slate-600 flex items-center gap-1">
+                          ✨ Select a Test Credit Card to auto-fill:
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCardNumber("4242 4242 4242 4242");
+                              setCardExp("12/28");
+                              setCardCvv("123");
+                              setCardName(getFarmerName() || "Test User");
+                            }}
+                            className="text-xs font-bold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200/80 px-2.5 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1"
+                          >
+                            <span className="w-2 h-2 rounded-full bg-blue-500 inline-block"></span>
+                            Visa (4242)
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCardNumber("5544 3322 1100 4242");
+                              setCardExp("09/29");
+                              setCardCvv("456");
+                              setCardName(getFarmerName() || "Test User");
+                            }}
+                            className="text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/80 px-2.5 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1"
+                          >
+                            <span className="w-2 h-2 rounded-full bg-amber-500 inline-block"></span>
+                            Mastercard (5544)
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCardNumber("3782 8224 6310 005");
+                              setCardExp("11/27");
+                              setCardCvv("8888");
+                              setCardName(getFarmerName() || "Test User");
+                            }}
+                            className="text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200/80 px-2.5 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1"
+                          >
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
+                            Amex (3782)
+                          </button>
+                        </div>
+                      </div>
                     </div>
 
                     {/* Visual Card Preview Box */}
-                    <div className="p-4 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-xl text-white shadow-lg space-y-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-[10px] uppercase font-bold tracking-widest text-slate-400">VetCloud Payment Card</span>
-                        <span className="text-xs font-black italic tracking-wider text-slate-200">VISA</span>
-                      </div>
-                      <div className="font-mono text-base font-bold tracking-widest text-emerald-400">
-                        {cardNumber || '•••• •••• •••• ••••'}
-                      </div>
-                      <div className="flex justify-between items-end text-xs text-slate-300">
-                        <div>
-                          <span className="block text-[9px] uppercase text-slate-400">Cardholder</span>
-                          <span className="font-bold uppercase text-white truncate max-w-[150px] inline-block">{cardName || getFarmerName() || 'FARMER NAME'}</span>
+                    {(() => {
+                      const cleanNum = (cardNumber || '').replace(/\D/g, '');
+                      let brandName = 'VISA';
+                      let brandBadgeClass = 'bg-blue-500/20 text-blue-300 border-blue-400/30';
+                      if (/^5[1-5]|^2[2-7]/.test(cleanNum)) {
+                        brandName = 'MASTERCARD';
+                        brandBadgeClass = 'bg-amber-500/20 text-amber-300 border-amber-400/30';
+                      } else if (/^3[47]/.test(cleanNum)) {
+                        brandName = 'AMEX';
+                        brandBadgeClass = 'bg-emerald-500/20 text-emerald-300 border-emerald-400/30';
+                      } else if (/^6/.test(cleanNum)) {
+                        brandName = 'DISCOVER';
+                        brandBadgeClass = 'bg-purple-500/20 text-purple-300 border-purple-400/30';
+                      }
+                      return (
+                        <div className="p-4 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 rounded-xl text-white shadow-lg space-y-3 relative overflow-hidden border border-slate-700">
+                          <div className="absolute top-0 right-0 w-24 h-24 bg-white/5 rounded-full blur-xl pointer-events-none" />
+                          <div className="flex justify-between items-center">
+                            <span className="text-[10px] uppercase font-bold tracking-widest text-slate-400">VetCloud Payment Card</span>
+                            <span className={`text-[10px] font-black tracking-wider px-2 py-0.5 rounded border uppercase ${brandBadgeClass}`}>
+                              {brandName}
+                            </span>
+                          </div>
+                          <div className="font-mono text-lg font-bold tracking-widest text-emerald-400">
+                            {cardNumber || '•••• •••• •••• ••••'}
+                          </div>
+                          <div className="flex justify-between items-end text-xs text-slate-300">
+                            <div>
+                              <span className="block text-[9px] uppercase text-slate-400">Cardholder</span>
+                              <span className="font-bold uppercase text-white truncate max-w-[170px] inline-block">{cardName || getFarmerName() || 'FARMER NAME'}</span>
+                            </div>
+                            <div>
+                              <span className="block text-[9px] uppercase text-slate-400">Expires</span>
+                              <span className="font-bold text-white font-mono">{cardExp || 'MM/YY'}</span>
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <span className="block text-[9px] uppercase text-slate-400">Expires</span>
-                          <span className="font-bold text-white">{cardExp || 'MM/YY'}</span>
-                        </div>
-                      </div>
-                    </div>
+                      );
+                    })()}
 
                     <div className="space-y-3">
                       <div>
@@ -1148,29 +1209,59 @@ export default function ConsultationPage() {
                       </div>
 
                       <div>
-                        <label className="text-xs font-medium text-slate-600 block mb-1">Card Number</label>
-                        <input
-                          type="text"
-                          value={cardNumber}
-                          onChange={(e) => {
-                            let val = e.target.value.replace(/\D/g, '').slice(0, 16);
-                            val = val.replace(/(.{4})/g, '$1 ').trim();
-                            setCardNumber(val);
-                          }}
-                          placeholder="4242 4242 4242 4242"
-                          className="w-full h-10 px-3 border border-slate-200 rounded-xl text-sm font-mono tracking-wider focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-800 font-bold"
-                          maxLength={19}
-                          required
-                        />
+                        <label className="text-xs font-medium text-slate-600 block mb-1">Credit Card Number</label>
+                        <div className="relative flex items-center">
+                          <input
+                            type="text"
+                            value={cardNumber}
+                            onChange={(e) => {
+                              let val = e.target.value.replace(/\D/g, '');
+                              if (/^3[47]/.test(val)) {
+                                val = val.slice(0, 15);
+                                const parts = [];
+                                if (val.length > 0) parts.push(val.slice(0, 4));
+                                if (val.length > 4) parts.push(val.slice(4, 10));
+                                if (val.length > 10) parts.push(val.slice(10, 15));
+                                setCardNumber(parts.join(' '));
+                              } else {
+                                val = val.slice(0, 16);
+                                val = val.replace(/(.{4})/g, '$1 ').trim();
+                                setCardNumber(val);
+                              }
+                            }}
+                            placeholder="4242 4242 4242 4242"
+                            className="w-full h-10 pl-3 pr-10 border border-slate-200 rounded-xl text-sm font-mono tracking-wider focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-800 font-bold"
+                            maxLength={19}
+                            required
+                          />
+                          {cardNumber ? (
+                            <button
+                              type="button"
+                              onClick={() => setCardNumber('')}
+                              className="absolute right-2.5 text-slate-400 hover:text-slate-600 text-xs font-bold p-1 border-0 bg-transparent cursor-pointer"
+                              title="Clear card number"
+                            >
+                              ✕
+                            </button>
+                          ) : (
+                            <CreditCard className="absolute right-3 text-slate-400 pointer-events-none" size={18} />
+                          )}
+                        </div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="text-xs font-medium text-slate-600 block mb-1">Expiry Date</label>
+                          <label className="text-xs font-medium text-slate-600 block mb-1">Expiry Date (MM/YY)</label>
                           <input
                             type="text"
                             value={cardExp}
-                            onChange={(e) => setCardExp(e.target.value)}
+                            onChange={(e) => {
+                              let val = e.target.value.replace(/\D/g, '').slice(0, 4);
+                              if (val.length >= 3) {
+                                val = `${val.slice(0, 2)}/${val.slice(2)}`;
+                              }
+                              setCardExp(val);
+                            }}
                             placeholder="MM/YY"
                             className="w-full h-10 px-3 border border-slate-200 rounded-xl text-sm font-mono text-center focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-800 font-bold"
                             maxLength={5}
