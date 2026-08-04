@@ -496,15 +496,6 @@ export default function VetConsultationRequests() {
     }
     return symptomsList;
   };
-  // eslint-disable-next-line no-unused-vars
-  const getMockFiles = (animalName, species) => {
-    const cleanName = animalName || 'Patient';
-    const cleanSpecies = (species || 'Animal').charAt(0).toUpperCase() + (species || 'Animal').slice(1).toLowerCase();
-    return [
-      { name: `${cleanName}_Health_Record.pdf`, size: '2.4 MB' },
-      { name: `${cleanSpecies}_Vaccination_Log.xlsx`, size: '1.1 MB' }
-    ];
-  };
   // Separate date formatting helpers
   const formatDateOnly = (dateStr) => {
     if (!dateStr) return 'TBD';
@@ -719,7 +710,6 @@ export default function VetConsultationRequests() {
   const availability = request?.slots || [];
   const notes = request?.symptoms || request?.originalData?.reason_notes || request?.originalData?.reason || '';
   const symptoms = request ? extractSymptoms(notes) : [];
-  // const mockFiles = request ? getMockFiles(request.animal_name, request.animal_species) : [];
 
   return (
     <div className="space-y-6">
