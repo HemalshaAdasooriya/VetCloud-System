@@ -40,12 +40,25 @@ app.set("io", io);
 
 // Socket.io Logic
 io.on("connection", (socket) => {
-      // Socket room registration for real-time alerts
+    // Socket room registration for real-time alerts
     socket.on("register", (data) => {
         if (data && data.userId && data.role) {
-            const roomName = `${data.role}_${data.userId}`;
-            socket.join(roomName);
-            console.log(`Socket client registered and joined room: ${roomName}`);
+            const roleStr = String(data.role);
+            const isFarmer = roleStr.toLowerCase().includes('farmer') || roleStr.toLowerCase().includes('owner');
+            const isVet = roleStr.toLowerCase().includes('vet') || roleStr.toLowerCase().includes('doctor');
+            
+            socket.join(`${data.role}_${data.userId}`);
+            if (isFarmer) {
+                socket.join(`Farmer/PetOwner_${data.userId}`);
+                socket.join(`farmer_${data.userId}`);
+                socket.join(`Farmer_${data.userId}`);
+            }
+            if (isVet) {
+                socket.join(`Veterinary Doctor_${data.userId}`);
+                socket.join(`doctor_${data.userId}`);
+                socket.join(`vet_${data.userId}`);
+            }
+            console.log(`Socket client (${data.userId}, ${data.role}) registered & joined notification rooms.`);
         }
     });//isuri-notification
 

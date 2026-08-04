@@ -539,15 +539,19 @@ export const triggerAppointmentNotification = (app, appointmentId, triggerType) 
             // Save In-App notifications & Push socket updates
             if (ownerNotify) {
                 createNotification(ownerNotify, (nErr, dbNotify) => {
-                    if (!nErr && dbNotify) {
-                        if (io) io.to(`Farmer/PetOwner_${apt.pet_owner_id}`).emit("new-notification", dbNotify);
+                    if (!nErr && dbNotify && io) {
+                        io.to(`Farmer/PetOwner_${apt.pet_owner_id}`).emit("new-notification", dbNotify);
+                        io.to(`farmer_${apt.pet_owner_id}`).emit("new-notification", dbNotify);
+                        io.to(`Farmer_${apt.pet_owner_id}`).emit("new-notification", dbNotify);
                     }
                 });
             }
             if (vetNotify) {
                 createNotification(vetNotify, (nErr, dbNotify) => {
-                    if (!nErr && dbNotify) {
-                        if (io) io.to(`Veterinary Doctor_${apt.veterinarian_id}`).emit("new-notification", dbNotify);
+                    if (!nErr && dbNotify && io) {
+                        io.to(`Veterinary Doctor_${apt.veterinarian_id}`).emit("new-notification", dbNotify);
+                        io.to(`doctor_${apt.veterinarian_id}`).emit("new-notification", dbNotify);
+                        io.to(`vet_${apt.veterinarian_id}`).emit("new-notification", dbNotify);
                     }
                 });
             }
