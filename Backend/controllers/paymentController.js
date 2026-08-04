@@ -66,6 +66,12 @@ export const getPaymentInfo = async (req, res) => {
     }
 };
 
+const getStripeInstance = () => {
+    const key = process.env.STRIPE_SECRET_KEY;
+    if (!key) return null;
+    return new Stripe(key);
+};
+
 // Create a Stripe Checkout Session
 export const createStripeCheckoutSession = async (req, res) => {
     const { appointmentId } = req.body;
@@ -97,29 +103,25 @@ export const createStripeCheckoutSession = async (req, res) => {
 
                 const commissionFee = doctorFee * (commissionPct / 100);
                 const totalAmount = doctorFee + commissionFee;
-                const clientUrl = process.env.CLIENT_URL || "http://localhost:5173";
+                const clientUrl = process.env.CLIENT_URL || req.headers.origin || "http://localhost:5173";
+                const stripeClient = getStripeInstance();
 
-                // Fallback / Mock Checkout if Stripe is not configured
-                if (!process.env.STRIPE_SECRET_KEY) {
-                    console.warn("STRIPE_SECRET_KEY is not defined. Using mock redirect checkout URL.");
-                    const mockSessionId = `mock_session_${Date.now()}`;
-                    const mockUrl = `${clientUrl}/dashboard/user/consultations?payment_success=true&session_id=${mockSessionId}&appointment_id=${appointmentId}`;
-                    return res.status(200).json({
-                        url: mockUrl,
-                        sessionId: mockSessionId,
-                        amount: totalAmount,
-                        doctorFee,
-                        commissionFee
+                // Fallback if Stripe is not configured
+                if (!stripeClient) {
+                    console.warn("STRIPE_SECRET_KEY is not defined in Backend/.env.");
+                    return res.status(400).json({ 
+                        message: "Stripe is not configured. Please add STRIPE_SECRET_KEY to Backend/.env to enable Stripe Hosted Checkout." 
                     });
                 }
 
                 try {
-                    const session = await stripe.checkout.sessions.create({
+                    const currency = (process.env.STRIPE_CURRENCY || 'usd').toLowerCase();
+                    const session = await stripeClient.checkout.sessions.create({
                         payment_method_types: ['card'],
                         line_items: [
                             {
                                 price_data: {
-                                    currency: 'lkr',
+                                    currency: currency,
                                     product_data: {
                                         name: `Online Consultation Fee (Dr. ${appointment.vetName})`,
                                         description: `Appointment for ${appointment.animalName || 'Pet'} (${appointment.animalBreed || 'Unknown Breed'})`,
@@ -130,7 +132,7 @@ export const createStripeCheckoutSession = async (req, res) => {
                             },
                             {
                                 price_data: {
-                                    currency: 'lkr',
+                                    currency: currency,
                                     product_data: {
                                         name: 'Platform Commission Fee',
                                         description: 'VetCloud service charge',
@@ -145,7 +147,8 @@ export const createStripeCheckoutSession = async (req, res) => {
                         cancel_url: `${clientUrl}/dashboard/user/consultations?payment_cancel=true`,
                     });
 
-                    res.status(200).json({
+                    console.log("Stripe Session URL generated:", session.url);
+                    return res.status(200).json({
                         url: session.url,
                         sessionId: session.id,
                         amount: totalAmount,
@@ -153,15 +156,9 @@ export const createStripeCheckoutSession = async (req, res) => {
                         commissionFee
                     });
                 } catch (stripeErr) {
-                    console.warn("Stripe API Checkout Session error, falling back to Sandbox mock session:", stripeErr.message);
-                    const mockSessionId = `mock_session_${Date.now()}`;
-                    const mockUrl = `${clientUrl}/dashboard/user/consultations?payment_success=true&session_id=${mockSessionId}&appointment_id=${appointmentId}`;
-                    return res.status(200).json({
-                        url: mockUrl,
-                        sessionId: mockSessionId,
-                        amount: totalAmount,
-                        doctorFee,
-                        commissionFee
+                    console.error("Stripe API Checkout Session error:", stripeErr.message);
+                    return res.status(400).json({
+                        message: `Stripe Checkout Error: ${stripeErr.message}. Please verify your STRIPE_SECRET_KEY.`
                     });
                 }
             });
@@ -277,11 +274,12 @@ export const verifyStripeSession = async (req, res) => {
                 return res.status(200).json({ success: true, message: "Payment verified successfully (Mock)!" });
             });
         } else {
-            if (!process.env.STRIPE_SECRET_KEY) {
+            const stripeClient = getStripeInstance();
+            if (!stripeClient) {
                 return res.status(400).json({ message: "Stripe key not configured, cannot verify real session" });
             }
 
-            const session = await stripe.checkout.sessions.retrieve(sessionId);
+            const session = await stripeClient.checkout.sessions.retrieve(sessionId);
             if (session.payment_status === 'paid') {
                 console.log(`Stripe payment verified for appointment ${appointmentId}`);
                 processSuccessfulPayment(req, appointmentId, (err) => {
