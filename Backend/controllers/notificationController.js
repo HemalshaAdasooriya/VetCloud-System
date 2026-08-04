@@ -37,12 +37,22 @@ const verifyToken = (req) => {
 
 // Push real-time notification via Socket.io
 const pushRealtimeNotification = (req, userId, userRole, notification) => {
-    const io = req.app.get("io");
+    const io = req.app ? req.app.get("io") : null;
     if (io) {
-        // Emit to specific user room
-        const roomName = `${userRole}_${userId}`;
-        io.to(roomName).emit("new-notification", notification);
-        console.log(`Socket: Pushed realtime notification to room '${roomName}'`);
+        const rooms = [`${userRole}_${userId}`];
+        const lower = (userRole || '').toLowerCase();
+        if (lower.includes('farmer') || lower.includes('petowner') || lower.includes('owner')) {
+            rooms.push(`Farmer/PetOwner_${userId}`, `farmer_${userId}`, `pet_owner_${userId}`);
+        } else if (lower.includes('doctor') || lower.includes('vet')) {
+            rooms.push(`Veterinary Doctor_${userId}`, `doctor_${userId}`, `vet_${userId}`);
+        }
+        
+        // Emit to all matching rooms
+        const uniqueRooms = [...new Set(rooms)];
+        uniqueRooms.forEach(room => {
+            io.to(room).emit("new-notification", notification);
+        });
+        console.log(`Socket: Pushed realtime notification to rooms: ${uniqueRooms.join(', ')}`);
     }
 };
 
@@ -336,16 +346,17 @@ export const triggerAppointmentNotification = (app, appointmentId, triggerType) 
 
         const apt = results[0];
         
-        // Slot query
-        const slotSql = "SELECT slot_date, slot_time FROM appointment_slots WHERE id = ?";
-        db.query(slotSql, [apt.selected_slot_id], (errSlot, slotResults) => {
-            const slot = (!errSlot && slotResults && slotResults.length > 0) ? slotResults[0] : { slot_date: null, slot_time: null };
-            
+        // Slot query with fallback to vet_schedule / appointments
+        const processNotificationWithSlot = (slotDate, slotTime) => {
             let formattedDate = "";
-            if (slot.slot_date) {
-                formattedDate = new Date(slot.slot_date).toLocaleDateString("en-US", { year: 'numeric', month: 'long', day: 'numeric' });
+            if (slotDate) {
+                try {
+                    formattedDate = new Date(slotDate).toLocaleDateString("en-US", { year: 'numeric', month: 'long', day: 'numeric' });
+                } catch {
+                    formattedDate = String(slotDate);
+                }
             }
-            const formattedTime = slot.slot_time || "";
+            const formattedTime = slotTime || "";
 
             let ownerNotify = null;
             let vetNotify = null;
@@ -539,19 +550,15 @@ export const triggerAppointmentNotification = (app, appointmentId, triggerType) 
             // Save In-App notifications & Push socket updates
             if (ownerNotify) {
                 createNotification(ownerNotify, (nErr, dbNotify) => {
-                    if (!nErr && dbNotify && io) {
-                        io.to(`Farmer/PetOwner_${apt.pet_owner_id}`).emit("new-notification", dbNotify);
-                        io.to(`farmer_${apt.pet_owner_id}`).emit("new-notification", dbNotify);
-                        io.to(`Farmer_${apt.pet_owner_id}`).emit("new-notification", dbNotify);
+                    if (!nErr && dbNotify) {
+                        if (io) io.to(`Farmer/PetOwner_${apt.pet_owner_id}`).emit("new-notification", dbNotify);
                     }
                 });
             }
             if (vetNotify) {
                 createNotification(vetNotify, (nErr, dbNotify) => {
-                    if (!nErr && dbNotify && io) {
-                        io.to(`Veterinary Doctor_${apt.veterinarian_id}`).emit("new-notification", dbNotify);
-                        io.to(`doctor_${apt.veterinarian_id}`).emit("new-notification", dbNotify);
-                        io.to(`vet_${apt.veterinarian_id}`).emit("new-notification", dbNotify);
+                    if (!nErr && dbNotify) {
+                        if (io) io.to(`Veterinary Doctor_${apt.veterinarian_id}`).emit("new-notification", dbNotify);
                     }
                 });
             }

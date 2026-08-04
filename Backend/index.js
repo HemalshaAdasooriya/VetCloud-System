@@ -40,27 +40,26 @@ app.set("io", io);
 
 // Socket.io Logic
 io.on("connection", (socket) => {
-    // Socket room registration for real-time alerts
+      // Socket room registration for real-time alerts
     socket.on("register", (data) => {
         if (data && data.userId && data.role) {
-            const roleStr = String(data.role);
-            const isFarmer = roleStr.toLowerCase().includes('farmer') || roleStr.toLowerCase().includes('owner');
-            const isVet = roleStr.toLowerCase().includes('vet') || roleStr.toLowerCase().includes('doctor');
-            
-            socket.join(`${data.role}_${data.userId}`);
-            if (isFarmer) {
+            const primaryRoom = `${data.role}_${data.userId}`;
+            socket.join(primaryRoom);
+
+            const lowerRole = String(data.role).toLowerCase();
+            if (lowerRole.includes('farmer') || lowerRole.includes('petowner') || lowerRole.includes('owner')) {
                 socket.join(`Farmer/PetOwner_${data.userId}`);
                 socket.join(`farmer_${data.userId}`);
-                socket.join(`Farmer_${data.userId}`);
-            }
-            if (isVet) {
+                socket.join(`pet_owner_${data.userId}`);
+            } else if (lowerRole.includes('doctor') || lowerRole.includes('vet')) {
                 socket.join(`Veterinary Doctor_${data.userId}`);
                 socket.join(`doctor_${data.userId}`);
                 socket.join(`vet_${data.userId}`);
             }
-            console.log(`Socket client (${data.userId}, ${data.role}) registered & joined notification rooms.`);
+
+            console.log(`Socket client registered (${socket.id}) for user ${data.userId} role ${data.role}`);
         }
-    });//isuri-notification
+    });
 
     // Chat Room Events
     socket.on("join-chat-room", ({ appointmentId }) => {
