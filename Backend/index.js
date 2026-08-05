@@ -20,6 +20,12 @@ import adminRouter from "./routes/adminRouter.js";
 import scheduleRouter from "./routes/scheduleRouter.js";
 import { seedAdminAuto } from "./seedAdmin.js";
 
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 // Create notifications table and seed admin on startup
 initializeNotificationTables();
 initializePaymentSettingsTable();
@@ -145,6 +151,7 @@ app.use("/api/schedule", scheduleRouter); //Navindu 2026/06/26
 app.use("/api/payments", paymentRouter);
 app.use("/api/notifications", notificationRouter);
 app.use("/api/admin", adminRouter);
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/uploads", express.static("uploads"));
 
 // Express Global Error Handler Middleware

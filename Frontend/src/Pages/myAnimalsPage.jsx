@@ -108,8 +108,9 @@ export default function MyAnimalsPage() {
   const getFileUrl = (url) => {
     if (!url) return "#";
     if (url.startsWith("http://") || url.startsWith("https://")) return url;
+    const backendUrl = (import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000').replace(/\/$/, "");
     const cleanPath = url.startsWith("/") ? url : `/${url}`;
-    return `${import.meta.env.VITE_BACKEND_URL}${cleanPath}`;
+    return `${backendUrl}${cleanPath}`;
   };
   // Load animals from backend
   const fetchAnimals = async () => {
