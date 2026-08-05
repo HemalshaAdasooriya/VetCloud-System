@@ -87,7 +87,7 @@ export default function UserClinics() {
                         lat: pLat,
                         lng: pLng,
                         distance: dist,
-                        foundWithin: 10,
+                        foundWithin: dist,
                     };
                 })
                 .sort((a, b) => parseFloat(a.distance) - parseFloat(b.distance));
@@ -524,9 +524,9 @@ export default function UserClinics() {
                                                 <span className="text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
                                                     {clinic.type}
                                                 </span>
-                                                {clinic.foundWithin > 5 && (
+                                                {clinic.distance && (
                                                     <span className="text-xs text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full border border-orange-200">
-                                                        {clinic.foundWithin}km radius
+                                                        {clinic.distance} km radius
                                                     </span>
                                                 )}
                                             </div>
