@@ -44,6 +44,30 @@ export default function MyAnimalsPage() {
   const [sortBy, setSortBy] = useState("name-asc");
   const [showFilterPanel, setShowFilterPanel] = useState(false);
 
+  // Helper function to format medical history notes cleanly
+  const formatNotesContent = (notesStr) => {
+    if (!notesStr) return "No notes available.";
+    let str = String(notesStr).trim();
+    if (str.includes('{') && str.includes('}')) {
+      try {
+        const jsonStart = str.indexOf('{');
+        const jsonEnd = str.lastIndexOf('}');
+        const jsonSub = str.substring(jsonStart, jsonEnd + 1);
+        const parsed = JSON.parse(jsonSub);
+        const cleanReason = parsed.notes || parsed.symptoms || parsed.reason || "";
+        const prefix = str.substring(0, jsonStart).replace(/\|\s*Notes:\s*$/, '').replace(/Notes:\s*$/, '').trim();
+        if (cleanReason) {
+          return prefix ? `${prefix} • Reason: ${cleanReason}` : cleanReason;
+        } else {
+          return prefix || "Veterinary Consultation Session";
+        }
+      } catch {
+        // Fallback
+      }
+    }
+    return str;
+  };
+
   // Helper functions for Age parsing and formatting
   const parseAge = (ageStr) => {
     if (!ageStr) return { years: 0, months: 0, days: 0 };
@@ -1172,7 +1196,7 @@ export default function MyAnimalsPage() {
                       </h4>
                       
                       <p className="text-xs text-slate-500 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100 font-medium">
-                        {record.notes}
+                        {formatNotesContent(record.notes)}
                       </p>
 
                       <div className="flex items-center justify-between gap-4 border-t border-slate-100/50 pt-2 mt-2">

@@ -104,12 +104,9 @@ export const getMedicalHistoryByAnimal = (animalId, callback) => {
                     WHEN a.consultation_type = 'chat' THEN 'Chat Consultation'
                     ELSE 'Consultation'
                 END as type,
-                COALESCE(NULLIF(a.reason, ''), 'Veterinary Consultation Session') as title,
-                COALESCE(v.fullName, CONCAT('Dr. ', vp.firstName, ' ', vp.lastName), 'Attending Veterinarian') as vet,
-                CONCAT(
-                    'Status: ', a.status,
-                    CASE WHEN a.reason IS NOT NULL AND a.reason != '' THEN CONCAT(' | Notes: ', a.reason) ELSE '' END
-                ) as notes
+                a.reason as raw_reason,
+                a.status,
+                COALESCE(v.fullName, CONCAT('Dr. ', vp.firstName, ' ', vp.lastName), 'Attending Veterinarian') as vet
             FROM appointments a
             LEFT JOIN veterinarians v ON a.veterinarian_id = v.id
             LEFT JOIN veterinarian_profiles vp ON a.veterinarian_id = vp.vet_id
@@ -123,9 +120,43 @@ export const getMedicalHistoryByAnimal = (animalId, callback) => {
                 return callback(null, historyResults || []);
             }
 
+            const formattedAppointments = (appointmentResults || []).map(apt => {
+                let cleanNotes = "";
+                if (apt.raw_reason) {
+                    try {
+                        const parsed = JSON.parse(apt.raw_reason);
+                        if (typeof parsed === 'object' && parsed !== null) {
+                            cleanNotes = parsed.notes || parsed.symptoms || parsed.reason || "";
+                        } else {
+                            cleanNotes = String(apt.raw_reason);
+                        }
+                    } catch {
+                        cleanNotes = String(apt.raw_reason);
+                    }
+                }
+
+                const title = cleanNotes 
+                    ? (cleanNotes.length > 50 ? `${cleanNotes.substring(0, 50)}...` : cleanNotes)
+                    : "Veterinary Consultation Session";
+
+                const formattedNotes = cleanNotes
+                    ? `Status: ${apt.status} • Reason: ${cleanNotes}`
+                    : `Status: ${apt.status}`;
+
+                return {
+                    id: `apt-${apt.appointment_id}`,
+                    animal_id: apt.animal_id,
+                    date: apt.date,
+                    type: apt.type,
+                    title: title,
+                    vet: apt.vet,
+                    notes: formattedNotes
+                };
+            });
+
             const combinedRecords = [
                 ...(historyResults || []),
-                ...(appointmentResults || [])
+                ...formattedAppointments
             ];
 
             callback(null, combinedRecords);

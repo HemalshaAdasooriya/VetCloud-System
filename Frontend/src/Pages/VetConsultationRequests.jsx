@@ -51,6 +51,30 @@ export default function VetConsultationRequests() {
     return `${backendUrl}${cleanPath}`;
   };
 
+  // Helper function to format medical history notes cleanly
+  const formatNotesContent = (notesStr) => {
+    if (!notesStr) return "No notes available.";
+    let str = String(notesStr).trim();
+    if (str.includes('{') && str.includes('}')) {
+      try {
+        const jsonStart = str.indexOf('{');
+        const jsonEnd = str.lastIndexOf('}');
+        const jsonSub = str.substring(jsonStart, jsonEnd + 1);
+        const parsed = JSON.parse(jsonSub);
+        const cleanReason = parsed.notes || parsed.symptoms || parsed.reason || "";
+        const prefix = str.substring(0, jsonStart).replace(/\|\s*Notes:\s*$/, '').replace(/Notes:\s*$/, '').trim();
+        if (cleanReason) {
+          return prefix ? `${prefix} • Reason: ${cleanReason}` : cleanReason;
+        } else {
+          return prefix || "Veterinary Consultation Session";
+        }
+      } catch {
+        // Fallback
+      }
+    }
+    return str;
+  };
+
   const [viewingHistoryModal, setViewingHistoryModal] = useState(false);
   const [selectedAnimalHistory, setSelectedAnimalHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -1590,7 +1614,7 @@ export default function VetConsultationRequests() {
                       </div>
                       <h4 className="font-extrabold text-slate-800 text-sm">{record.title}</h4>
                       <p className="text-xs text-slate-600 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100 font-medium">
-                        {record.notes}
+                        {formatNotesContent(record.notes)}
                       </p>
                       <div className="text-[11px] text-slate-400 font-medium pt-1">
                         Attending Veterinarian: <span className="font-semibold text-slate-600">{record.vet}</span>
