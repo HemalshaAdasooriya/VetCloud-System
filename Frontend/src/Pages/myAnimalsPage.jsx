@@ -17,13 +17,18 @@ import {
 import toast from "react-hot-toast";
 
 // Default high-quality images based on species
+const SPECIES_WEIGHT_LIMITS = {
+  Cattle: 3000,
+  Dog: 200,
+  Cat: 30,
+  Poultry: 10
+};
+
 const SPECIES_IMAGES = {
   Cattle: "https://images.unsplash.com/photo-1570042225831-d98fa7577f1e?auto=format&fit=crop&q=80&w=600",
   Dog: "https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&q=80&w=600",
   Poultry: "https://images.unsplash.com/photo-1548550023-2bdb3c5beed7?auto=format&fit=crop&q=80&w=600",
   Cat: "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?auto=format&fit=crop&q=80&w=600",
-  Horse: "https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&q=80&w=600",
-  Sheep: "https://images.unsplash.com/photo-1484557985045-edf25e08da73?auto=format&fit=crop&q=80&w=600",
   Other: "https://images.unsplash.com/photo-1535268647977-a403b69fc756?auto=format&fit=crop&q=80&w=600"
 };
 
@@ -128,17 +133,6 @@ export default function MyAnimalsPage() {
     fetchAnimals();
   }, [ownerId]);
 
-  useEffect(() => {
-    if (animals.length > 0 && location.state?.selectedAnimalId) {
-      const targetAnimalId = location.state.selectedAnimalId;
-      const animal = animals.find(a => a.id === targetAnimalId || String(a.id) === String(targetAnimalId));
-      if (animal) {
-        // Clear history state to prevent reopening on reload
-        window.history.replaceState({}, document.title);
-        handleOpenHistoryModal(animal);
-      }
-    }
-  }, [animals, location.state]);
 
   useEffect(() => {
     if (location.state?.openRegisterModal) {
@@ -395,8 +389,13 @@ export default function MyAnimalsPage() {
     }
 
     const wFloat = parseFloat(formWeight);
-    if (isNaN(wFloat) || wFloat <= 0 || wFloat > 150) {
-      toast.error("Maximum weight allowed is 150 kg (must be greater than 0)");
+    const maxLimit = SPECIES_WEIGHT_LIMITS[formSpecies] || null;
+    if (isNaN(wFloat) || wFloat <= 0 || (maxLimit !== null && wFloat > maxLimit)) {
+      if (maxLimit !== null) {
+        toast.error(`Maximum weight allowed for ${formSpecies} is ${maxLimit} kg (must be greater than 0)`);
+      } else {
+        toast.error("Weight must be a valid number greater than 0");
+      }
       return;
     }
 
@@ -620,8 +619,6 @@ export default function MyAnimalsPage() {
                 <option value="Dog">Dog</option>
                 <option value="Poultry">Poultry</option>
                 <option value="Cat">Cat</option>
-                <option value="Horse">Horse</option>
-                <option value="Sheep">Sheep</option>
               </select>
             </div>
 
@@ -669,7 +666,9 @@ export default function MyAnimalsPage() {
           {filteredAnimals.map((animal) => (
             <div 
               key={animal.id} 
-              className="bg-white rounded-2xl border border-slate-200/60 overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-1.5 transition-all duration-300 flex flex-col group relative"
+              onClick={() => handleOpenHistoryModal(animal)}
+              className="bg-white rounded-2xl border border-slate-200/60 overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-1.5 transition-all duration-300 flex flex-col group relative cursor-pointer"
+              title="Click to view medical history"
             >
               {/* Card Image */}
               <div className="h-44 w-full bg-slate-100 overflow-hidden relative">
@@ -695,7 +694,10 @@ export default function MyAnimalsPage() {
                 </span>
 
                 {/* Options button with dropdown actions */}
-                <div className="absolute top-4 right-4">
+                <div 
+                  className="absolute top-4 right-4 z-20"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <button 
                     onClick={() => setActiveMenuId(activeMenuId === animal.id ? null : animal.id)}
                     className="p-1.5 bg-white/90 hover:bg-white text-slate-600 rounded-full border border-slate-200 shadow-sm focus:outline-none hover:scale-105 active:scale-95 transition-all cursor-pointer"
@@ -708,18 +710,27 @@ export default function MyAnimalsPage() {
                     <>
                       <div 
                         className="fixed inset-0 z-10" 
-                        onClick={() => setActiveMenuId(null)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveMenuId(null);
+                        }}
                       />
                       <div className="absolute right-0 mt-2 w-44 bg-white border border-slate-200 rounded-xl shadow-lg py-1.5 z-20 animate-in fade-in slide-in-from-top-2 duration-150">
                         <button 
-                          onClick={() => handleOpenHistoryModal(animal)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenHistoryModal(animal);
+                          }}
                           className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
                         >
                           <FileText size={15} className="text-slate-400" />
                           Medical History
                         </button>
                         <button 
-                          onClick={() => handleOpenEditModal(animal)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenEditModal(animal);
+                          }}
                           className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
                         >
                           <Pencil size={15} className="text-slate-400" />
@@ -727,7 +738,10 @@ export default function MyAnimalsPage() {
                         </button>
                         <div className="border-t border-slate-100 my-1" />
                         <button 
-                          onClick={() => handleOpenDeleteConfirm(animal.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenDeleteConfirm(animal.id);
+                          }}
                           className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 cursor-pointer"
                         >
                           <Trash2 size={15} className="text-red-400" />
@@ -761,19 +775,7 @@ export default function MyAnimalsPage() {
                   </div>
                 </div>
 
-                {animal.health_report && (
-                  <div className="pt-1">
-                    <a
-                      href={animal.health_report.startsWith('/uploads') ? `${import.meta.env.VITE_BACKEND_URL}${animal.health_report}` : animal.health_report}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold transition-colors w-full justify-center border border-emerald-200"
-                    >
-                      <FileText size={14} />
-                      View Health Report / Vaccination Card
-                    </a>
-                  </div>
-                )}
+
 
                 <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
                   <span>Last Visit</span>
@@ -853,8 +855,6 @@ export default function MyAnimalsPage() {
                     <option value="Dog">Dog</option>
                     <option value="Poultry">Poultry</option>
                     <option value="Cat">Cat</option>
-                    <option value="Horse">Horse</option>
-                    <option value="Sheep">Sheep</option>
                     <option value="Other">Other</option>
                   </select>
                 </div>
@@ -922,7 +922,7 @@ export default function MyAnimalsPage() {
                     type="number" 
                     step="0.1"
                     min="0.1"
-                    max="150"
+                    max={SPECIES_WEIGHT_LIMITS[formSpecies] || undefined}
                     required 
                     placeholder="e.g. 45.5"
                     value={formWeight}
@@ -1091,6 +1091,29 @@ export default function MyAnimalsPage() {
 
             {/* Timeline Record content */}
             <div className="p-6 max-h-[70vh] overflow-y-auto space-y-6">
+              {/* Health Report / Vaccination Card Section */}
+              {selectedHistoryAnimal.health_report && (
+                <div className="bg-emerald-50/80 border border-emerald-200 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-emerald-100 text-emerald-700 rounded-lg shrink-0">
+                      <FileText size={20} />
+                    </div>
+                    <div>
+                      <h4 className="font-extrabold text-slate-800 text-sm">Health Report / Vaccination Card</h4>
+                      <p className="text-xs text-slate-500 font-medium">Uploaded record for {selectedHistoryAnimal.name}</p>
+                    </div>
+                  </div>
+                  <a
+                    href={selectedHistoryAnimal.health_report.startsWith('/uploads') ? `${import.meta.env.VITE_BACKEND_URL}${selectedHistoryAnimal.health_report}` : selectedHistoryAnimal.health_report}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs hover:shadow-md transition-all shrink-0 active:scale-95 cursor-pointer"
+                  >
+                    <FileText size={14} />
+                    View Health Report / Card
+                  </a>
+                </div>
+              )}
              {isLoadingHistory ? (
                 <div className="flex flex-col items-center justify-center py-10 space-y-3">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
