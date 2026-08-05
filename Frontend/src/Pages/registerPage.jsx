@@ -74,15 +74,40 @@ export default function RegisterPage() {
     // GOOGLE HANDLER
     const handleGoogleSuccess = async (credentialResponse) => {
         console.log("handleGoogleSuccess (register) triggered. credentialResponse:", credentialResponse);
+
+        // Validation for Veterinary Doctors: Contact Number and Professional Details are required for admin approval
+        if (role === 'vet') {
+            if (!phone) {
+                setSubmitMessage({ text: "Please enter your Contact Number before registering with Google.", isError: true });
+                toast.error("Contact Number is required for Veterinary Doctor registration.");
+                return;
+            }
+            if (!license || !specialization || !experience || !fee) {
+                setSubmitMessage({ text: "Please fill in all Professional Details (License Number, Specialization, Experience, Consultation Fee) before registering with Google.", isError: true });
+                toast.error("Professional details are required for administrator approval.");
+                return;
+            }
+        }
+
         setIsLoading(true);
         const backendRole = role === 'user' ? "Farmer/PetOwner" : "Veterinary Doctor";
 
         try {
             console.log("Sending token to backend at:", `${import.meta.env.VITE_BACKEND_URL}/api/users/google-login`);
+            const payload = {
+                token: credentialResponse.access_token,
+                role: backendRole,
+                contact_No: phone,
+                license_number: license,
+                specialization: specialization,
+                years_of_experience: experience,
+                consultation_fee: fee
+            };
+
             const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/google-login`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ token: credentialResponse.access_token, role: backendRole })
+                body: JSON.stringify(payload)
             });
             const data = await response.json();
             console.log("Backend response status:", response.status, "data:", data);
@@ -536,6 +561,12 @@ export default function RegisterPage() {
                                     <span className="px-4 bg-white text-slate-500 font-medium">Or continue with</span>
                                 </div>
                             </div>
+
+                            {role === 'vet' && (
+                                <p className="text-xs text-blue-700 bg-blue-50 border border-blue-200 p-3 rounded-xl text-center">
+                                    <strong>Note for Doctors:</strong> Please complete your Contact Number and Professional Details above before continuing with Google for administrator verification.
+                                </p>
+                            )}
 
                             <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
                                 <CustomGoogleButton

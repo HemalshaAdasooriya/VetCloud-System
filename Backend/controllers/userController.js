@@ -279,7 +279,7 @@ export async function loginUser(req, res) {
 
 // 2. GOOGLE LOGIN / REGISTRATION
 export async function googleLogin(req, res) {
-    const { token, role } = req.body;
+    const { token, role, contact_No, license_number, specialization, years_of_experience, consultation_fee } = req.body;
 
     try {
         let email, name, picture;
@@ -305,7 +305,7 @@ export async function googleLogin(req, res) {
         }
 
         // Notice we are now passing 'req' so we can read the device info
-        handleSocialLogin(req, res, email, name, picture, role, 'google');
+        handleSocialLogin(req, res, email, name, picture, role, 'google', { contact_No, license_number, specialization, years_of_experience, consultation_fee });
     } catch (error) {
         console.error("Google login verification failed:", error.response?.data || error.message || error);
         return res.status(401).json({ message: "Invalid Google Token" });
@@ -331,7 +331,7 @@ export async function facebookLogin(req, res) {
 }
 
 // --- Helper Function to avoid repeating code for Social Logins ---
-function handleSocialLogin(req, res, email, name, image, role, provider) {
+function handleSocialLogin(req, res, email, name, image, role, provider, extraDetails = {}) {
     const nameParts = name.split(" ");
     const splitFirstName = nameParts[0] || "";
     const splitLastName = nameParts.slice(1).join(" ") || "";
@@ -358,9 +358,11 @@ function handleSocialLogin(req, res, email, name, image, role, provider) {
             lastName: splitLastName,
             image,
             provider,
-            contact_No: "",
-            license_number: "TEMP-" + Math.random().toString(36).substring(2, 11).toUpperCase(),
-            specialization: "General"
+            contact_No: extraDetails.contact_No || "",
+            license_number: extraDetails.license_number || ("TEMP-" + Math.random().toString(36).substring(2, 11).toUpperCase()),
+            specialization: extraDetails.specialization || "General",
+            years_of_experience: extraDetails.years_of_experience || 0,
+            consultation_fee: extraDetails.consultation_fee || 0
         };
 
         const callback = (regErr, result) => {
