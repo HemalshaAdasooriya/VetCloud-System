@@ -20,13 +20,18 @@ import {
 import { Button, Card, Input, Badge } from '../components/Ui/ui';
 
 // Default high-quality images based on species
+const SPECIES_WEIGHT_LIMITS = {
+  Cattle: 3000,
+  Dog: 200,
+  Cat: 30,
+  Poultry: 10
+};
+
 const SPECIES_IMAGES = {
   Cattle: "https://images.unsplash.com/photo-1570042225831-d98fa7577f1e?auto=format&fit=crop&q=80&w=600",
   Dog: "https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&q=80&w=600",
   Poultry: "https://images.unsplash.com/photo-1548550023-2bdb3c5beed7?auto=format&fit=crop&q=80&w=600",
   Cat: "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?auto=format&fit=crop&q=80&w=600",
-  Horse: "https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&q=80&w=600",
-  Sheep: "https://images.unsplash.com/photo-1484557985045-edf25e08da73?auto=format&fit=crop&q=80&w=600",
   Other: "https://images.unsplash.com/photo-1535268647977-a403b69fc756?auto=format&fit=crop&q=80&w=600"
 };
 
@@ -324,8 +329,13 @@ export default function Scheduling() {
     }
 
     const wFloat = parseFloat(addAnimalForm.weight);
-    if (isNaN(wFloat) || wFloat <= 0 || wFloat > 150) {
-      toast.error("Maximum weight allowed is 150 kg (must be greater than 0)");
+    const maxLimit = SPECIES_WEIGHT_LIMITS[addAnimalForm.species] || null;
+    if (isNaN(wFloat) || wFloat <= 0 || (maxLimit !== null && wFloat > maxLimit)) {
+      if (maxLimit !== null) {
+        toast.error(`Maximum weight allowed for ${addAnimalForm.species} is ${maxLimit} kg (must be greater than 0)`);
+      } else {
+        toast.error("Weight must be a valid number greater than 0");
+      }
       return;
     }
 
@@ -1263,8 +1273,6 @@ export default function Scheduling() {
                     <option value="Cattle">Cattle</option>
                     <option value="Dog">Dog</option>
                     <option value="Cat">Cat</option>
-                    <option value="Horse">Horse</option>
-                    <option value="Sheep">Sheep</option>
                     <option value="Poultry">Poultry</option>
                     <option value="Other">Other</option>
                   </select>
@@ -1334,7 +1342,7 @@ export default function Scheduling() {
                     type="number"
                     step="0.1"
                     min="0.1"
-                    max="150"
+                    max={SPECIES_WEIGHT_LIMITS[addAnimalForm.species] || undefined}
                     name="weight"
                     value={addAnimalForm.weight}
                     onChange={handleAddAnimalChange}
