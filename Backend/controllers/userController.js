@@ -1200,9 +1200,12 @@ export const revokeOtherSessions = (req, res) => {
 //Navindu 2026/06/10 ... get vet details for scheduling appointments
 export const getAllVets = (req, res) => {
     const sql = `
-        SELECT v.id, v.fullName, v.specialization, v.years_of_experience, v.consultation_fee, v.image,
-               COALESCE(ROUND(AVG(f.rating), 1), 5.0) AS rating
+        SELECT v.id, v.fullName, v.email, v.contact_No, v.license_number, v.specialization, v.years_of_experience, v.consultation_fee, v.image,
+               vp.bio, vp.professional_title,
+               COALESCE(ROUND(AVG(f.rating), 1), 5.0) AS rating,
+               COUNT(f.id) AS total_reviews
         FROM veterinarians v
+        LEFT JOIN veterinarian_profiles vp ON v.id = vp.vet_id
         LEFT JOIN feedbacks f ON v.id = f.veterinarian_id
         WHERE v.is_Active = 1
         GROUP BY v.id
@@ -1216,9 +1219,18 @@ export const getAllVets = (req, res) => {
         const vets = results.map(v => ({
             id: v.id,
             name: `Dr. ${v.fullName}`,
-            spec: v.specialization,
-            exp: `${v.years_of_experience} Years`,
-            rating: parseFloat(v.rating),
+            fullName: v.fullName,
+            email: v.email || "N/A",
+            contactNo: v.contact_No || "N/A",
+            licenseNumber: v.license_number || "VET-LIC-REG",
+            spec: v.specialization || "General Veterinary Medicine",
+            exp: `${v.years_of_experience || 0} Years`,
+            yearsOfExperience: v.years_of_experience || 0,
+            fee: v.consultation_fee !== undefined ? v.consultation_fee : 0,
+            bio: v.bio || "Dedicated veterinary specialist providing comprehensive diagnostic, preventative, and clinical surgical care for farm animals and domestic pets.",
+            professionalTitle: v.professional_title || "Senior Veterinary Specialist",
+            rating: parseFloat(v.rating) || 5.0,
+            totalReviews: v.total_reviews || 0,
             available: true,
             image: v.image || "/default.jpg"
         }));
