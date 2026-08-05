@@ -1,6 +1,23 @@
 // controllers/adminController.js
 import db from "../config/db.js";
 import bcrypt from "bcryptjs";
+import "../models/Disease.js";
+
+// Safe JSON parser helper for DB columns
+const safeJsonParse = (val) => {
+    if (!val) return [];
+    if (Array.isArray(val)) return val;
+    if (typeof val === 'object') return val;
+    try {
+        const parsed = JSON.parse(val);
+        return Array.isArray(parsed) ? parsed : [parsed];
+    } catch (e) {
+        if (typeof val === 'string') {
+            return val.split(',').map(s => s.trim()).filter(Boolean);
+        }
+        return [];
+    }
+};
 
 // Helper to run database queries with Promises
 const queryPromise = (sql, params = []) => {
@@ -215,10 +232,10 @@ export const getDiseases = async (req, res) => {
         // Parse JSON fields
         const parsedDiseases = diseases.map(d => ({
             ...d,
-            species: d.species ? JSON.parse(d.species) : [],
-            clinicalSigns: d.clinicalSigns ? JSON.parse(d.clinicalSigns) : [],
-            preventionSteps: d.preventionSteps ? JSON.parse(d.preventionSteps) : [],
-            treatmentSteps: d.treatmentSteps ? JSON.parse(d.treatmentSteps) : []
+            species: safeJsonParse(d.species),
+            clinicalSigns: safeJsonParse(d.clinicalSigns),
+            preventionSteps: safeJsonParse(d.preventionSteps),
+            treatmentSteps: safeJsonParse(d.treatmentSteps)
         }));
         res.status(200).json(parsedDiseases);
     } catch (error) {

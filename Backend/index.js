@@ -13,6 +13,7 @@ import paymentRouter from "./routes/paymentRouter.js";
 import vetAppointmentRouter from "./routes/vetAppointmentRouter.js";
 import { initializeNotificationTables } from "./models/Notification.js";
 import { initializePaymentSettingsTable } from "./models/Setting.js";
+import { initializeDiseasesTable } from "./models/Disease.js";
 import notificationRouter from "./routes/notificationRouter.js";
 import { startReminderScheduler } from "./config/scheduler.js";
 import adminRouter from "./routes/adminRouter.js";
@@ -22,6 +23,7 @@ import { seedAdminAuto } from "./seedAdmin.js";
 // Create notifications table and seed admin on startup
 initializeNotificationTables();
 initializePaymentSettingsTable();
+initializeDiseasesTable();
 seedAdminAuto();
 
 const app = express();
