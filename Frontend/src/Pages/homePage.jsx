@@ -6,7 +6,6 @@ import Navigation from "../layouts/navigation";
 import Footer from "../layouts/footer";
 import { FaInstagram } from "react-icons/fa6";
 import { BsFacebook, BsInstagram, BsTwitter } from "react-icons/bs";
-// eslint-disable-next-line no-unused-vars
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 
@@ -28,11 +27,26 @@ export default function HomePage() {
     };
 
     useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         fetchTestimonials();
     }, []);
 
-    const defaultTestimonials = [];
+    const defaultTestimonials = [
+        {
+            comment: "VetCloud saved my calf's life. Being able to video call a vet at 2 AM from my barn was incredible.",
+            ownerName: "John Davis", ownerRole: "Dairy Farmer", rating: 5,
+            ownerImage: "https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=1974&auto=format&fit=crop"
+        },
+        {
+            comment: "I used to drive 45 minutes to the nearest clinic for basic checkups. Now I just use the app!",
+            ownerName: "Sarah Jenkins", ownerRole: "Pet Owner", rating: 5,
+            ownerImage: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=1976&auto=format&fit=crop"
+        },
+        {
+            comment: "The disease database helps me spot early signs of illness in my flock before it spreads.",
+            ownerName: "Miguel Torres", ownerRole: "Poultry Farmer", rating: 5,
+            ownerImage: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=1974&auto=format&fit=crop"
+        }
+    ];
 
     const displayTestimonials = testimonials.length > 0 ? testimonials : defaultTestimonials;
 
@@ -51,18 +65,7 @@ export default function HomePage() {
                 <div className="container mx-auto px-4">
                     <div className="relative overflow-hidden bg-gradient-to-br from-cyan-50 to-green-200 rounded-[60px] p-8 lg:p-16 shadow-xl border border-slate-200">
                         
-                        {/* Social Icons - Right Side */}
-                        <div className="hidden lg:flex absolute right-8 top-1/2 -translate-y-1/2 flex-col gap-4 z-20">
-                            <Link to="#" className="w-10 h-10 rounded-full bg-slate-100 shadow-md flex items-center justify-center text-slate-600 hover:text-green-600 hover:bg-green-50 hover:shadow-lg transition-all">
-                                <BsInstagram size={20} />
-                            </Link>
-                            <Link to="#" className="w-10 h-10 rounded-full bg-slate-100 shadow-md flex items-center justify-center text-slate-600 hover:text-green-600 hover:bg-green-50 hover:shadow-lg transition-all">
-                                <BsTwitter size={20} />
-                            </Link>
-                            <Link to="#" className="w-10 h-10 rounded-full bg-slate-100 shadow-md flex items-center justify-center text-slate-600 hover:text-green-600 hover:bg-green-50 hover:shadow-lg transition-all">
-                                <BsFacebook size={20} />
-                            </Link>
-                        </div>
+
 
                         <div className="grid lg:grid-cols-2 gap-12 items-center relative">
                             {/* Left Content */}
@@ -81,14 +84,7 @@ export default function HomePage() {
                                     Animal care starts in the animal's condition, what treatment requires such as advance service, best medicine.
                                 </p>
 
-                                <div className="flex items-center gap-4 mb-10">
-                                    <Button size="lg" className="bg-green-600 hover:bg-green-700 text-white shadow-lg">
-                                        Read More
-                                    </Button>
-                                    <button className="w-14 h-14 rounded-full bg-slate-100 shadow-lg flex items-center justify-center text-green-600 hover:bg-green-50 transition-all">
-                                        <Play size={24} fill="currentColor" />
-                                    </button>
-                                </div>
+
 
                                {/* Service Icons */}
                                 <div className="flex items-center gap-4">
@@ -115,7 +111,7 @@ export default function HomePage() {
                                     {/* Image Container */}
                                     <div className="relative rounded-[80px] overflow-hidden shadow-2xl">
                                         <img
-                                        src="https://fmuznyrfnjdwxbqsdijw.supabase.co/storage/v1/object/public/uploads/home.jpg"
+                                        src="/public/home.jpg"
                                         alt="Veterinarian with Dog"
                                         className="w-full h-[450px] object-cover"
                                         />
@@ -151,7 +147,7 @@ export default function HomePage() {
                             <Stethoscope size={50} className="text-green-600" />
                         </div>
                         <div className="absolute bottom-50 left-40 opacity-15">
-                            <img src="https://fmuznyrfnjdwxbqsdijw.supabase.co/storage/v1/object/public/uploads/Logo.png" alt="logo" className="w-100 h-65 object-cover" />
+                            <img src="/public/Logo.png" alt="logo" className="w-100 h-65 object-cover" />
                         </div>
                     </div>
                 </div>
@@ -230,7 +226,6 @@ export default function HomePage() {
                             </li>
                         ))}
                         </ul>
-                        <Button variant="primary" size="lg">Read Our Story</Button>
 
                         {/* Decorative Elements */}
                         <div className="absolute -top-10 -left-10 w-24 h-24 bg-green-600 rounded-full opacity-20 animate-pulse"></div>
@@ -238,7 +233,7 @@ export default function HomePage() {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         {/* <img src="" alt="Cows on farm" className="rounded-2xl h-64 object-cover w-full" /> https://images.unsplash.com/photo-1576201836106-db1758fd1c97?q=80&w=2070&auto=format&fit=crop*/}
-                        <img src="https://fmuznyrfnjdwxbqsdijw.supabase.co/storage/v1/object/public/uploads/dog%20in%20field.png" alt="Vet examining dog" className="absolute right-0 bottom-0 rounded-2xl h-full w-90 object-cover translate-y-8 shadow-lg" />
+                        <img src="/public/dog in field.png" alt="Vet examining dog" className="absolute right-0 bottom-0 rounded-2xl h-full w-90 object-cover translate-y-8 shadow-lg" />
                     </div>
                 </div>
             </section>
