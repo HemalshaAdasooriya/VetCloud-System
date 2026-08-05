@@ -854,9 +854,9 @@ export const updateUserProfile = (req, res) => {
                 // If email exists, ensure it doesn't belong to a DIFFERENT account
                 if (results && results.length > 0) {
                     const currentRoleKey = (userRole === "Farmer/PetOwner" || userRole === "farmer") ? "farmer" : "doctor";
-                    getUserByIdAndRole(userId, currentRoleKey, (errCurr, currUserResults) => {
-                        if (!errCurr && currUserResults && currUserResults.length > 0) {
-                            const currentUserEmail = String(currUserResults[0].email || '').trim().toLowerCase();
+                    getUserByIdAndRole(userId, currentRoleKey, (errCurr, currUser) => {
+                        if (!errCurr && currUser) {
+                            const currentUserEmail = String(currUser.email || '').trim().toLowerCase();
                             if (currentUserEmail !== cleanNewEmail) {
                                 return res.status(400).json({
                                     message: "An account with this email address is already registered. A single email address cannot be used for both Doctor and Farmer accounts."
