@@ -652,7 +652,7 @@ export default function FarmerDashboard() {
                   <div className="grid grid-cols-3 gap-2">
                     <div>
                       <span className="text-[11px] text-slate-400 font-medium block mb-1">Years</span>
-                      <input 
+                      <input
                         type="number"
                         min="0"
                         max="100"
@@ -664,7 +664,7 @@ export default function FarmerDashboard() {
                     </div>
                     <div>
                       <span className="text-[11px] text-slate-400 font-medium block mb-1">Months</span>
-                      <input 
+                      <input
                         type="number"
                         min="0"
                         max="11"
@@ -676,7 +676,7 @@ export default function FarmerDashboard() {
                     </div>
                     <div>
                       <span className="text-[11px] text-slate-400 font-medium block mb-1">Days</span>
-                      <input 
+                      <input
                         type="number"
                         min="0"
                         max="31"
@@ -723,8 +723,8 @@ export default function FarmerDashboard() {
                 <div className="col-span-2 space-y-1.5">
                   <label className="text-xs font-semibold text-slate-500">Health Report / Vaccination Card</label>
                   <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-                    <input 
-                      type="file" 
+                    <input
+                      type="file"
                       accept=".pdf,image/*,.doc,.docx"
                       onChange={(e) => {
                         if (e.target.files && e.target.files[0]) {
@@ -735,7 +735,7 @@ export default function FarmerDashboard() {
                       className="hidden"
                     />
                     <div className="flex items-center gap-3">
-                      <label 
+                      <label
                         htmlFor="healthReportUploadDashboard"
                         className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 rounded-lg text-xs font-bold shadow-xs cursor-pointer active:scale-95 transition-all"
                       >
@@ -756,9 +756,9 @@ export default function FarmerDashboard() {
                       ) : (formHealthReport ? (
                         <div className="flex items-center gap-2 text-xs text-emerald-600 font-medium">
                           <span>Report Uploaded</span>
-                          <a 
+                          <a
                             href={getFileUrl(formHealthReport)}
-                            target="_blank" 
+                            target="_blank"
                             rel="noopener noreferrer"
                             className="underline text-emerald-700 font-bold"
                           >
