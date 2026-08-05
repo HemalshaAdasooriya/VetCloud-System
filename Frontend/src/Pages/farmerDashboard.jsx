@@ -583,16 +583,16 @@ export default function FarmerDashboard() {
       </div>
 
       {/* 3. Register Animal Modal Overlay */}
-      {showFormModal && (
+      {showRegisterModal && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-lg rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             {/* Modal Header */}
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
               <h3 className="font-extrabold text-slate-800 text-lg">
-                {editingAnimal ? `Edit Profile: ${editingAnimal.name}` : "Register New Animal"}
+                Register New Animal
               </h3>
               <button
-                onClick={() => setShowFormModal(false)}
+                onClick={() => setShowRegisterModal(false)}
                 className="p-1 hover:bg-slate-100 text-slate-400 hover:text-slate-600 rounded-lg transition-colors cursor-pointer"
               >
                 <X size={18} />
@@ -627,6 +627,8 @@ export default function FarmerDashboard() {
                     <option value="Dog">Dog</option>
                     <option value="Poultry">Poultry</option>
                     <option value="Cat">Cat</option>
+                    <option value="Horse">Horse</option>
+                    <option value="Sheep">Sheep</option>
                     <option value="Other">Other</option>
                   </select>
                 </div>
@@ -729,12 +731,12 @@ export default function FarmerDashboard() {
                           setFormHealthReportFile(e.target.files[0]);
                         }
                       }}
-                      id="healthReportUpload"
+                      id="healthReportUploadDashboard"
                       className="hidden"
                     />
                     <div className="flex items-center gap-3">
                       <label
-                        htmlFor="healthReportUpload"
+                        htmlFor="healthReportUploadDashboard"
                         className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 rounded-lg text-xs font-bold shadow-xs cursor-pointer active:scale-95 transition-all"
                       >
                         <FileText size={14} />
@@ -794,11 +796,11 @@ export default function FarmerDashboard() {
                             setFormImageFile(e.target.files[0]);
                           }
                         }}
-                        id="animalImageUpload"
+                        id="animalImageUploadDashboard"
                         className="hidden"
                       />
                       <label
-                        htmlFor="animalImageUpload"
+                        htmlFor="animalImageUploadDashboard"
                         className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 rounded-lg text-xs font-bold shadow-xs cursor-pointer active:scale-95 transition-all"
                       >
                         Upload Photo
@@ -822,22 +824,24 @@ export default function FarmerDashboard() {
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 mt-6">
                 <button
                   type="button"
-                  onClick={() => setShowFormModal(false)}
+                  onClick={() => setShowRegisterModal(false)}
                   className="px-5 py-2.5 rounded-lg border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 active:scale-95 transition-all cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-lg bg-green-600 hover:bg-green-700 active:scale-95 text-white text-sm font-semibold shadow-md shadow-green-50 hover:shadow-lg transition-all cursor-pointer"
+                  disabled={isSubmitting}
+                  className="px-5 py-2.5 rounded-lg bg-green-600 hover:bg-green-700 active:scale-95 text-white text-sm font-semibold shadow-md shadow-green-50 hover:shadow-lg transition-all cursor-pointer disabled:opacity-50"
                 >
-                  Save Profile
+                  {isSubmitting ? "Saving..." : "Save Profile"}
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
     </div>
   );
 }
