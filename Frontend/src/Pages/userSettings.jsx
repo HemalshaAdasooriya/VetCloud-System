@@ -613,8 +613,8 @@ export default function UserSettings() {
                     <button
                         onClick={() => setActiveTab('profile')}
                         className={`flex items-center gap-2 pb-3 text-sm font-semibold border-b-2 transition-all cursor-pointer ${activeTab === 'profile'
-                                ? 'border-emerald-500 text-emerald-600'
-                                : 'border-transparent text-slate-400 hover:text-slate-600'
+                            ? 'border-emerald-500 text-emerald-600'
+                            : 'border-transparent text-slate-400 hover:text-slate-600'
                             }`}
                     >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -625,8 +625,8 @@ export default function UserSettings() {
                     <button
                         onClick={() => setActiveTab('security')}
                         className={`flex items-center gap-2 pb-3 text-sm font-semibold border-b-2 transition-all cursor-pointer ${activeTab === 'security'
-                                ? 'border-red-500 text-red-500'
-                                : 'border-transparent text-slate-400 hover:text-slate-600'
+                            ? 'border-red-500 text-red-500'
+                            : 'border-transparent text-slate-400 hover:text-slate-600'
                             }`}
                     >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -925,10 +925,10 @@ export default function UserSettings() {
                                             value={passwordData.newPassword}
                                             onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
                                             className={`w-full px-4 py-3 rounded-xl border bg-slate-50/30 focus:bg-white outline-hidden transition-all text-sm font-medium text-slate-700 placeholder:text-slate-300 ${passwordData.newPassword
-                                                    ? passwordStrength.isValid
-                                                        ? 'border-emerald-200 focus:border-emerald-500 focus:ring-emerald-500/20'
-                                                        : 'border-amber-200 focus:border-amber-500 focus:ring-amber-500/20'
-                                                    : 'border-slate-100 focus:border-emerald-500 focus:ring-emerald-500/20'
+                                                ? passwordStrength.isValid
+                                                    ? 'border-emerald-200 focus:border-emerald-500 focus:ring-emerald-500/20'
+                                                    : 'border-amber-200 focus:border-amber-500 focus:ring-amber-500/20'
+                                                : 'border-slate-100 focus:border-emerald-500 focus:ring-emerald-500/20'
                                                 }`}
                                         />
                                         {/* Password criteria checklist */}
@@ -979,10 +979,10 @@ export default function UserSettings() {
                                             value={passwordData.confirmPassword}
                                             onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
                                             className={`w-full px-4 py-3 rounded-xl border bg-slate-50/30 focus:bg-white outline-hidden transition-all text-sm font-medium text-slate-700 placeholder:text-slate-300 ${passwordData.confirmPassword
-                                                    ? passwordData.newPassword === passwordData.confirmPassword
-                                                        ? 'border-emerald-200 focus:border-emerald-500 focus:ring-emerald-500/20'
-                                                        : 'border-red-200 focus:border-red-500 focus:ring-red-500/20'
-                                                    : 'border-slate-100 focus:border-emerald-500 focus:ring-emerald-500/20'
+                                                ? passwordData.newPassword === passwordData.confirmPassword
+                                                    ? 'border-emerald-200 focus:border-emerald-500 focus:ring-emerald-500/20'
+                                                    : 'border-red-200 focus:border-red-500 focus:ring-red-500/20'
+                                                : 'border-slate-100 focus:border-emerald-500 focus:ring-emerald-500/20'
                                                 }`}
                                         />
                                         {passwordData.confirmPassword && passwordData.newPassword !== passwordData.confirmPassword && (
@@ -998,8 +998,8 @@ export default function UserSettings() {
                                             type="submit"
                                             disabled={!passwordStrength.isValid || passwordData.newPassword !== passwordData.confirmPassword}
                                             className={`px-6 py-2.5 rounded-xl text-sm font-bold text-white shadow-md transition-all cursor-pointer ${passwordStrength.isValid && passwordData.newPassword === passwordData.confirmPassword
-                                                    ? 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/10 hover:shadow-emerald-500/20'
-                                                    : 'bg-slate-300 shadow-none cursor-not-allowed'
+                                                ? 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/10 hover:shadow-emerald-500/20'
+                                                : 'bg-slate-300 shadow-none cursor-not-allowed'
                                                 }`}
                                         >
                                             Update Password
@@ -1040,8 +1040,8 @@ export default function UserSettings() {
                                             type="button"
                                             onClick={handleEnable2FA}
                                             className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer ${is2FAEnabled
-                                                    ? 'border border-red-200 text-red-500 bg-white hover:bg-red-50/50'
-                                                    : 'border border-slate-200 text-slate-700 bg-white hover:bg-slate-50'
+                                                ? 'border border-red-200 text-red-500 bg-white hover:bg-red-50/50'
+                                                : 'border border-slate-200 text-slate-700 bg-white hover:bg-slate-50'
                                                 }`}
                                         >
                                             {is2FAEnabled ? 'Disable Two-Factor Auth' : 'Enable Two-Factor Authentication'}
@@ -1124,17 +1124,18 @@ export default function UserSettings() {
                                 </div>
                             </div>
                         </div>
-            </div>
+                    ) : null}
+                </div>
             </main>
 
             {/* Floating interactive Toast Alert */}
             {toast && (
                 <div className="fixed bottom-6 right-6 z-50 animate-toast-slide-in">
                     <div className={`px-4 py-3.5 rounded-2xl shadow-xl flex items-center gap-3 border ${toast.type === 'error'
-                            ? 'bg-red-50 border-red-100 text-red-800'
-                            : toast.type === 'info'
-                                ? 'bg-slate-800 border-slate-700 text-white'
-                                : 'bg-emerald-50 border-emerald-100 text-emerald-800'
+                        ? 'bg-red-50 border-red-100 text-red-800'
+                        : toast.type === 'info'
+                            ? 'bg-slate-800 border-slate-700 text-white'
+                            : 'bg-emerald-50 border-emerald-100 text-emerald-800'
                         }`}>
                         <span className="shrink-0">
                             {toast.type === 'error' ? (
