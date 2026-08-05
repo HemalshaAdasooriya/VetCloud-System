@@ -86,10 +86,51 @@ export const deleteAnimal = (id, callback) => {
     });
 };
 
-// Fetch medical histories for an animal
+// Fetch medical histories & real consultations for an animal
 export const getMedicalHistoryByAnimal = (animalId, callback) => {
-    const sql = "SELECT * FROM animal_medical_histories WHERE animal_id = ? ORDER BY id DESC";
-    db.query(sql, [animalId], callback);
+    const medicalHistorySql = "SELECT * FROM animal_medical_histories WHERE animal_id = ? ORDER BY id DESC";
+    
+    db.query(medicalHistorySql, [animalId], (err, historyResults) => {
+        if (err) return callback(err, null);
+
+        // Fetch real consultations/appointments from appointments table
+        const appointmentsSql = `
+            SELECT 
+                a.id as appointment_id,
+                a.animal_id,
+                DATE_FORMAT(a.created_at, '%d %b, %Y') as date,
+                CASE 
+                    WHEN a.consultation_type = 'video' THEN 'Video Consultation'
+                    WHEN a.consultation_type = 'chat' THEN 'Chat Consultation'
+                    ELSE 'Consultation'
+                END as type,
+                COALESCE(NULLIF(a.reason, ''), 'Veterinary Consultation Session') as title,
+                COALESCE(v.fullName, CONCAT('Dr. ', vp.firstName, ' ', vp.lastName), 'Attending Veterinarian') as vet,
+                CONCAT(
+                    'Status: ', a.status,
+                    CASE WHEN a.reason IS NOT NULL AND a.reason != '' THEN CONCAT(' | Notes: ', a.reason) ELSE '' END
+                ) as notes
+            FROM appointments a
+            LEFT JOIN veterinarians v ON a.veterinarian_id = v.id
+            LEFT JOIN veterinarian_profiles vp ON a.veterinarian_id = vp.vet_id
+            WHERE a.animal_id = ?
+            ORDER BY a.created_at DESC
+        `;
+
+        db.query(appointmentsSql, [animalId], (aptErr, appointmentResults) => {
+            if (aptErr) {
+                console.error("Error fetching appointments for history:", aptErr);
+                return callback(null, historyResults || []);
+            }
+
+            const combinedRecords = [
+                ...(historyResults || []),
+                ...(appointmentResults || [])
+            ];
+
+            callback(null, combinedRecords);
+        });
+    });
 };
 
 // Seed default history helper for standard species
