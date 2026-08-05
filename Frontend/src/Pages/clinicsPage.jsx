@@ -479,7 +479,7 @@ export default function ClinicsPage() {
                                                 </span>
                                                 {clinic.distance && (
                                                     <span className="text-xs text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full border border-orange-200">
-                                                        {clinic.distance} km radius
+                                                        {clinic.distance} km
                                                     </span>
                                                 )}
                                             </div>
