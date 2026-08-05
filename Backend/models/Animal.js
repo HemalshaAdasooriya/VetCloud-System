@@ -1,16 +1,12 @@
 // models/Animal.js
 import db from "../config/db.js";
 
-// Ensure health_report column exists and is LONGTEXT in animals table
+// Ensure health_report column exists in animals table
 db.query("SHOW COLUMNS FROM animals LIKE 'health_report'", (err, results) => {
     if (!err && results && results.length === 0) {
-        db.query("ALTER TABLE animals ADD COLUMN health_report LONGTEXT NULL", (alterErr) => {
+        db.query("ALTER TABLE animals ADD COLUMN health_report TEXT NULL", (alterErr) => {
             if (alterErr) console.error("Error adding health_report column:", alterErr.message);
-            else console.log("Added health_report LONGTEXT column to animals table.");
-        });
-    } else if (!err && results && results.length > 0) {
-        db.query("ALTER TABLE animals MODIFY COLUMN health_report LONGTEXT NULL", (alterErr) => {
-            if (alterErr) console.error("Error modifying health_report column:", alterErr.message);
+            else console.log("Added health_report column to animals table.");
         });
     }
 });

@@ -36,15 +36,6 @@ export default function MyAnimalsPage() {
   const location = useLocation();
   const [animals, setAnimals] = useState([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
-  // Helper to normalize file upload URLs and Base64 Data URLs
-  const getFileUrl = (url) => {
-    if (!url) return "#";
-    if (url.startsWith("data:") || url.startsWith("http://") || url.startsWith("https://")) return url;
-    const backendUrl = (import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000').replace(/\/$/, "");
-    const cleanPath = url.startsWith("/") ? url : `/${url}`;
-    return `${backendUrl}${cleanPath}`;
-  };
-
   const [selectedAnimalHistory, setSelectedAnimalHistory] = useState([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -1158,7 +1149,7 @@ export default function MyAnimalsPage() {
                   </div>
 
                   {/* Inline Image Preview if file is an image */}
-                  {(/\.(jpg|jpeg|png|webp|gif)$/i.test(selectedHistoryAnimal.health_report) || selectedHistoryAnimal.health_report.startsWith('data:image/')) && (
+                  {/\.(jpg|jpeg|png|webp|gif)$/i.test(selectedHistoryAnimal.health_report) && (
                     <div className="mt-2 pt-3 border-t border-emerald-200/60 flex justify-center">
                       <a 
                         href={getFileUrl(selectedHistoryAnimal.health_report)}
