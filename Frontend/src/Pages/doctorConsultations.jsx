@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { 
   Clock, CheckCircle2, XCircle, AlertCircle, FileText, 
@@ -7,22 +7,24 @@ import {
   HourglassIcon, Stethoscope, ArrowLeft, Paperclip, MessageSquare,
   Mic, MicOff, VideoOff, Monitor, Send, X, MessageCircle, Loader2
 } from 'lucide-react';
-import { Button, Card, Badge, Textarea } from '../components/Ui/ui';
+import { Button, Card, Badge, Textarea } from '../components/ui/ui';
 import ChatConsultationRoom from '../components/consultation/ChatConsultationRoom';
 import ClientChatDrawer from '../components/consultation/ClientChatDrawer';
 import JitsiVideoCall from '../components/consultation/JitsiVideoCall';
 
 export default function DoctorConsultations() {
+  const navigate = useNavigate();
   const location = useLocation();
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
-  
-  // eslint-disable-next-line no-unused-vars
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('upcoming'); // 'upcoming', 'completed', 'cancelled'
+  const [selectedRequest, setSelectedRequest] = useState(null);
   const [selectedRequestDetails, setSelectedRequestDetails] = useState(null);
+  const [cancelReason, setCancelReason] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const [selectedSlotId, setSelectedSlotId] = useState({});
   const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
   const [completingAptId, setCompletingAptId] = useState(null);
   const [prescriptionText, setPrescriptionText] = useState("");
@@ -31,29 +33,20 @@ export default function DoctorConsultations() {
   const [showVideoRoom, setShowVideoRoom] = useState(false);
   const [showChatRoom, setShowChatRoom] = useState(false);
   const [showClientChatDrawer, setShowClientChatDrawer] = useState(false);
-  // eslint-disable-next-line no-unused-vars
-  const [chatInput, setChatInput] = useState('');
-  // eslint-disable-next-line no-unused-vars
-  const [chatMessages, setChatMessages] = useState([]);
-  // eslint-disable-next-line no-unused-vars
+  const [isVideoMuted, setIsVideoMuted] = useState(false);
+  const [isVideoPaused, setIsVideoPaused] = useState(false);
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
+  const [showChatSidebar, setShowChatSidebar] = useState(false);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
 
   const getVetId = () => {
-    const userId = localStorage.getItem('userId');
-    if (userId) return userId;
-    try {
-      const userStr = localStorage.getItem('user');
-      if (userStr) {
-        const u = JSON.parse(userStr);
-        return u.id || u.vetId || u.user_id || null;
-      }
-    } catch (e) {
-      console.error(e);
-    }
-    return null;
+    return localStorage.getItem('userId');
   };
 
-  // const vetId = getVetId();
+  const vetId = getVetId();
 
   const getDoctorName = () => {
     try {
@@ -72,16 +65,26 @@ export default function DoctorConsultations() {
     fetchAppointments();
   }, []);
 
-  // Auto-select and join call/chat from navigation state (e.g. from Dashboard)
+  // Auto-select and join call/chat or view pending request from navigation state
   useEffect(() => {
-    if (location.state?.appointmentId && appointments.length > 0) {
+    if (location.state?.activeTab) {
+      setActiveTab(location.state.activeTab);
+    }
+    if (location.state?.requestId && appointments.length > 0) {
+      const matched = appointments.find(a => a.id === location.state.requestId || a.id === location.state.appointmentId);
+      if (matched) {
+        setSelectedRequestDetails(matched);
+      }
+    } else if (location.state?.appointmentId && appointments.length > 0) {
       const matched = appointments.find(a => a.id === location.state.appointmentId);
       if (matched) {
         setSelectedRequestDetails(matched);
         if (location.state?.startCall) {
           setShowVideoRoom(true);
+          window.history.replaceState({}, document.title);
         } else if (location.state?.startChat) {
           setShowChatRoom(true);
+          window.history.replaceState({}, document.title);
         }
       }
     }
@@ -101,8 +104,25 @@ export default function DoctorConsultations() {
         `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/vet-appointments/vet/${vetId}`
       );
       const data = response.data || [];
-      console.log('📊 Doctor Consultations loaded:', data);
-      setAppointments(data);
+
+      // Fetch slots for pending appointments
+      const withSlots = await Promise.all(
+        data.map(async (apt) => {
+          if (apt.status?.toLowerCase() === 'pending') {
+            try {
+              const slotsRes = await axios.get(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/vet-appointments/${apt.id}/slots`);
+              return { ...apt, slots: slotsRes.data || [] };
+            } catch (err) {
+              console.error(`Failed to fetch slots for appointment ${apt.id}:`, err);
+              return { ...apt, slots: [] };
+            }
+          }
+          return { ...apt, slots: [] };
+        })
+      );
+
+      console.log('📊 Doctor Consultations loaded:', withSlots);
+      setAppointments(withSlots);
     } catch (err) {
       console.error('Error fetching appointments:', err);
       setError('Failed to load consultations. Please try again.');
@@ -175,8 +195,7 @@ export default function DoctorConsultations() {
     return () => timers.forEach(clearTimeout);
   }, [showVideoRoom, selectedRequestDetails]);
 
-  // Handle send message in call (unused)
-  /*
+  // Handle send message in call
   const handleSendMessageInCall = () => {
     if (!chatInput.trim()) return;
     const msgText = chatInput;
@@ -207,16 +226,13 @@ export default function DoctorConsultations() {
       ]);
     }, 2000);
   };
-  */
 
-  // Helper for duration strings (unused)
-  /*
+  // Helper for duration strings
   const formatDuration = (sec) => {
     const m = Math.floor(sec / 60).toString().padStart(2, '0');
     const s = (sec % 60).toString().padStart(2, '0');
     return `${m}:${s}`;
   };
-  */
 
   // Helper: Format time
   const formatTime = (timeStr) => {
@@ -248,8 +264,7 @@ export default function DoctorConsultations() {
     }
   };
 
-  // Helper: timeAgo relative format (unused)
-  /*
+  // Helper: timeAgo relative format
   const timeAgo = (dateStr) => {
     if (!dateStr) return 'Recently';
     try {
@@ -265,14 +280,17 @@ export default function DoctorConsultations() {
       if (interval >= 1) return `${interval}h ago`;
       interval = Math.floor(seconds / 60);
       if (interval >= 1) return `${interval}m ago`;
-      return `${Math.floor(seconds)}s ago`;
+      return 'Just now';
     } catch {
       return 'Recently';
     }
   };
-  */
 
   // Filter lists based on status
+  const pendingConsultations = appointments.filter(a => 
+    a.status === 'Pending' || a.status === 'pending'
+  );
+
   const upcomingConsultations = appointments.filter(a => 
     a.status === 'Approved' || a.status === 'approved'
   );
@@ -347,6 +365,16 @@ export default function DoctorConsultations() {
     return symptomsList;
   };
 
+  // Mock file attachments helper
+  const getMockFiles = (animalName, species) => {
+    const cleanName = animalName || 'Patient';
+    const cleanSpecies = (species || 'Animal').charAt(0).toUpperCase() + (species || 'Animal').slice(1).toLowerCase();
+    return [
+      { name: `${cleanName}_Health_Record.pdf`, size: '2.4 MB' },
+      { name: `${cleanSpecies}_Vaccination_Log.xlsx`, size: '1.1 MB' }
+    ];
+  };
+
   // Status Badge Renderer
   const getStatusBadge = (status) => {
     switch (status?.toLowerCase()) {
@@ -412,14 +440,72 @@ export default function DoctorConsultations() {
       await axios.patch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/vet-appointments/${completingAptId}/complete`, {
         prescription: withPrescription ? prescriptionText : ""
       });
+      setShowVideoRoom(false);
+      setShowChatRoom(false);
       await fetchAppointments();
       setSuccessMessage('Appointment marked as completed successfully!');
       setSelectedRequestDetails(null);
       setShowPrescriptionModal(false);
+      window.history.replaceState({}, document.title);
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err) {
       console.error('Failed to complete appointment:', err);
       alert('Failed to complete appointment. Please try again.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleApprove = async (appointmentId, slotId) => {
+    setActionLoading(true);
+    try {
+      // If slotId wasn't passed, check available slots or fallback to selected_slot_id
+      let targetSlotId = slotId;
+      if (!targetSlotId) {
+        const slotsRes = await axios.get(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/vet-appointments/${appointmentId}/slots`);
+        const slots = slotsRes.data || [];
+        if (slots.length > 0) targetSlotId = slots[0].id;
+      }
+
+      if (!targetSlotId) {
+        alert("Please select a slot for approval.");
+        setActionLoading(false);
+        return;
+      }
+
+      await axios.patch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/vet-appointments/${appointmentId}/approve`, {
+        slotId: targetSlotId
+      });
+      await fetchAppointments();
+      setSuccessMessage('Consultation request approved successfully!');
+      setSelectedRequestDetails(null);
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (err) {
+      console.error('Failed to approve appointment:', err);
+      alert('Failed to approve appointment. Please try again.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleReject = async (appointmentId) => {
+    const reason = prompt("Please enter the reason for declining this request:");
+    if (reason === null) return;
+    if (!reason.trim()) {
+      alert("A reason is required to decline.");
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      await axios.patch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/vet-appointments/${appointmentId}/reject`, { reason });
+      await fetchAppointments();
+      setSuccessMessage('Consultation request declined.');
+      setSelectedRequestDetails(null);
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (err) {
+      console.error('Failed to decline appointment:', err);
+      alert('Failed to decline appointment. Please try again.');
     } finally {
       setActionLoading(false);
     }
@@ -454,7 +540,9 @@ export default function DoctorConsultations() {
     );
   }
 
-  const currentList = activeTab === 'upcoming' 
+  const currentList = activeTab === 'pending'
+    ? pendingConsultations
+    : activeTab === 'upcoming' 
     ? upcomingConsultations 
     : activeTab === 'completed' 
     ? completedConsultations 
@@ -463,6 +551,7 @@ export default function DoctorConsultations() {
   const request = selectedRequestDetails;
   const notes = request?.reason_notes || request?.reason || '';
   const symptoms = request ? extractSymptoms(notes) : [];
+  const mockFiles = request ? getMockFiles(request.animal_name, request.animal_species) : [];
 
   return (
     <div className="space-y-6">
@@ -473,6 +562,7 @@ export default function DoctorConsultations() {
           <button
             onClick={() => {
               setSelectedRequestDetails(null);
+              setCancelReason('');
             }}
             className="flex items-center gap-2 text-slate-500 hover:text-slate-700 transition-colors group font-semibold"
           >
@@ -524,11 +614,10 @@ export default function DoctorConsultations() {
                   </div>
                 </div>
 
-                {/* Urgency Badge & Symptoms */}
+                {/* Diagnostic Symptoms */}
                 <div className="space-y-3">
                   <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Diagnostic Symptoms</p>
                   <div className="flex flex-wrap items-center gap-2">
-                    {getUrgencyBadge(notes)}
                     {symptoms.map((sym, idx) => (
                       <Badge key={idx} className="bg-slate-100 text-slate-700 border-slate-200 px-3 py-1 rounded-full text-xs font-semibold">
                         {sym}
@@ -537,13 +626,17 @@ export default function DoctorConsultations() {
                   </div>
                 </div>
 
-                {/* Owner Notes */}
-                <div className="space-y-2 bg-green-50/30 p-4 rounded-xl border border-green-100/50">
-                  <p className="text-xs text-green-700 font-bold uppercase tracking-wider">Reason for consultation</p>
-                  <p className="text-sm text-slate-700 leading-relaxed font-medium">
-                    "{notes || 'No description notes provided by the client.'}"
-                  </p>
-                </div>
+                {/* Prescription / Treatment Notes for completed consultations */}
+                {request.prescription && (
+                  <div className="space-y-2 bg-blue-50/60 p-4 rounded-xl border border-blue-100">
+                    <p className="text-xs text-blue-700 font-bold uppercase tracking-wider flex items-center gap-1.5">
+                      <FileText size={14} className="text-blue-600" /> Issued Prescription / Medical Notes
+                    </p>
+                    <p className="text-sm text-slate-800 leading-relaxed font-medium whitespace-pre-wrap mt-1">
+                      {request.prescription}
+                    </p>
+                  </div>
+                )}
               </Card>
 
               {/* Consultation Details Card */}
@@ -552,29 +645,68 @@ export default function DoctorConsultations() {
                   <Calendar size={18} className="text-blue-500" />
                   <span>Scheduled Session Details</span>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                  <div className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-100 rounded-lg">
-                    <Clock size={16} className="text-slate-400" />
-                    <div>
-                      <p className="text-slate-400 text-xs">Date & Time</p>
-                      <p className="text-slate-800 font-semibold mt-0.5">
-                        {formatDate(request.appointment_date, request.appointment_time)}
-                      </p>
+
+                {(request.status === 'Pending' || request.status === 'pending') && request.slots && request.slots.length > 0 ? (
+                  <div className="space-y-3">
+                    <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                      Client Requested Date & Time Slots ({request.slots.length})
+                    </p>
+                    <p className="text-xs text-slate-500">Please select one slot to approve for this consultation:</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {request.slots.map((slot) => {
+                        const isSelected = (selectedSlotId[request.id] || request.slots[0]?.id) === slot.id;
+                        return (
+                          <div
+                            key={slot.id}
+                            onClick={() => setSelectedSlotId(prev => ({ ...prev, [request.id]: slot.id }))}
+                            className={`p-3.5 rounded-xl border-2 cursor-pointer transition-all flex items-center justify-between ${
+                              isSelected 
+                                ? 'border-green-600 bg-green-50/60 shadow-sm' 
+                                : 'border-slate-200 bg-slate-50 hover:border-slate-300'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <Clock size={16} className={isSelected ? 'text-green-600' : 'text-slate-400'} />
+                              <div>
+                                <p className="text-xs font-bold text-slate-800">{formatDate(slot.slot_date)}</p>
+                                <p className="text-sm font-extrabold text-slate-900 mt-0.5">{formatTime(slot.slot_time)}</p>
+                              </div>
+                            </div>
+                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                              isSelected ? 'border-green-600 bg-green-600 text-white' : 'border-slate-300'
+                            }`}>
+                              {isSelected && <CheckCircle2 size={12} />}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-100 rounded-lg">
-                    {getTypeIcon(request.consultation_type)}
-                    <div>
-                      <p className="text-slate-400 text-xs">Channel Type</p>
-                      <p className="text-slate-800 font-semibold mt-0.5">
-                        {getTypeLabel(request.consultation_type)}
-                      </p>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-100 rounded-lg">
+                      <Clock size={16} className="text-slate-400" />
+                      <div>
+                        <p className="text-slate-400 text-xs">Date & Time</p>
+                        <p className="text-slate-800 font-semibold mt-0.5">
+                          {formatDate(request.appointment_date, request.appointment_time)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-100 rounded-lg">
+                      {getTypeIcon(request.consultation_type)}
+                      <div>
+                        <p className="text-slate-400 text-xs">Channel Type</p>
+                        <p className="text-slate-800 font-semibold mt-0.5">
+                          {getTypeLabel(request.consultation_type)}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
               </Card>
 
-              {/* Consultation conducting Actions */}
+              {/* Consultation conducting Actions for Approved */}
               {(request.status === 'Approved' || request.status === 'approved') && (
                 <div className="flex flex-wrap gap-4 pt-2">
                   {request.consultation_type === 'video' ? (
@@ -602,23 +734,29 @@ export default function DoctorConsultations() {
                     </div>
                   )}
 
-                  <div className="w-full flex gap-3 mt-2">
-                    <Button 
-                      onClick={() => handleOpenCompleteModal(request.id)}
-                      disabled={actionLoading}
-                      className="bg-blue-600 hover:bg-blue-700 text-white font-bold flex-1 py-3 rounded-xl cursor-pointer"
-                    >
-                      Mark as Completed
-                    </Button>
-                    <Button 
-                      onClick={() => handleCancel(request.id)}
-                      variant="outline"
-                      disabled={actionLoading}
-                      className="border-red-200 text-red-600 hover:bg-red-50 font-bold flex-1 py-3 rounded-xl"
-                    >
-                      Cancel Consultation
-                    </Button>
-                  </div>
+                </div>
+              )}
+
+              {/* Actions for Pending Requests */}
+              {(request.status === 'Pending' || request.status === 'pending') && (
+                <div className="flex gap-4 pt-2">
+                  <Button 
+                    onClick={() => handleApprove(request.id, selectedSlotId[request.id] || (request.slots && request.slots[0]?.id))}
+                    disabled={actionLoading}
+                    className="bg-green-600 hover:bg-green-700 text-white font-bold flex-1 py-3 rounded-xl shadow-lg shadow-green-600/20 cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    <CheckCircle2 size={18} />
+                    Approve Consultation
+                  </Button>
+                  <Button 
+                    onClick={() => handleReject(request.id)}
+                    variant="outline"
+                    disabled={actionLoading}
+                    className="border-red-200 text-red-600 hover:bg-red-50 font-bold flex-1 py-3 rounded-xl flex items-center justify-center gap-2"
+                  >
+                    <XCircle size={18} />
+                    Decline Request
+                  </Button>
                 </div>
               )}
 
@@ -651,10 +789,6 @@ export default function DoctorConsultations() {
                     <span className="text-slate-400 font-medium">Contact No.</span>
                     <span className="text-slate-800 font-bold">{request.owner_contact || 'Not provided'}</span>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-400 font-medium">Email</span>
-                    <span className="text-slate-800 font-bold truncate max-w-[170px]">{request.owner_email || 'Not provided'}</span>
-                  </div>
                 </div>
               </Card>
 
@@ -670,8 +804,8 @@ export default function DoctorConsultations() {
           {/* Header details */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h2 className="text-3xl font-black text-slate-800 tracking-tight">Upcoming Consultations</h2>
-              <p className="text-slate-500 mt-1">Conduct approved video consultations, client chats, and view completed sessions.</p>
+              <h2 className="text-3xl font-black text-slate-800 tracking-tight">Consultations Hub</h2>
+              <p className="text-slate-500 mt-1">Review pending requests, conduct video/chat consultations, and view completed sessions.</p>
             </div>
           </div>
 
@@ -685,22 +819,22 @@ export default function DoctorConsultations() {
 
           {/* Statistics widgets */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Card className="p-6 bg-gradient-to-br from-amber-50 to-orange-50 border-amber-100 rounded-2xl flex items-center gap-4">
+              <div className="p-3.5 bg-amber-500 text-white rounded-xl shadow-lg shadow-amber-500/20">
+                <Clock size={22} />
+              </div>
+              <div>
+                <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Pending Requests</p>
+                <h3 className="text-3xl font-black text-slate-800 mt-1">{pendingConsultations.length}</h3>
+              </div>
+            </Card>
+
             <Card className="p-6 bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-100 rounded-2xl flex items-center gap-4">
               <div className="p-3.5 bg-emerald-500 text-white rounded-xl shadow-lg shadow-emerald-500/20">
                 <Calendar size={22} />
               </div>
               <div>
-                <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Scheduled Today</p>
-                <h3 className="text-3xl font-black text-slate-800 mt-1">{totalTodayCount}</h3>
-              </div>
-            </Card>
-
-            <Card className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100 rounded-2xl flex items-center gap-4">
-              <div className="p-3.5 bg-blue-500 text-white rounded-xl shadow-lg shadow-blue-500/20">
-                <Clock size={22} />
-              </div>
-              <div>
-                <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Total Upcoming</p>
+                <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Upcoming Sessions</p>
                 <h3 className="text-3xl font-black text-slate-800 mt-1">{totalUpcomingCount}</h3>
               </div>
             </Card>
@@ -718,6 +852,17 @@ export default function DoctorConsultations() {
 
           {/* Tab Selection */}
           <div className="flex items-center gap-4 border-b border-slate-200">
+            <button
+              onClick={() => setActiveTab('pending')}
+              className={`pb-4 px-2 text-sm font-bold transition-colors relative flex items-center gap-2 ${
+                activeTab === 'pending' ? 'text-amber-600' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              Pending Requests ({pendingConsultations.length})
+              {activeTab === 'pending' && (
+                <span className="absolute bottom-0 left-0 w-full h-0.5 bg-amber-600 rounded-t-full"></span>
+              )}
+            </button>
             <button
               onClick={() => setActiveTab('upcoming')}
               className={`pb-4 px-2 text-sm font-bold transition-colors relative ${
@@ -781,10 +926,7 @@ export default function DoctorConsultations() {
                         <div>
                           <div className="flex flex-wrap items-center gap-2">
                             <h3 className="font-bold text-slate-900 text-lg">{request.animal_name || 'Patient'}</h3>
-                            {activeTab === 'upcoming' 
-                              ? getUrgencyBadge(notesText)
-                              : getStatusBadge(request.status)
-                            }
+                            {getStatusBadge(request.status)}
                           </div>
                           <p className="text-sm text-slate-600 mt-0.5">
                             Owned by <span className="font-semibold text-slate-800">{request.owner_name || 'Unknown Owner'}</span>
@@ -799,6 +941,14 @@ export default function DoctorConsultations() {
                               {getTypeLabel(request.consultation_type)}
                             </span>
                           </div>
+                          {request.prescription && (
+                            <div className="mt-2.5 p-2.5 bg-blue-50/70 border border-blue-100 rounded-lg text-xs text-slate-700">
+                              <span className="font-bold text-blue-700 flex items-center gap-1">
+                                <FileText size={12} /> Prescription / Notes:
+                              </span>
+                              <p className="mt-0.5 text-slate-700 font-medium line-clamp-2">{request.prescription}</p>
+                            </div>
+                          )}
                         </div>
                       </div>
 
