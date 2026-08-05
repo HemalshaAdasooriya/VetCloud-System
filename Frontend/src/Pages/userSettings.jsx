@@ -54,7 +54,7 @@ export default function UserSettings() {
                     setPersonalInfo({
                         firstName: data.firstName || '',
                         lastName: data.lastName || '',
-                        phone: data.contact_No || '',
+                        phone: (data.contact_No || data.phone || '').replace(/\D/g, '').slice(0, 10),
                         email: data.email || '',
                         userType: 'Farmer/PetOwner', // Or fetch this dynamically if you want
                     });
@@ -316,6 +316,12 @@ export default function UserSettings() {
         // Basic validation
         if (!personalInfo.firstName.trim() || !personalInfo.lastName.trim()) {
             showToast('First Name and Last Name are required!', 'error');
+            return;
+        }
+
+        const cleanPhone = personalInfo.phone ? personalInfo.phone.replace(/\D/g, '') : '';
+        if (!cleanPhone || cleanPhone.length !== 10) {
+            showToast('Phone number must contain exactly 10 digits!', 'error');
             return;
         }
 
@@ -727,12 +733,22 @@ export default function UserSettings() {
                                             Phone Number <span className="text-red-500">*</span>
                                         </label>
                                         <input
-                                            type="text"
+                                            type="tel"
                                             required
+                                            maxLength={10}
+                                            placeholder="e.g. 0712345678"
                                             value={personalInfo.phone}
-                                            onChange={(e) => setPersonalInfo({ ...personalInfo, phone: e.target.value })}
+                                            onChange={(e) => {
+                                                const digitsOnly = e.target.value.replace(/\D/g, '').slice(0, 10);
+                                                setPersonalInfo({ ...personalInfo, phone: digitsOnly });
+                                            }}
                                             className="w-full px-4 py-3 rounded-xl border border-slate-100 bg-slate-50/30 focus:bg-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 outline-hidden transition-all text-sm font-medium text-slate-700 placeholder:text-slate-300"
                                         />
+                                        {personalInfo.phone && personalInfo.phone.length !== 10 && (
+                                            <p className="text-xs text-amber-600 mt-1 font-medium flex items-center gap-1">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Phone number must be exactly 10 digits ({personalInfo.phone.length}/10)
+                                            </p>
+                                        )}
                                     </div>
                                     {/* Email Address */}
                                     <div>
