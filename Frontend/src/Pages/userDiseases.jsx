@@ -1,7 +1,7 @@
 import { useState, useMemo,  useEffect } from 'react';
 import { Badge, Button, Card, Input } from '../components/Ui/ui';
 import { BsDatabaseCheck } from "react-icons/bs";
-import { Search, Filter, BookOpen, AlertTriangle, ShieldCheck, Activity, Info, X, ChevronRight } from 'lucide-react';
+import { Search, BookOpen, AlertTriangle, ShieldCheck, Activity, Info, X, ChevronRight } from 'lucide-react';
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -631,11 +631,7 @@ return (
 
         {/* Filters Buttons */}
         <div className="flex items-center gap-3 overflow-x-auto pb-4 scrollbar-none mb-10 border-b border-slate-100">
-          <Button variant="outline" className="h-9 px-4 rounded-full bg-white shrink-0 shadow-sm hover:bg-slate-50 flex items-center gap-2 border-slate-200 text-slate-600 text-sm">
-            <Filter size={15} />
-            <span>Filters</span>
-          </Button>
-
+          
           {categories.map((category) => (
             <button
               key={category}
