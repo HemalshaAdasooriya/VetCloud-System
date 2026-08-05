@@ -56,6 +56,24 @@ export function registerUser(req, res) {
         });
     }
 
+    // 2. Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(data.email)) {
+        return res.status(400).json({
+            message: "Please enter a valid email address."
+        });
+    }
+
+    // 3. Contact Number format validation
+    if (data.contact_No) {
+        const phoneRegex = /^[0-9]{10}$/;
+        if (!phoneRegex.test(String(data.contact_No).trim())) {
+            return res.status(400).json({
+                message: "Contact Number must contain exactly 10 numeric digits."
+            });
+        }
+    }
+
     // Specific mandatory validation for Veterinary Doctor registration
     if (data.role === "Veterinary Doctor") {
         if (!data.contact_No || !String(data.contact_No).trim() ||
@@ -182,7 +200,8 @@ export function registerUser(req, res) {
                         // Do not automatically log in if they are inactive (which they are by default)
                         getUserByEmailAndRole(data.email, "doctor", (fetchErr, userResults) => {
                             return res.status(201).json({
-                                message: "Veterinarian registered successfully. Please wait for administrator approval to log in."
+                                message: "Please wait for administrator approval. Thank you.",
+                                isPendingApproval: true
                             });
                         });
                     }
@@ -245,7 +264,7 @@ export async function loginUser(req, res) {
                 });
             }
             if (role === "doctor" && !user.is_Active) {
-                return res.status(403).json({ message: "Your account is currently inactive. Please wait for administrator approval." });
+                return res.status(403).json({ message: "Please wait for administrator approval. Thank you.", isPendingApproval: true });
             }
 
             // 1. Generate the JWT Token
@@ -363,16 +382,17 @@ function handleSocialLogin(req, res, email, name, image, role, provider, extraDe
             return issueTokenAndSession(req, res, preferredResults[0], dbRole);
         }
 
-        // Validate that new doctor registrations have required professional details and contact number
+        // Validate that new doctor registrations have required professional details and a valid 10-digit contact number
         if (dbRole === "doctor") {
-            if (!extraDetails.contact_No || !String(extraDetails.contact_No).trim() ||
+            const phoneRegex = /^[0-9]{10}$/;
+            if (!extraDetails.contact_No || !phoneRegex.test(String(extraDetails.contact_No).trim()) ||
                 !extraDetails.license_number || !String(extraDetails.license_number).trim() ||
                 String(extraDetails.license_number).startsWith("TEMP-") ||
                 !extraDetails.specialization || !String(extraDetails.specialization).trim() ||
                 extraDetails.years_of_experience === undefined || extraDetails.years_of_experience === "" ||
                 extraDetails.consultation_fee === undefined || extraDetails.consultation_fee === "") {
                 return res.status(400).json({
-                    message: "Veterinary Doctor registration requires Contact Number and Professional Details (License Number, Specialization, Years of Experience, Consultation Fee) for administrator approval."
+                    message: "Veterinary Doctor registration requires a valid 10-digit Contact Number and Professional Details (License Number, Specialization, Years of Experience, Consultation Fee) for administrator approval."
                 });
             }
         }
@@ -409,6 +429,11 @@ function handleSocialLogin(req, res, email, name, image, role, provider, extraDe
                             message: `New veterinarian registered via Google: Dr. ${splitFirstName} ${splitLastName} (${email}, License: ${userData.license_number}). Pending approval.`
                         });
                     }).catch(console.error);
+
+                    return res.status(201).json({
+                        message: "Please wait for administrator approval. Thank you.",
+                        isPendingApproval: true
+                    });
                 }
 
                 issueTokenAndSession(req, res, userResults[0], dbRole);
@@ -427,7 +452,7 @@ function handleSocialLogin(req, res, email, name, image, role, provider, extraDe
 // --- Standardized Function to Generate Token & Save Session ---
 function issueTokenAndSession(req, res, user, role) {
     if (role === "doctor" && !user.is_Active) {
-        return res.status(403).json({ message: "Your account is currently inactive. Please wait for administrator approval." });
+        return res.status(403).json({ message: "Please wait for administrator approval. Thank you.", isPendingApproval: true });
     }
     // 1. Generate the JWT Token
     const token = jwt.sign(
