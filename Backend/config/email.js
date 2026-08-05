@@ -120,6 +120,7 @@ export const sendEmail = async ({ to, subject, html, text }) => {
 
         // DO NOT set service: "gmail" as it overrides host and family: 4 settings, leading to IPv6 ENETUNREACH
         const transporterConfig = {
+            name: "vetcloud.com",
             host,
             port,
             secure,
@@ -130,7 +131,7 @@ export const sendEmail = async ({ to, subject, html, text }) => {
             },
             tls: {
                 // rejectUnauthorized: false,
-                servername: host
+                // servername: host
             },
             connectionTimeout: 30000,
             greetingTimeout: 30000,
@@ -141,9 +142,6 @@ export const sendEmail = async ({ to, subject, html, text }) => {
 
         const transporter = nodemailer.createTransport(transporterConfig);
 
-        // Verify SMTP connection
-        await transporter.verify();
-        console.log("✅ SMTP connection verified successfully.");
 
         const info = await transporter.sendMail({
             from: `"VetCloud Notifications" <${emailUser}>`,

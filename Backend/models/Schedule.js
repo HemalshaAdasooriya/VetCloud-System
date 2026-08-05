@@ -8,7 +8,7 @@ const getCurrentTimestamp = () => {
 // Get all schedule slots for a veterinarian
 export const getVetSchedule = (vetId, callback) => {
     const sql = `
-        SELECT id, slot_date, slot_time, consultation_type, is_booked, appointment_id
+        SELECT id, DATE_FORMAT(slot_date, '%Y-%m-%d') AS slot_date, slot_time, consultation_type, is_booked, appointment_id
         FROM vet_schedule
         WHERE veterinarian_id = ?
         ORDER BY slot_date ASC, slot_time ASC
@@ -40,7 +40,7 @@ export const getVetScheduleByDate = (vetId, date, callback) => {
 // Get schedule for a month
 export const getVetScheduleByMonth = (vetId, year, month, callback) => {
     const sql = `
-        SELECT id, slot_date, slot_time, consultation_type, is_booked, appointment_id
+        SELECT id, DATE_FORMAT(slot_date, '%Y-%m-%d') AS slot_date, slot_time, consultation_type, is_booked, appointment_id
         FROM vet_schedule
         WHERE veterinarian_id = ? AND YEAR(slot_date) = ? AND MONTH(slot_date) = ?
         ORDER BY slot_date ASC, slot_time ASC

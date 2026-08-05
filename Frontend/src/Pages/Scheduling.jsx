@@ -37,7 +37,7 @@ export default function Scheduling() {
   const [selectedVet, setSelectedVet] = useState(null);
   const [selectedDates, setSelectedDates] = useState([]);
   const [calendarViewDate, setCalendarViewDate] = useState(new Date());
-  const [selectedTimes, setSelectedTimes] = useState([]);
+  const [selectedSlots, setSelectedSlots] = useState([]);
   const [symptoms, setSymptoms] = useState("");
   const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
   const [requestSubmitted, setRequestSubmitted] = useState(false);
@@ -155,29 +155,41 @@ export default function Scheduling() {
     fetchVets();
   }, []);
 
-  // Fetch available slots for all selected dates
+  // Fetch all available slots for selected vet
   useEffect(() => {
-    if (selectedVet && selectedDates.length > 0) {
-      const loadAllSlots = async () => {
+    if (selectedVet) {
+      const fetchVetSlots = async () => {
         setLoadingSlots(true);
         try {
-          const allSlots = [];
-          for (const date of selectedDates) {
-            const slots = await fetchAvailableSlotsForVet(selectedVet, date);
-            allSlots.push(...slots);
-          }
-          setAvailableTimeSlots(allSlots);
+          const res = await axios.get(
+            `${import.meta.env.VITE_BACKEND_URL}/api/schedule/vet/${selectedVet}`
+          );
+          const available = (res.data || []).filter((slot) => Number(slot.is_booked) === 0);
+          setAvailableTimeSlots(available);
         } catch (err) {
-          console.error('Error loading slots:', err);
+          console.error('Error fetching vet schedule:', err);
+          setAvailableTimeSlots([]);
         } finally {
           setLoadingSlots(false);
         }
       };
-      loadAllSlots();
+      fetchVetSlots();
     } else {
       setAvailableTimeSlots([]);
+      setSelectedSlots([]);
+      setSelectedDates([]);
     }
-  }, [selectedVet, selectedDates]);
+  }, [selectedVet]);
+
+  // Clean up selected slots when consultation type changes
+  useEffect(() => {
+    setSelectedSlots((prev) =>
+      prev.filter((slot) => {
+        const slotType = slot.consultation_type || slot.type || 'video';
+        return slotType === consultType;
+      })
+    );
+  }, [consultType]);
 
   const getSelectedAnimal = () =>
     animals.find(a => a.id === selectedAnimal);
@@ -204,26 +216,6 @@ export default function Scheduling() {
       setResubmitAppointmentId(location.state.resubmitAppointmentId);
     }
   }, [location?.state]);
-
-  // Fetch available slots from vet_schedule
-  const fetchAvailableSlotsForVet = async (vetId, date) => {
-    if (!vetId || !date) return [];
-    try {
-      const formattedDate = formatDateKey(date);
-      
-      const response = await axios.get(
-        `${import.meta.env.VITE_BACKEND_URL}/api/schedule/vet/${vetId}/date/${formattedDate}`
-      );
-      
-      // Filter only available slots (not booked)
-      const available = response.data.filter(slot => slot.is_booked === 0);
-      
-      return available;
-    } catch (err) {
-      console.error('Error fetching available slots:', err);
-      return [];
-    }
-  };
 
   // Resubmit appointment logic
   useEffect(() => {
@@ -267,17 +259,22 @@ export default function Scheduling() {
           }
 
           return [];
-          
         })();
 
-        setSelectedDates(
-          Array.from(new Set(availability.map((slot) => slot.date)))
-            .map((dateString) => new Date(dateString))
-        );
+        if (availability.length > 0) {
+          const datesArr = Array.from(new Set(availability.map((s) => s.date))).map((dStr) => {
+            const [y, m, d] = dStr.split('-').map(Number);
+            return new Date(y, m - 1, d);
+          });
+          setSelectedDates(datesArr);
 
-        setSelectedTimes(
-          Array.from(new Set(availability.map((slot) => normalizeTimeToLabel(slot.time)))).filter(Boolean)
-        );
+          const slotsArr = availability.map((s) => ({
+            slot_date: s.date,
+            slot_time: s.time,
+            consultation_type: appointment.consultation_type || 'video'
+          }));
+          setSelectedSlots(slotsArr);
+        }
 
         setStep(3);
       } catch (err) {
@@ -394,22 +391,6 @@ export default function Scheduling() {
            dateA.getDate() === dateB.getDate();
   };
 
-  const toggleDateSelection = (date) => {
-    setSelectedDates((prev) => {
-      const alreadySelected = prev.some((selectedDate) => areSameDate(selectedDate, date));
-      if (alreadySelected) {
-        return prev.filter((selectedDate) => !areSameDate(selectedDate, date));
-      }
-      return [...prev, date];
-    });
-  };
-
-  const toggleTimeSelection = (time) => {
-    setSelectedTimes((prev) =>
-      prev.includes(time) ? prev.filter((item) => item !== time) : [...prev, time]
-    );
-  };
-
   // Format date using local date values (no timezone issues)
   const formatDateKey = (date) => {
     if (!date || !(date instanceof Date)) return "";
@@ -447,17 +428,103 @@ export default function Scheduling() {
     return `${String(hour12).padStart(2, '0')}:${String(minutes).padStart(2, '0')} ${meridiem}`;
   };
 
-  const buildAvailabilityPayload = () => {
-    return selectedDates.flatMap((date) =>
-      selectedTimes.map((time) => ({
-        date: formatDateKey(date),
-        time: normalizeTimeTo24(time)
-      }))
+  // Slot Helper Functions
+  const getSlotDateKey = (slot) => {
+    if (!slot) return '';
+    const d = slot.slot_date || slot.date;
+    if (!d) return '';
+    if (typeof d === 'string') {
+      return d.split('T')[0];
+    }
+    if (d instanceof Date) {
+      return formatDateKey(d);
+    }
+    return String(d);
+  };
+
+  const getSlotTime24 = (slot) => {
+    if (!slot) return '';
+    const t = slot.slot_time || slot.time;
+    if (!t) return '';
+    if (t.includes('AM') || t.includes('PM')) {
+      return normalizeTimeTo24(t);
+    }
+    const parts = t.split(':');
+    if (parts.length >= 2) {
+      return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}`;
+    }
+    return t;
+  };
+
+  const getSlotTimeLabel = (slot) => {
+    if (!slot) return '';
+    const t = slot.slot_time || slot.time;
+    if (!t) return '';
+    if (t.includes('AM') || t.includes('PM')) return t;
+    return normalizeTimeToLabel(t);
+  };
+
+  const isSlotSelected = (slot) => {
+    const dateKey = getSlotDateKey(slot);
+    const time24 = getSlotTime24(slot);
+    return selectedSlots.some(
+      (s) => getSlotDateKey(s) === dateKey && getSlotTime24(s) === time24
     );
   };
 
+  const toggleSlotSelection = (slot) => {
+    const dateKey = getSlotDateKey(slot);
+    const time24 = getSlotTime24(slot);
+
+    setSelectedSlots((prev) => {
+      const exists = prev.some(
+        (s) => getSlotDateKey(s) === dateKey && getSlotTime24(s) === time24
+      );
+      if (exists) {
+        return prev.filter(
+          (s) => !(getSlotDateKey(s) === dateKey && getSlotTime24(s) === time24)
+        );
+      } else {
+        return [...prev, slot];
+      }
+    });
+  };
+
+  const toggleDateSelection = (date) => {
+    const dateKey = formatDateKey(date);
+    setSelectedDates((prev) => {
+      const alreadySelected = prev.some((selectedDate) => areSameDate(selectedDate, date));
+      if (alreadySelected) {
+        // Deselect date and clear any selected slots on this date
+        setSelectedSlots((slots) => slots.filter((s) => getSlotDateKey(s) !== dateKey));
+        return prev.filter((selectedDate) => !areSameDate(selectedDate, date));
+      }
+      return [...prev, date];
+    });
+  };
+
+  const handleProceedToReview = () => {
+    setRequestError('');
+    if (selectedDates.length === 0) {
+      setRequestError('Please select at least one date from the calendar.');
+      return;
+    }
+    if (selectedSlots.length === 0) {
+      setRequestError('Please select at least one available time slot provided by the doctor.');
+      return;
+    }
+    setStep(4);
+  };
+
+  const buildAvailabilityPayload = () => {
+    return selectedSlots.map((slot) => ({
+      date: getSlotDateKey(slot),
+      time: getSlotTime24(slot)
+    }));
+  };
+
   const handleSubmitAppointmentRequest = async () => {
-    if (!selectedAnimal || !selectedVet || selectedDates.length === 0 || selectedTimes.length === 0) {
+    if (!selectedAnimal || !selectedVet || selectedSlots.length === 0) {
       return;
     }
 
@@ -492,7 +559,7 @@ export default function Scheduling() {
 
       setRequestSubmitted(true);
       setSelectedDates([]);
-      setSelectedTimes([]);
+      setSelectedSlots([]);
       setSymptoms('');
       setSelectedAnimal(null);
       setSelectedVet(null);
@@ -833,13 +900,22 @@ export default function Scheduling() {
                                     today.getDate() === date.getDate();
                                   const isPast = date < new Date(today.getFullYear(), today.getMonth(), today.getDate());
                                   const isSelected = selectedDates.some((selectedDate) => areSameDate(selectedDate, date));
+                                  
+                                  const dateKey = formatDateKey(date);
+                                  const doctorSlotsForDate = availableTimeSlots.filter(s => {
+                                    const sDate = getSlotDateKey(s);
+                                    const sType = s.consultation_type || s.type || 'video';
+                                    return sDate === dateKey && sType === consultType;
+                                  });
+                                  const hasAvailableSlots = doctorSlotsForDate.length > 0;
+
                                   return (
                                     <button
                                       key={day}
                                       type="button"
                                       disabled={isPast}
                                       onClick={() => !isPast && toggleDateSelection(date)}
-                                      className={`aspect-square rounded-lg text-xs font-medium transition-all ${
+                                      className={`aspect-square rounded-lg text-xs font-medium transition-all relative flex flex-col items-center justify-center ${
                                         isPast
                                           ? 'text-slate-300 cursor-not-allowed'
                                           : isSelected
@@ -849,7 +925,15 @@ export default function Scheduling() {
                                           : 'text-slate-700 hover:bg-green-50'
                                       }`}
                                     >
-                                      {day}
+                                      <span>{day}</span>
+                                      {!isPast && hasAvailableSlots && (
+                                        <span
+                                          className={`w-1.5 h-1.5 rounded-full absolute bottom-1 ${
+                                            isSelected ? 'bg-white' : 'bg-green-500'
+                                          }`}
+                                          title={`${doctorSlotsForDate.length} slot(s) available from doctor`}
+                                        />
+                                      )}
                                     </button>
                                   );
                                 })}
@@ -862,11 +946,20 @@ export default function Scheduling() {
                           {selectedDates.length === 0 ? (
                             <span className="text-slate-400">Select one or more dates from the calendar.</span>
                           ) : (
-                            selectedDates.map((date) => (
-                              <span key={formatDateKey(date)} className="inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-50 px-3 py-1 text-[11px] text-slate-700">
-                                <CalendarIcon size={12} /> {formatDateLabel(date)}
-                              </span>
-                            ))
+                            selectedDates.map((date) => {
+                              const dateKey = formatDateKey(date);
+                              const slotsOnDate = selectedSlots.filter(s => getSlotDateKey(s) === dateKey);
+                              return (
+                                <span key={dateKey} className="inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-50 px-3 py-1 text-[11px] text-slate-700">
+                                  <CalendarIcon size={12} /> {formatDateLabel(date)}
+                                  {slotsOnDate.length > 0 && (
+                                    <span className="bg-green-600 text-white text-[9px] px-1.5 py-0.5 rounded-full font-bold">
+                                      {slotsOnDate.length}
+                                    </span>
+                                  )}
+                                </span>
+                              );
+                            })
                           )}
                         </div>
                       </div>
@@ -898,12 +991,6 @@ export default function Scheduling() {
                           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-2"></div>
                           <p className="text-sm">Loading available slots...</p>
                         </div>
-                      ) : availableTimeSlots.length === 0 ? (
-                        <div className="text-center py-8 text-amber-600 bg-amber-50 rounded-xl border border-amber-200">
-                          <AlertCircle size={24} className="mx-auto mb-2" />
-                          <p className="text-sm font-medium">No available slots found</p>
-                          <p className="text-xs mt-1 text-amber-500">The doctor has no available slots for the selected dates.</p>
-                        </div>
                       ) : (
                         <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
                           {selectedDates.map((date) => {
@@ -912,24 +999,9 @@ export default function Scheduling() {
                             
                             // Filter slots by date AND consultation type
                             const slotsForDate = availableTimeSlots.filter(slot => {
-                              // Check date match
-                              const slotDate = slot.slot_date || slot.date;
-                              let slotDateStr = '';
-                              
-                              if (slotDate) {
-                                if (typeof slotDate === 'string') {
-                                  slotDateStr = slotDate.split('T')[0];
-                                } else {
-                                  const d = new Date(slotDate);
-                                  slotDateStr = formatDateKey(d);
-                                }
-                              }
-                              
-                              // Check consultation type match
+                              const slotDateStr = getSlotDateKey(slot);
                               const slotType = slot.consultation_type || slot.type || 'video';
-                              const matchesType = slotType === consultType;
-                              
-                              return slotDateStr === formattedDate && matchesType;
+                              return slotDateStr === formattedDate && slotType === consultType;
                             });
                             
                             return (
@@ -939,25 +1011,25 @@ export default function Scheduling() {
                                     <CalendarIcon size={14} className="inline mr-2 text-green-600" />
                                     {dateLabel}
                                   </span>
-                                  <Badge className="bg-green-100 text-green-700 text-[10px]">
-                                    {slotsForDate.length} slot{slotsForDate.length !== 1 ? 's' : ''}
+                                  <Badge className={slotsForDate.length > 0 ? "bg-green-100 text-green-700 text-[10px]" : "bg-amber-100 text-amber-700 text-[10px]"}>
+                                    {slotsForDate.length} slot{slotsForDate.length !== 1 ? 's' : ''} available
                                   </Badge>
                                 </div>
                                 <div className="p-3">
                                   {slotsForDate.length > 0 ? (
                                     <div className="grid grid-cols-2 gap-2">
                                       {slotsForDate.map((slot) => {
-                                        const timeLabel = normalizeTimeToLabel(slot.slot_time || slot.time);
-                                        const isSelected = selectedTimes.includes(timeLabel);
+                                        const timeLabel = getSlotTimeLabel(slot);
+                                        const isSelected = isSlotSelected(slot);
                                         
                                         return (
                                           <button
-                                            key={slot.id}
+                                            key={slot.id || `${formattedDate}_${getSlotTime24(slot)}`}
                                             type="button"
-                                            onClick={() => toggleTimeSelection(timeLabel)}
+                                            onClick={() => toggleSlotSelection(slot)}
                                             className={`p-2.5 rounded-lg border text-xs font-medium transition-colors ${
                                               isSelected
-                                                ? 'bg-green-600 border-green-600 text-white'
+                                                ? 'bg-green-600 border-green-600 text-white shadow-sm'
                                                 : 'border-slate-200 text-slate-700 hover:border-green-300 hover:bg-slate-50'
                                             }`}
                                           >
@@ -969,8 +1041,8 @@ export default function Scheduling() {
                                       })}
                                     </div>
                                   ) : (
-                                    <p className="text-xs text-slate-400 text-center py-2">
-                                      No {consultType === 'video' ? 'Video Call' : 'Chat'} slots available for this date
+                                    <p className="text-xs text-amber-600 bg-amber-50 p-2.5 rounded-md text-center">
+                                      The doctor has not added any available {consultType === 'video' ? 'Video Call' : 'Chat'} slots for this date.
                                     </p>
                                   )}
                                 </div>
@@ -979,9 +1051,9 @@ export default function Scheduling() {
                           })}
                           
                           <div className="mt-3 text-sm text-slate-500 text-center">
-                            {selectedTimes.length === 0 
-                              ? `Select ${consultType === 'video' ? 'Video Call' : 'Chat'} time slots from the dates above` 
-                              : `${selectedTimes.length} time slot${selectedTimes.length > 1 ? 's' : ''} selected across ${selectedDates.length} date${selectedDates.length > 1 ? 's' : ''}`}
+                            {selectedSlots.length === 0 
+                              ? `Select ${consultType === 'video' ? 'Video Call' : 'Chat'} time slots provided by the doctor above` 
+                              : `${selectedSlots.length} doctor time slot${selectedSlots.length > 1 ? 's' : ''} selected`}
                           </div>
                         </div>
                       )}
@@ -989,12 +1061,18 @@ export default function Scheduling() {
                   </div>
                 </div>
 
-                <div className="flex justify-between pt-6 border-t border-slate-100">
-                  <Button variant="outline" onClick={() => setStep(2)}>Back</Button>
-                  <Button
-                    onClick={() => setStep(4)}
-                    disabled={selectedDates.length === 0 || selectedTimes.length === 0}
-                  >Review & Request <ChevronRight size={16} className="ml-2" /></Button>
+                {requestError && (
+                  <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600 flex items-center gap-2">
+                    <AlertCircle size={16} className="shrink-0" />
+                    <span>{requestError}</span>
+                  </div>
+                )}
+
+                <div className="flex justify-between pt-6 border-t border-slate-100 mt-4">
+                  <Button variant="outline" onClick={() => { setRequestError(''); setStep(2); }}>Back</Button>
+                  <Button onClick={handleProceedToReview}>
+                    Review & Request <ChevronRight size={16} className="ml-2" />
+                  </Button>
                 </div>
               </div>
             </div>
@@ -1040,13 +1118,35 @@ export default function Scheduling() {
                     <div className="space-y-2">
                       <span className="text-slate-500">Requested Availability</span>
                       <div className="grid gap-2">
-                        {selectedDates.map((date) => (
-                          <div key={formatDateKey(date)} className="flex flex-wrap gap-2 items-center rounded-lg border border-slate-200 bg-white p-3">
-                            <span className="text-slate-700 font-semibold">{formatDateLabel(date)}</span>
-                            <span className="text-slate-500">•</span>
-                            <span className="text-slate-700">{selectedTimes.join(', ')}</span>
-                          </div>
-                        ))}
+                        {(() => {
+                          const grouped = selectedSlots.reduce((acc, slot) => {
+                            const dateKey = getSlotDateKey(slot);
+                            if (!acc[dateKey]) acc[dateKey] = [];
+                            acc[dateKey].push(slot);
+                            return acc;
+                          }, {});
+
+                          const dateKeys = Object.keys(grouped).sort();
+
+                          if (dateKeys.length === 0) {
+                            return <p className="text-slate-400 text-xs italic">No time slots selected.</p>;
+                          }
+
+                          return dateKeys.map((dateKey) => {
+                            const slotsForThisDate = grouped[dateKey];
+                            const timeLabels = slotsForThisDate.map((s) => getSlotTimeLabel(s)).join(', ');
+                            const [y, m, d] = dateKey.split('-').map(Number);
+                            const dateObj = new Date(y, m - 1, d);
+
+                            return (
+                              <div key={dateKey} className="flex flex-wrap gap-2 items-center rounded-lg border border-slate-200 bg-white p-3">
+                                <span className="text-slate-700 font-semibold">{formatDateLabel(dateObj)}</span>
+                                <span className="text-slate-500">•</span>
+                                <span className="text-slate-700">{timeLabels}</span>
+                              </div>
+                            );
+                          });
+                        })()}
                       </div>
                     </div>
                     {symptoms && (

@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { 
-  Calendar, 
-  Video, 
-  Activity, 
-  AlertCircle, 
-  CreditCard, 
-  Plus, 
-  Clock, 
-  Check, 
+import {
+  Calendar,
+  Video,
+  Activity,
+  AlertCircle,
+  CreditCard,
+  Plus,
+  Clock,
+  Check,
   ChevronRight,
   Sparkles,
   X
@@ -39,32 +39,16 @@ export default function FarmerDashboard() {
   const [formName, setFormName] = useState("");
   const [formSpecies, setFormSpecies] = useState("Cattle");
   const [formBreed, setFormBreed] = useState("");
-  const [formAgeYears, setFormAgeYears] = useState(0);
-  const [formAgeMonths, setFormAgeMonths] = useState(0);
-  const [formAgeDays, setFormAgeDays] = useState(0);
+  const [formAge, setFormAge] = useState("");
   const [formWeight, setFormWeight] = useState("");
   const [formStatus, setFormStatus] = useState("Healthy");
   const [formImage, setFormImage] = useState("");
   const [formImageFile, setFormImageFile] = useState(null);
-  const [formHealthReportFile, setFormHealthReportFile] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const formatAge = (years, months, days) => {
-    const parts = [];
-    const y = parseInt(years, 10) || 0;
-    const m = parseInt(months, 10) || 0;
-    const d = parseInt(days, 10) || 0;
-    if (y > 0) parts.push(`${y} ${y === 1 ? 'Year' : 'Years'}`);
-    if (m > 0) parts.push(`${m} ${m === 1 ? 'Month' : 'Months'}`);
-    if (d > 0) parts.push(`${d} ${d === 1 ? 'Day' : 'Days'}`);
-    if (parts.length === 0) return "0 Days";
-    return parts.join(", ");
-  };
 
   useEffect(() => {
     if (!showRegisterModal) {
       setFormImageFile(null);
-      setFormHealthReportFile(null);
     }
   }, [showRegisterModal]);
 
@@ -220,48 +204,14 @@ export default function FarmerDashboard() {
   // Handle Form Submission
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formName.trim() || !formBreed.trim() || formWeight === "") {
-      toast.error("Please fill in all required fields");
+    if (!formName.trim() || !formBreed.trim() || !formAge.trim() || !formWeight.trim()) {
+      toast.error("Please fill in all standard fields");
       return;
     }
-
-    const y = parseInt(formAgeYears, 10) || 0;
-    const m = parseInt(formAgeMonths, 10) || 0;
-    const d = parseInt(formAgeDays, 10) || 0;
-
-    if (y < 0 || y > 100) {
-      toast.error("Age in years must be between 0 and 100");
-      return;
-    }
-    if (m < 0 || m > 11) {
-      toast.error("Months must be between 0 and 11");
-      return;
-    }
-    if (d < 0 || d > 31) {
-      toast.error("Days must be between 0 and 31");
-      return;
-    }
-    if (y === 100 && (m > 0 || d > 0)) {
-      toast.error("Maximum allowed age is 100 years");
-      return;
-    }
-    if (y === 0 && m === 0 && d === 0) {
-      toast.error("Please enter a valid age");
-      return;
-    }
-
-    const wFloat = parseFloat(formWeight);
-    if (isNaN(wFloat) || wFloat <= 0 || wFloat > 150) {
-      toast.error("Maximum weight allowed is 150 kg (must be greater than 0)");
-      return;
-    }
-
     if (!ownerId) {
       toast.error("User session expired. Please log in again.");
       return;
     }
-
-    const ageString = formatAge(y, m, d);
 
     setIsSubmitting(true);
     const formData = new FormData();
@@ -269,18 +219,14 @@ export default function FarmerDashboard() {
     formData.append("name", formName.trim());
     formData.append("species", formSpecies);
     formData.append("breed", formBreed.trim());
-    formData.append("age", ageString);
-    formData.append("weight", wFloat.toString());
+    formData.append("age", formAge.trim());
+    formData.append("weight", formWeight.trim());
     formData.append("status", formStatus);
-    
+
     if (formImageFile) {
       formData.append("image", formImageFile);
     } else {
       formData.append("image", formImage || SPECIES_IMAGES[formSpecies] || SPECIES_IMAGES.Other);
-    }
-
-    if (formHealthReportFile) {
-      formData.append("healthReport", formHealthReportFile);
     }
 
     try {
@@ -298,14 +244,11 @@ export default function FarmerDashboard() {
         setFormName("");
         setFormSpecies("Cattle");
         setFormBreed("");
-        setFormAgeYears(0);
-        setFormAgeMonths(0);
-        setFormAgeDays(0);
+        setFormAge("");
         setFormWeight("");
         setFormStatus("Healthy");
         setFormImage("");
         setFormImageFile(null);
-        setFormHealthReportFile(null);
         setShowRegisterModal(false);
         // Refresh list
         fetchAnimals();
@@ -351,7 +294,7 @@ export default function FarmerDashboard() {
           </p>
         </div>
 
-        <Link 
+        <Link
           to="/dashboard/user/appoinment"
           className="inline-flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 active:scale-95 text-white font-semibold text-sm md:text-[15px] px-6 py-3.5 rounded-xl shadow-md hover:shadow-lg hover:shadow-green-100 transition-all cursor-pointer self-start md:self-auto"
         >
@@ -362,10 +305,10 @@ export default function FarmerDashboard() {
 
       {/* 2. Main 2-Column Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
+
         {/* Left Column - Appointments & Notifications */}
         <div className="lg:col-span-2 space-y-6">
-          
+
           {/* Upcoming Appointments Card */}
           <div className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm">
             <div className="flex items-center justify-between mb-5">
@@ -373,8 +316,8 @@ export default function FarmerDashboard() {
                 <Calendar className="text-green-600 shrink-0" size={22} />
                 <h3 className="font-bold text-slate-800 text-lg">Upcoming Appointments</h3>
               </div>
-              <Link 
-                to="/dashboard/user/consultations" 
+              <Link
+                to="/dashboard/user/consultations"
                 className="text-green-600 hover:text-green-700 font-bold text-sm transition-all flex items-center gap-0.5"
               >
                 View All <ChevronRight size={16} />
@@ -391,8 +334,8 @@ export default function FarmerDashboard() {
                 sortedAppointments.slice(0, 2).map((apt) => {
                   const isVideo = apt.consultation_type === 'video';
                   return (
-                    <div 
-                      key={apt.id} 
+                    <div
+                      key={apt.id}
                       className="bg-slate-50/50 border border-slate-100 rounded-xl p-4 md:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:shadow-md hover:bg-slate-50 transition-all duration-300"
                     >
                       <div className="flex items-center gap-4">
@@ -411,7 +354,7 @@ export default function FarmerDashboard() {
                           </div>
                         </div>
                       </div>
-                      <button 
+                      <button
                         onClick={() => handleReschedule(apt.id)}
                         className="bg-white hover:bg-slate-50 text-slate-700 font-bold px-4 py-2 border border-slate-200 rounded-xl text-sm transition-all shadow-sm hover:border-slate-300 active:scale-98 cursor-pointer self-start sm:self-auto"
                       >
@@ -423,13 +366,13 @@ export default function FarmerDashboard() {
               ) : (
                 <div className="text-center py-8 space-y-3">
                   <p className="text-sm text-slate-400">No upcoming appointments scheduled.</p>
-                  <Link 
+                  {/* <Link 
                     to="/dashboard/user/appoinment"
                     className="inline-flex items-center gap-1.5 text-xs bg-green-50 border border-green-100 text-green-700 hover:bg-green-100 font-bold px-3.5 py-2 rounded-xl transition-all cursor-pointer"
                   >
                     <Plus size={14} strokeWidth={2.5} />
                     Book an Appointment
-                  </Link>
+                  </Link> */}
                 </div>
               )}
             </div>
@@ -443,7 +386,7 @@ export default function FarmerDashboard() {
                 <h3 className="font-bold text-slate-800 text-lg">Recent Notifications</h3>
               </div>
               {notifications.some(n => !n.is_read) && (
-                <button 
+                <button
                   onClick={async () => {
                     try {
                       await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/notifications/read-all`, {
@@ -466,8 +409,8 @@ export default function FarmerDashboard() {
             <div className="space-y-5 max-h-[350px] overflow-y-auto pr-1">
               {notifications.length > 0 ? (
                 notifications.slice(0, 5).map((n) => (
-                  <div 
-                    key={n.id} 
+                  <div
+                    key={n.id}
                     onClick={async () => {
                       if (n.is_read) return;
                       try {
@@ -519,13 +462,13 @@ export default function FarmerDashboard() {
 
         {/* Right Column - My Animals & Payment History */}
         <div className="space-y-6">
-          
+
           {/* My Animals Card */}
           <div className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm flex flex-col">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-slate-800 text-lg">My Animals</h3>
-              <Link 
-                to="/dashboard/user/animals" 
+              <Link
+                to="/dashboard/user/animals"
                 className="text-green-600 hover:text-green-700 font-bold text-sm transition-all"
               >
                 Manage
@@ -540,19 +483,19 @@ export default function FarmerDashboard() {
             ) : animals.length > 0 ? (
               <div className="space-y-4">
                 {animals.slice(0, 4).map((animal) => {
-                  const imageSrc = animal.image 
+                  const imageSrc = animal.image
                     ? (animal.image.startsWith('/uploads/') ? `${import.meta.env.VITE_BACKEND_URL}${animal.image}` : animal.image)
                     : (SPECIES_IMAGES[animal.species] || SPECIES_IMAGES.Other);
                   return (
-                    <div 
-                      key={animal.id} 
+                    <div
+                      key={animal.id}
                       onClick={() => handleAnimalClick(animal.id)}
                       className="flex items-center gap-3 cursor-pointer p-1.5 rounded-xl hover:bg-slate-50 transition-all duration-200"
                       title="Click to view history details"
                     >
-                      <img 
+                      <img
                         src={imageSrc}
-                        alt={animal.name} 
+                        alt={animal.name}
                         className="w-12 h-12 rounded-xl object-cover shrink-0 border border-slate-100"
                         onError={(e) => {
                           e.target.src = SPECIES_IMAGES[animal.species] || SPECIES_IMAGES.Other;
@@ -570,7 +513,7 @@ export default function FarmerDashboard() {
                 })}
 
                 {/* Add Animal Shortcut Button */}
-                <button 
+                <button
                   onClick={() => setShowRegisterModal(true)}
                   className="mt-2 border border-dashed border-slate-200 hover:border-green-600 hover:bg-green-50/20 rounded-xl py-3 w-full text-slate-500 hover:text-green-600 text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                 >
@@ -581,7 +524,7 @@ export default function FarmerDashboard() {
             ) : (
               <div className="text-center py-8 space-y-3">
                 <p className="text-sm text-slate-400">No animals registered yet.</p>
-                <button 
+                <button
                   onClick={() => setShowRegisterModal(true)}
                   className="inline-flex items-center gap-1.5 text-xs bg-green-50 border border-green-100 text-green-700 hover:bg-green-100 font-bold px-3.5 py-2 rounded-xl transition-all cursor-pointer"
                 >
@@ -590,31 +533,6 @@ export default function FarmerDashboard() {
                 </button>
               </div>
             )}
-          </div>
-
-          {/* Payment History Card */}
-          <div className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm">
-            <h3 className="font-bold text-slate-800 text-lg mb-4">Payment History</h3>
-            
-            <div className="bg-slate-50/50 border border-slate-100 rounded-xl p-3.5 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <CreditCard className="text-slate-400 shrink-0" size={20} />
-                <div>
-                  <h4 className="font-semibold text-slate-700 text-xs md:text-sm">Visa ending in 4242</h4>
-                  <p className="text-slate-400 text-[10px] md:text-xs font-medium mt-0.5">Expires 12/24</p>
-                </div>
-              </div>
-              <span className="bg-green-100 text-green-800 border border-green-200/30 text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0">
-                Default
-              </span>
-            </div>
-
-            <Link 
-              to="/dashboard/user/settings"
-              className="mt-4 w-full py-2.5 text-center text-slate-500 hover:text-slate-700 hover:bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-xl text-xs font-bold transition-all cursor-pointer block"
-            >
-              View Payment History
-            </Link>
           </div>
 
         </div>
@@ -630,7 +548,7 @@ export default function FarmerDashboard() {
               <h3 className="font-extrabold text-slate-800 text-lg">
                 Register New Animal
               </h3>
-              <button 
+              <button
                 onClick={() => setShowRegisterModal(false)}
                 className="p-1 hover:bg-slate-100 text-slate-400 hover:text-slate-600 rounded-lg transition-colors cursor-pointer"
               >
@@ -644,9 +562,9 @@ export default function FarmerDashboard() {
                 {/* Animal Name */}
                 <div className="col-span-2 space-y-1.5">
                   <label className="text-xs font-semibold text-slate-500">Animal Name *</label>
-                  <input 
-                    type="text" 
-                    required 
+                  <input
+                    type="text"
+                    required
                     placeholder="e.g. Bessie, Rocky"
                     value={formName}
                     onChange={(e) => setFormName(e.target.value)}
@@ -657,7 +575,7 @@ export default function FarmerDashboard() {
                 {/* Species Selector */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-slate-500">Species *</label>
-                  <select 
+                  <select
                     value={formSpecies}
                     onChange={(e) => setFormSpecies(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm text-slate-700 focus:ring-1 focus:ring-green-500 focus:border-green-500"
@@ -675,9 +593,9 @@ export default function FarmerDashboard() {
                 {/* Breed Field */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-slate-500">Breed *</label>
-                  <input 
-                    type="text" 
-                    required 
+                  <input
+                    type="text"
+                    required
                     placeholder="e.g. Holstein, Golden Retriever"
                     value={formBreed}
                     onChange={(e) => setFormBreed(e.target.value)}
@@ -685,59 +603,26 @@ export default function FarmerDashboard() {
                   />
                 </div>
 
-                {/* Age Fields (Years, Months, Days) */}
-                <div className="col-span-2 space-y-1.5">
+                {/* Age Field */}
+                <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-slate-500">Age *</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    <div>
-                      <span className="text-[11px] text-slate-400 font-medium block mb-1">Years</span>
-                      <input 
-                        type="number"
-                        min="0"
-                        max="100"
-                        required
-                        value={formAgeYears}
-                        onChange={(e) => setFormAgeYears(Math.min(100, Math.max(0, parseInt(e.target.value, 10) || 0)))}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm text-slate-700 focus:ring-1 focus:ring-green-500 focus:border-green-500 focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <span className="text-[11px] text-slate-400 font-medium block mb-1">Months</span>
-                      <input 
-                        type="number"
-                        min="0"
-                        max="11"
-                        required
-                        value={formAgeMonths}
-                        onChange={(e) => setFormAgeMonths(Math.min(11, Math.max(0, parseInt(e.target.value, 10) || 0)))}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm text-slate-700 focus:ring-1 focus:ring-green-500 focus:border-green-500 focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <span className="text-[11px] text-slate-400 font-medium block mb-1">Days</span>
-                      <input 
-                        type="number"
-                        min="0"
-                        max="31"
-                        required
-                        value={formAgeDays}
-                        onChange={(e) => setFormAgeDays(Math.min(31, Math.max(0, parseInt(e.target.value, 10) || 0)))}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm text-slate-700 focus:ring-1 focus:ring-green-500 focus:border-green-500 focus:outline-none"
-                      />
-                    </div>
-                  </div>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. 4 Years, 6 Months"
+                    value={formAge}
+                    onChange={(e) => setFormAge(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm text-slate-700 focus:ring-1 focus:ring-green-500 focus:border-green-500 focus:outline-none"
+                  />
                 </div>
 
                 {/* Weight Field */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-slate-500">Weight *</label>
-                  <input 
-                    type="number" 
-                    step="0.1"
-                    min="0.1"
-                    max="150"
-                    required 
-                    placeholder="e.g. 45.5"
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. 650 kg, 32 kg"
                     value={formWeight}
                     onChange={(e) => setFormWeight(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm text-slate-700 focus:ring-1 focus:ring-green-500 focus:border-green-500 focus:outline-none"
@@ -745,9 +630,9 @@ export default function FarmerDashboard() {
                 </div>
 
                 {/* Health Status */}
-                <div className="space-y-1.5">
+                <div className="col-span-2 space-y-1.5">
                   <label className="text-xs font-semibold text-slate-500">Health Status *</label>
-                  <select 
+                  <select
                     value={formStatus}
                     onChange={(e) => setFormStatus(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm text-slate-700 focus:ring-1 focus:ring-green-500 focus:border-green-500"
@@ -758,65 +643,24 @@ export default function FarmerDashboard() {
                   </select>
                 </div>
 
-                {/* Health Report / Vaccination Card Uploader */}
-                <div className="col-span-2 space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-500">Health Report / Vaccination Card</label>
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-                    <input 
-                      type="file" 
-                      accept=".pdf,image/*,.doc,.docx"
-                      onChange={(e) => {
-                        if (e.target.files && e.target.files[0]) {
-                          setFormHealthReportFile(e.target.files[0]);
-                        }
-                      }}
-                      id="farmerHealthReportUpload"
-                      className="hidden"
-                    />
-                    <div className="flex items-center gap-3">
-                      <label 
-                        htmlFor="farmerHealthReportUpload"
-                        className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 rounded-lg text-xs font-bold shadow-xs cursor-pointer active:scale-95 transition-all"
-                      >
-                        <FileText size={14} />
-                        Upload Health Report / Card
-                      </label>
-                      {formHealthReportFile ? (
-                        <div className="flex items-center gap-2 text-xs text-slate-600 font-medium truncate">
-                          <span>{formHealthReportFile.name}</span>
-                          <button
-                            type="button"
-                            onClick={() => setFormHealthReportFile(null)}
-                            className="text-red-500 font-bold hover:underline"
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-slate-400">PDF, JPG, PNG, DOC (Optional)</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
                 {/* Profile Picture Uploader */}
                 <div className="col-span-2 space-y-2">
                   <label className="text-xs font-semibold text-slate-500">Profile Picture</label>
                   <div className="flex flex-col sm:flex-row items-center gap-4 p-3 bg-slate-50 rounded-xl border border-slate-200">
-                    <img 
+                    <img
                       src={
-                        formImageFile 
-                          ? URL.createObjectURL(formImageFile) 
+                        formImageFile
+                          ? URL.createObjectURL(formImageFile)
                           : (formImage && (formImage.startsWith('http') || formImage.startsWith('/uploads'))
-                              ? (formImage.startsWith('/uploads') ? `${import.meta.env.VITE_BACKEND_URL}${formImage}` : formImage)
-                              : (SPECIES_IMAGES[formSpecies] || SPECIES_IMAGES.Other))
+                            ? (formImage.startsWith('/uploads') ? `${import.meta.env.VITE_BACKEND_URL}${formImage}` : formImage)
+                            : (SPECIES_IMAGES[formSpecies] || SPECIES_IMAGES.Other))
                       }
-                      alt="Preview" 
+                      alt="Preview"
                       className="w-16 h-16 rounded-xl object-cover border border-slate-200 bg-white"
                     />
                     <div className="flex-1 space-y-1">
-                      <input 
-                        type="file" 
+                      <input
+                        type="file"
                         accept="image/*"
                         onChange={(e) => {
                           if (e.target.files && e.target.files[0]) {
@@ -826,7 +670,7 @@ export default function FarmerDashboard() {
                         id="animalImageUploadDashboard"
                         className="hidden"
                       />
-                      <label 
+                      <label
                         htmlFor="animalImageUploadDashboard"
                         className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 rounded-lg text-xs font-bold shadow-xs cursor-pointer active:scale-95 transition-all"
                       >
@@ -849,14 +693,14 @@ export default function FarmerDashboard() {
 
               {/* Action Buttons */}
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 mt-6">
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={() => setShowRegisterModal(false)}
                   className="px-5 py-2.5 rounded-lg border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 active:scale-95 transition-all cursor-pointer"
                 >
                   Cancel
                 </button>
-                <button 
+                <button
                   type="submit"
                   disabled={isSubmitting}
                   className="px-5 py-2.5 rounded-lg bg-green-600 hover:bg-green-700 active:scale-95 text-white text-sm font-semibold shadow-md shadow-green-50 hover:shadow-lg transition-all cursor-pointer disabled:opacity-50"
