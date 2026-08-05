@@ -4,7 +4,7 @@ import {
   Calendar as CalendarIcon, Clock, ChevronRight, 
   ChevronLeft, Plus, Trash2, Check, X, AlertCircle, Loader2
 } from 'lucide-react';
-import { Button, Card, Badge } from '../components/Ui/ui';
+import { Button, Card, Badge } from '../components/ui/ui';
 
 export default function VetSchedule() {
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -18,22 +18,9 @@ export default function VetSchedule() {
   const [newSlotType, setNewSlotType] = useState('video');
   const [monthSlots, setMonthSlots] = useState({});
 
-  const API_BASE = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
-
-  // Get vet ID from localStorage with fallback
+  // Get vet ID from localStorage
   const getVetId = () => {
-    const userId = localStorage.getItem('userId');
-    if (userId) return userId;
-    try {
-      const userStr = localStorage.getItem('user');
-      if (userStr) {
-        const u = JSON.parse(userStr);
-        return u.id || u.vetId || u.user_id || null;
-      }
-    } catch (e) {
-      console.error(e);
-    }
-    return null;
+    return localStorage.getItem('userId');
   };
 
   // Fetch schedule for current month
@@ -58,7 +45,7 @@ export default function VetSchedule() {
       const month = currentMonth.getMonth() + 1;
 
       const response = await axios.get(
-        `${API_BASE}/api/schedule/vet/${vetId}/month/${year}/${month}`
+        `http://localhost:5000/api/schedule/vet/${vetId}/month/${year}/${month}`
       );
       
       const grouped = {};
@@ -85,7 +72,7 @@ export default function VetSchedule() {
 
       const formattedDate = formatDateForAPI(date);
       const response = await axios.get(
-        `${API_BASE}/api/schedule/vet/${vetId}/date/${formattedDate}`
+        `http://localhost:5000/api/schedule/vet/${vetId}/date/${formattedDate}`
       );
       
       const slots = response.data.map(slot => ({
@@ -151,7 +138,7 @@ export default function VetSchedule() {
       const formattedDate = formatDateForAPI(selectedDate);
       const formattedTime = formatTimeForAPI(newSlotTime);
 
-      await axios.post(`${API_BASE}/api/schedule/vet/${vetId}/slot`, {
+      await axios.post(`http://localhost:5000/api/schedule/vet/${vetId}/slot`, {
         slot_date: formattedDate,
         slot_time: formattedTime,
         consultation_type: newSlotType
@@ -188,7 +175,7 @@ export default function VetSchedule() {
       const vetId = getVetId();
       if (!vetId) throw new Error('Veterinarian ID not found');
 
-      await axios.delete(`${API_BASE}/api/schedule/vet/${vetId}/slot/${id}`);
+      await axios.delete(`http://localhost:5000/api/schedule/vet/${vetId}/slot/${id}`);
 
       setSuccessMessage('Slot removed successfully!');
       
@@ -214,7 +201,7 @@ export default function VetSchedule() {
       if (!vetId) throw new Error('Veterinarian ID not found');
 
       const formattedDate = formatDateForAPI(selectedDate);
-      await axios.delete(`${API_BASE}/api/schedule/vet/${vetId}/day/${formattedDate}`);
+      await axios.delete(`http://localhost:5000/api/schedule/vet/${vetId}/day/${formattedDate}`);
 
       setSuccessMessage('All slots cleared successfully!');
       
@@ -244,7 +231,7 @@ export default function VetSchedule() {
       const vetId = getVetId();
       if (!vetId) throw new Error('Veterinarian ID not found');
 
-      await axios.post(`${API_BASE}/api/schedule/vet/${vetId}/template`, {
+      await axios.post(`http://localhost:5000/api/schedule/vet/${vetId}/template`, {
         source_date: sourceDate,
         target_date: targetDate
       });
@@ -416,24 +403,8 @@ export default function VetSchedule() {
               <AlertCircle size={18} className="text-blue-500" />
               Quick Actions
             </h3>
-            <p className="text-sm text-slate-600 mb-4">Apply schedule templates to save time.</p>
+            <p className="text-sm text-slate-600 mb-4">Manage your daily schedule.</p>
             <div className="space-y-2">
-              <Button 
-                variant="outline" 
-                className="w-full justify-start text-sm bg-white"
-                onClick={handleApplyTemplate}
-                disabled={loading}
-              >
-                Apply "Standard Weekday" template
-              </Button>
-              <Button 
-                variant="outline" 
-                className="w-full justify-start text-sm bg-white"
-                onClick={handleApplyTemplate}
-                disabled={loading}
-              >
-                Copy from previous week
-              </Button>
               <Button 
                 variant="outline" 
                 className="w-full justify-start text-sm text-red-600 hover:text-red-700 hover:bg-red-50 bg-white border-red-200"
