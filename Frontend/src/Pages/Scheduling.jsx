@@ -743,10 +743,10 @@ export default function Scheduling() {
                               <Badge className="text-[10px] uppercase tracking-wider bg-slate-100 text-slate-500">Offline</Badge>
                             )}
                           </div>
+                          <p className="text-xs font-bold text-slate-700">{vet.professionalTitle}</p>
                           <p className="text-sm font-medium text-green-600 mb-1">{vet.spec}</p>
                           <div className="flex items-center gap-3 text-sm text-slate-500 mb-3">
-                            <span className="flex items-center gap-1"><Star size={14} className="text-amber-400 fill-amber-400" /> {vet.rating}</span>
-                            <span className="flex items-center gap-1"><ShieldCheck size={14} className="text-blue-500" /> {vet.exp}</span>
+                            <span className="flex items-center gap-1 font-medium text-xs"><ShieldCheck size={14} className="text-blue-500" /> {vet.exp} Experience</span>
                           </div>
                         </div>
 
@@ -1557,14 +1557,9 @@ export default function Scheduling() {
                       <ShieldCheck size={12} /> Verified
                     </span>
                   </div>
-                  <p className="text-xs font-bold text-green-600">{viewingVetModal.professionalTitle || viewingVetModal.spec}</p>
-                  <p className="text-xs text-slate-500 font-medium">{viewingVetModal.spec}</p>
+                  <p className="text-xs font-bold text-green-700">{viewingVetModal.professionalTitle}</p>
                   
                   <div className="flex items-center justify-center sm:justify-start gap-4 pt-1 text-xs text-slate-600">
-                    <span className="flex items-center gap-1 font-bold">
-                      <Star size={14} className="text-amber-400 fill-amber-400" />
-                      {viewingVetModal.rating} ({viewingVetModal.totalReviews || 12} reviews)
-                    </span>
                     <span className="font-semibold text-slate-500">
                       {viewingVetModal.exp} Experience
                     </span>
@@ -1574,6 +1569,14 @@ export default function Scheduling() {
 
               {/* Key Credentials & Information Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="p-3.5 bg-slate-50/80 rounded-xl border border-slate-100 space-y-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Professional Title</span>
+                  <p className="text-sm font-extrabold text-slate-800">{viewingVetModal.professionalTitle}</p>
+                </div>
+                <div className="p-3.5 bg-slate-50/80 rounded-xl border border-slate-100 space-y-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Specialization</span>
+                  <p className="text-sm font-extrabold text-green-700">{viewingVetModal.spec}</p>
+                </div>
                 <div className="p-3.5 bg-slate-50/80 rounded-xl border border-slate-100 space-y-1">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">License Number</span>
                   <p className="text-sm font-extrabold text-slate-800 font-mono">{viewingVetModal.licenseNumber}</p>

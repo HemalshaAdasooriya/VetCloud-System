@@ -151,8 +151,12 @@ app.use("/api/schedule", scheduleRouter); //Navindu 2026/06/26
 app.use("/api/payments", paymentRouter);
 app.use("/api/notifications", notificationRouter);
 app.use("/api/admin", adminRouter);
+const uploadsDir = path.resolve(process.cwd(), "uploads");
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+}
+app.use("/uploads", express.static(uploadsDir));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-app.use("/uploads", express.static("uploads"));
 
 // Express Global Error Handler Middleware
 app.use((err, req, res, next) => {

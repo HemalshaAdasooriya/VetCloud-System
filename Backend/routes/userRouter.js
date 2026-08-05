@@ -45,14 +45,14 @@ import { sendEmail, getMedicalReportTemplate } from "../config/email.js";
 
 //Hemalsha 2026/05/30 ... Profile Picture Upload Functionality
 
-const uploadDir = 'uploads/';
+const uploadDir = path.resolve(process.cwd(), 'uploads');
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
 }
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, 'uploads/'); // Make sure this folder exists in your backend root!
+        cb(null, uploadDir);
     },
     filename: (req, file, cb) => {
         // unique filename

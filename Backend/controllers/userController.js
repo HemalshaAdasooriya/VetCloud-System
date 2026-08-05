@@ -1235,7 +1235,7 @@ export const getAllVets = (req, res) => {
                 yearsOfExperience: v.years_of_experience ?? 0,
                 fee: v.consultation_fee !== null && v.consultation_fee !== undefined ? v.consultation_fee : 0,
                 bio: (v.bio && v.bio.trim()) ? v.bio.trim() : "No biography provided yet.",
-                professionalTitle: (v.professional_title && v.professional_title.trim()) ? v.professional_title.trim() : (v.specialization || "Veterinary Doctor"),
+                professionalTitle: (v.professional_title && v.professional_title.trim()) ? v.professional_title.trim() : "Veterinary Doctor",
                 clinicName: v.clinic_name || "",
                 clinicAddress: v.clinic_address ? `${v.clinic_address}${v.clinic_city ? `, ${v.clinic_city}` : ''}` : "",
                 clinicPhone: v.clinic_phone || "",
