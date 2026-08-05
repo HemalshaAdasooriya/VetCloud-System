@@ -231,27 +231,7 @@ export default function RegisterPage() {
                             </div>
                         </div>
 
-                        <div className="h-px w-full bg-slate-100" />
 
-                        {/* SOCIAL OAUTH BUTTONS AREA */}
-                        <div className="space-y-4">
-                            <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
-                                <CustomGoogleButton
-                                    onSuccess={handleGoogleSuccess}
-                                    onError={() => setSubmitMessage({ text: "Google Authentication failed.", isError: true })}
-                                    isLoading={isLoading}
-                                />
-                            </GoogleOAuthProvider>
-                        </div>
-
-                        <div className="relative">
-                            <div className="absolute inset-0 flex items-center">
-                                <div className="w-full border-t border-slate-200"></div>
-                            </div>
-                            <div className="relative flex justify-center text-sm">
-                                <span className="px-4 bg-white text-slate-500 font-medium">Or continue with email</span>
-                            </div>
-                        </div>
 
                         {/* 2. Basic Information */}
                         <div className="space-y-5">
@@ -265,14 +245,14 @@ export default function RegisterPage() {
                                     <label className="block text-sm font-medium text-slate-700 mb-1.5">First Name</label>
                                     <div className="relative">
                                         <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                                        <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="John" required className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" />
+                                        <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="John" required className={`w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 ${role === 'vet' ? 'focus:ring-blue-500' : 'focus:ring-green-500'}`} />
                                     </div>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1.5">Last Name</label>
                                     <div className="relative">
                                         <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                                        <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Doe" required className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" />
+                                        <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Doe" required className={`w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 ${role === 'vet' ? 'focus:ring-blue-500' : 'focus:ring-green-500'}`} />
                                     </div>
                                 </div>
                             </div>
@@ -281,7 +261,7 @@ export default function RegisterPage() {
                                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Contact Number</label>
                                 <div className="relative">
                                     <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                                    <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))} placeholder="0712345678" pattern="[0-9]{10}" required className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" />
+                                    <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))} placeholder="0712345678" pattern="[0-9]{10}" required className={`w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 ${role === 'vet' ? 'focus:ring-blue-500' : 'focus:ring-green-500'}`} />
                                 </div>
                             </div>
 
@@ -289,7 +269,7 @@ export default function RegisterPage() {
                                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Email Address</label>
                                 <div className="relative">
                                     <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                                    <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="john@example.com" required className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" />
+                                    <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="john@example.com" required className={`w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 ${role === 'vet' ? 'focus:ring-blue-500' : 'focus:ring-green-500'}`} />
                                 </div>
                             </div>
 
@@ -307,10 +287,10 @@ export default function RegisterPage() {
                                             placeholder="••••••••"
                                             required
                                             className={`w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] pr-[40px] p-[10px] text-[14px] focus:outline-none focus:ring-2 ${passwordTouched && !isPasswordValid
-                                                    ? 'border-red-500 focus:ring-red-500'
-                                                    : passwordTouched && isPasswordValid
-                                                        ? 'border-green-500 focus:ring-green-500'
-                                                        : 'border-gray-300 focus:ring-green-500'
+                                                ? 'border-red-500 focus:ring-red-500'
+                                                : passwordTouched && isPasswordValid
+                                                    ? 'border-green-500 focus:ring-green-500'
+                                                    : `border-gray-300 ${role === 'vet' ? 'focus:ring-blue-500' : 'focus:ring-green-500'}`
                                                 }`}
                                         />
                                         <button
@@ -364,10 +344,10 @@ export default function RegisterPage() {
                                             placeholder="••••••••"
                                             required
                                             className={`w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] pr-[40px] p-[10px] text-[14px] focus:outline-none focus:ring-2 ${confirmPasswordTouched && confirmPassword.length > 0 && !doPasswordsMatch
-                                                    ? 'border-red-500 focus:ring-red-500'
-                                                    : confirmPasswordTouched && doPasswordsMatch
-                                                        ? 'border-green-500 focus:ring-green-500'
-                                                        : 'border-gray-300 focus:ring-green-500'
+                                                ? 'border-red-500 focus:ring-red-500'
+                                                : confirmPasswordTouched && doPasswordsMatch
+                                                    ? 'border-green-500 focus:ring-green-500'
+                                                    : `border-gray-300 ${role === 'vet' ? 'focus:ring-blue-500' : 'focus:ring-green-500'}`
                                                 }`}
                                         />
                                         <button
@@ -522,11 +502,11 @@ export default function RegisterPage() {
                             <label className="flex items-start gap-3 mb-6 cursor-pointer group">
                                 <div className="relative flex items-center justify-center mt-0.5">
                                     <input type="checkbox" required className="peer sr-only" />
-                                    <div className="w-5 h-5 border-2 border-slate-300 rounded peer-checked:bg-green-600 peer-checked:border-green-600 transition-colors"></div>
+                                    <div className={`w-5 h-5 border-2 border-slate-300 rounded transition-colors ${role === 'vet' ? 'peer-checked:bg-blue-600 peer-checked:border-blue-600' : 'peer-checked:bg-green-600 peer-checked:border-green-600'}`}></div>
                                     <CheckCircle2 className="absolute text-white w-3 h-3 opacity-0 peer-checked:opacity-100 transition-opacity" />
                                 </div>
                                 <span className="text-sm text-slate-600 leading-relaxed">
-                                    I agree to the <Link to="#" className="text-green-600 font-semibold hover:underline">Terms & Conditions</Link> and <Link to="#" className="text-green-600 font-semibold hover:underline">Privacy Policy</Link>, and consent to the processing of my data.
+                                    I agree to the <Link to="#" className={`font-semibold hover:underline ${role === 'vet' ? 'text-blue-600' : 'text-green-600'}`}>Terms & Conditions</Link> and <Link to="#" className={`font-semibold hover:underline ${role === 'vet' ? 'text-blue-600' : 'text-green-600'}`}>Privacy Policy</Link>, and consent to the processing of my data.
                                 </span>
                             </label>
 
@@ -534,8 +514,8 @@ export default function RegisterPage() {
                                 type="submit"
                                 disabled={isLoading || !isPasswordValid || !doPasswordsMatch}
                                 className={`w-full h-14 rounded-xl text-lg text-white shadow-sm flex items-center justify-center gap-2 transition-all duration-200 active:scale-95 ${role === 'vet'
-                                        ? 'bg-blue-600 hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
-                                        : 'bg-green-600 hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-offset-2'
+                                    ? 'bg-blue-600 hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
+                                    : 'bg-green-600 hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-offset-2'
                                     } ${(isLoading || !isPasswordValid || !doPasswordsMatch) ? 'opacity-70 cursor-not-allowed' : ''}`}
                             >
                                 {isLoading ? (
@@ -544,6 +524,26 @@ export default function RegisterPage() {
                                     "Create Account"
                                 )}
                             </button>
+                        </div>
+
+                        {/* SOCIAL OAUTH BUTTONS AREA */}
+                        <div className="pt-4 space-y-4">
+                            <div className="relative">
+                                <div className="absolute inset-0 flex items-center">
+                                    <div className="w-full border-t border-slate-200"></div>
+                                </div>
+                                <div className="relative flex justify-center text-sm">
+                                    <span className="px-4 bg-white text-slate-500 font-medium">Or continue with</span>
+                                </div>
+                            </div>
+
+                            <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
+                                <CustomGoogleButton
+                                    onSuccess={handleGoogleSuccess}
+                                    onError={() => setSubmitMessage({ text: "Google Authentication failed.", isError: true })}
+                                    isLoading={isLoading}
+                                />
+                            </GoogleOAuthProvider>
                         </div>
                     </form>
 
@@ -560,7 +560,7 @@ export default function RegisterPage() {
             <div className="hidden xl:flex xl:w-5/12 relative bg-slate-900 overflow-hidden">
                 <div className={`absolute inset-0 bg-gradient-to-br mix-blend-multiply z-10 ${role === 'vet' ? 'from-blue-600/80 to-slate-900/90' : 'from-green-600/80 to-blue-900/90'}`} />
                 <img
-                    src={role === 'vet' ? "/public/vetcat.jpg" : "https://images.unsplash.com/photo-1544568100-847a948585b9?q=80&w=1974&auto=format&fit=crop"}
+                    src={role === 'vet' ? "https://fmuznyrfnjdwxbqsdijw.supabase.co/storage/v1/object/public/uploads/vetcat.jpg" : "https://fmuznyrfnjdwxbqsdijw.supabase.co/storage/v1/object/public/uploads/vetdog.avif"}
                     alt="Veterinary Care"
                     className="absolute inset-0 w-full h-full object-cover"
                 />
