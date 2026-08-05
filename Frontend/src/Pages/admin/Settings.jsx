@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, Shield, Key, Bell, Smartphone, LogOut, CreditCard, Check, X, ShieldCheck } from 'lucide-react';
+import { User, Shield, Key, Bell, Smartphone, LogOut, CreditCard } from 'lucide-react';
 import { Card, Badge, Button, Input } from '../../components/Ui/ui';
 import toast from 'react-hot-toast';
 
@@ -115,13 +115,6 @@ export default function Settings() {
 
     const handleChangePassword = async (e) => {
         e.preventDefault();
-
-        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/;
-        if (!passwordRegex.test(newPassword)) {
-            toast.error("Password must be at least 8 characters long and include an uppercase letter, a lowercase letter, a number, and a special character/symbol.");
-            return;
-        }
-
         if (newPassword !== confirmPassword) {
             toast.error("New password and confirm password do not match");
             return;
@@ -215,13 +208,7 @@ export default function Settings() {
                     <CreditCard size={18} />
                     Payment Settings
                 </button>
-                <button
-                    onClick={() => setActiveTab("simulation")}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${activeTab === 'simulation' ? 'bg-green-50 text-green-700' : 'text-slate-600 hover:bg-slate-50'}`}
-                >
-                    <Smartphone size={18} />
-                    Notification Simulations
-                </button>
+
             </Card>
 
             {/* Sub-form panels */}
@@ -284,10 +271,7 @@ export default function Settings() {
                 {activeTab === "security" && (
                     <div className="space-y-6">
                         <div>
-                            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                                <ShieldCheck className="text-emerald-600" size={22} />
-                                Security Credentials
-                            </h3>
+                            <h3 className="text-lg font-bold text-slate-800">Security Credentials</h3>
                             <p className="text-sm text-slate-500">Modify your login password and manage authentication settings.</p>
                         </div>
                         <hr className="border-slate-100" />
@@ -313,29 +297,6 @@ export default function Settings() {
                                     onChange={(e) => setNewPassword(e.target.value)}
                                     placeholder="••••••••"
                                 />
-                                
-                                {/* Live Password Complexity Criteria Checklist */}
-                                <div className="mt-3 p-3.5 bg-slate-50 border border-slate-200/80 rounded-xl space-y-1.5">
-                                    <p className="text-xs font-bold text-slate-700 mb-1 uppercase tracking-wider">Password Security Requirements:</p>
-                                    {[
-                                        { label: "At least 8 characters long", met: newPassword.length >= 8 },
-                                        { label: "At least 1 uppercase letter (A-Z)", met: /[A-Z]/.test(newPassword) },
-                                        { label: "At least 1 lowercase letter (a-z)", met: /[a-z]/.test(newPassword) },
-                                        { label: "At least 1 number (0-9)", met: /\d/.test(newPassword) },
-                                        { label: "At least 1 special character / symbol (!@#$%^&*)", met: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(newPassword) }
-                                    ].map((req, idx) => (
-                                        <div key={idx} className="flex items-center gap-2 text-xs">
-                                            {req.met ? (
-                                                <Check size={14} className="text-emerald-600 shrink-0 font-bold" />
-                                            ) : (
-                                                <X size={14} className="text-slate-400 shrink-0" />
-                                            )}
-                                            <span className={req.met ? "text-emerald-700 font-semibold" : "text-slate-500"}>
-                                                {req.label}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
                             </div>
 
                             <div>
@@ -347,9 +308,6 @@ export default function Settings() {
                                     onChange={(e) => setConfirmPassword(e.target.value)}
                                     placeholder="••••••••"
                                 />
-                                {confirmPassword && newPassword !== confirmPassword && (
-                                    <p className="text-xs text-rose-500 font-medium mt-1">Passwords do not match.</p>
-                                )}
                             </div>
 
                             <div className="pt-2">
