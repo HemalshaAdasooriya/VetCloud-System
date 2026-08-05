@@ -27,7 +27,7 @@ const SPECIES_WEIGHT_LIMITS = {
 
 const getFileUrl = (url) => {
   if (!url) return "#";
-  if (url.startsWith("http://") || url.startsWith("https://")) return url;
+  if (url.startsWith("data:") || url.startsWith("http://") || url.startsWith("https://")) return url;
   const backendUrl = (import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000').replace(/\/$/, "");
   const cleanPath = url.startsWith("/") ? url : `/${url}`;
   return `${backendUrl}${cleanPath}`;
