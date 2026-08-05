@@ -12,6 +12,11 @@ export default function UserClinics() {
     const [clinics, setClinics] = useState([]);
     const [loading, setLoading] = useState(false);
     const [userLocation, setUserLocation] = useState(null);
+    const userLocationRef = useRef(null);
+
+    useEffect(() => {
+        userLocationRef.current = userLocation;
+    }, [userLocation]);
     const [googleFallback, setGoogleFallback] = useState(null);
     const [searchedRadius, setSearchedRadius] = useState(null);
 
@@ -58,12 +63,14 @@ export default function UserClinics() {
                 .map((place) => {
                     const pLat = place.location.latitude;
                     const pLng = place.location.longitude;
+                    const originLat = userLocationRef.current ? userLocationRef.current.lat : lat;
+                    const originLng = userLocationRef.current ? userLocationRef.current.lng : lng;
                     const R = 6371;
-                    const dLat = ((pLat - lat) * Math.PI) / 180;
-                    const dLon = ((pLng - lng) * Math.PI) / 180;
+                    const dLat = ((pLat - originLat) * Math.PI) / 180;
+                    const dLon = ((pLng - originLng) * Math.PI) / 180;
                     const a =
                         Math.sin(dLat / 2) ** 2 +
-                        Math.cos((lat * Math.PI) / 180) *
+                        Math.cos((originLat * Math.PI) / 180) *
                         Math.cos((pLat * Math.PI) / 180) *
                         Math.sin(dLon / 2) ** 2;
                     const dist = (
@@ -87,7 +94,7 @@ export default function UserClinics() {
                         lat: pLat,
                         lng: pLng,
                         distance: dist,
-                        foundWithin: 10,
+                        foundWithin: dist,
                     };
                 })
                 .sort((a, b) => parseFloat(a.distance) - parseFloat(b.distance));
@@ -524,9 +531,9 @@ export default function UserClinics() {
                                                 <span className="text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
                                                     {clinic.type}
                                                 </span>
-                                                {clinic.foundWithin > 5 && (
+                                                {clinic.distance && (
                                                     <span className="text-xs text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full border border-orange-200">
-                                                        {clinic.foundWithin}km radius
+                                                        {clinic.distance} km
                                                     </span>
                                                 )}
                                             </div>

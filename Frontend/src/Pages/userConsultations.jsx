@@ -34,7 +34,7 @@ export default function ConsultationPage() {
   const [feedbackRating, setFeedbackRating] = useState(5);
   const [feedbackComment, setFeedbackComment] = useState("");
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
-  
+
   // Prescription Report modal states
   const [showReportModal, setShowReportModal] = useState(false);
   const [selectedReportConsultation, setSelectedReportConsultation] = useState(null);
@@ -161,7 +161,7 @@ export default function ConsultationPage() {
       toast.success("Simulated Sandbox/Test payment successful!");
       setShowPaymentModal(false);
       fetchAppointments();
-      
+
       // Auto-open chat room if it's a chat consultation
       if (paymentAppointment && paymentAppointment.consultation_type === 'chat') {
         setSelectedRequestDetails(paymentAppointment);
@@ -227,13 +227,13 @@ export default function ConsultationPage() {
             appointmentId
           });
           toast.success("Payment completed via Stripe!", { id: loadingToast });
-          
+
           // Fetch updated appointments list
           const ownerId = localStorage.getItem('userId');
           if (ownerId) {
             const res = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/appointments/owner/${ownerId}`);
             setAppointments(res.data);
-            
+
             // Check if the paid appointment is chat type, and open it
             const paidAppt = res.data.find(a => String(a.id) === String(appointmentId));
             if (paidAppt && paidAppt.consultation_type === 'chat') {
@@ -309,7 +309,7 @@ export default function ConsultationPage() {
       const vetName = appointment?.veterinarian_name || 'the veterinarian';
 
       await axios.patch(`${import.meta.env.VITE_BACKEND_URL}/api/appointments/${appointmentId}/cancel`);
-      toast.success("Consultation request cancelled successfully.");
+      // toast.success("Consultation request cancelled successfully.");
       setCancelModalId(null);
 
       // Save notification to local storage
@@ -367,11 +367,11 @@ export default function ConsultationPage() {
     if (!selectedReportConsultation) return;
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
-    
+
     const formattedDate = new Date(selectedReportConsultation.appointment_date || selectedReportConsultation.created_at).toLocaleDateString("en-US", {
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
       day: 'numeric'
     });
 
@@ -443,14 +443,14 @@ export default function ConsultationPage() {
   // Format date and time
   const formatDate = (date, time) => {
     if (!date) return 'TBD';
-    
+
     try {
       const dateStr = date.includes('T') ? date.split('T')[0] : date;
       const timeStr = time || '00:00:00';
       const d = new Date(`${dateStr}T${timeStr}`);
-      
+
       if (isNaN(d.getTime())) return 'TBD';
-      
+
       return d.toLocaleDateString(undefined, {
         weekday: 'short',
         month: 'short',
@@ -470,7 +470,7 @@ export default function ConsultationPage() {
     if (!Array.isArray(availability) || availability.length === 0) {
       return 'No slots provided';
     }
-    
+
     return availability
       .map((s) => {
         const date = s.date ?? s.slot_date ?? '';
@@ -558,8 +558,8 @@ export default function ConsultationPage() {
       <div className="flex flex-col items-center justify-center py-20 text-red-500">
         <AlertCircle size={48} className="mb-4" />
         <p>{error}</p>
-        <Button 
-          onClick={() => window.location.reload()} 
+        <Button
+          onClick={() => window.location.reload()}
           className="mt-4 bg-red-600 hover:bg-red-700 text-white"
         >
           Try Again
@@ -597,9 +597,8 @@ export default function ConsultationPage() {
             <button
               key={key}
               onClick={() => setActiveTab(key)}
-              className={`pb-4 px-2 text-sm font-medium transition-colors relative whitespace-nowrap ${
-                activeTab === key ? styles.text : 'text-slate-500 hover:text-slate-700'
-              }`}
+              className={`pb-4 px-2 text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === key ? styles.text : 'text-slate-500 hover:text-slate-700'
+                }`}
             >
               {label}
               {activeTab === key && (
@@ -618,7 +617,7 @@ export default function ConsultationPage() {
               // Use the new fields from backend
               const availability = consult.availability_slots || [];
               const notes = consult.reason_notes || '';
-              
+
               return (
                 <Card key={consult.id} className="p-6 border-amber-200 bg-amber-50/30 shadow-sm hover:shadow-md transition-shadow">
                   <div className="flex flex-col md:flex-row gap-6">
@@ -708,7 +707,7 @@ export default function ConsultationPage() {
             upcomingConsultations.map((consult) => {
               // Use appointment_date and appointment_time from backend
               const hasSlot = consult.appointment_date && consult.appointment_time;
-              
+
               return (
                 <Card key={consult.id} className="p-6 border-slate-200 shadow-sm hover:shadow-md transition-shadow">
                   <div className="flex flex-col md:flex-row gap-6">
@@ -728,7 +727,7 @@ export default function ConsultationPage() {
                           <div className="flex items-center text-slate-700 mb-2">
                             <Clock size={16} className="mr-2 text-green-600 flex-shrink-0" />
                             <span className="font-medium">
-                              {hasSlot 
+                              {hasSlot
                                 ? formatDate(consult.appointment_date, consult.appointment_time)
                                 : 'Awaiting slot confirmation'}
                             </span>
@@ -748,7 +747,7 @@ export default function ConsultationPage() {
                     <div className="flex flex-col justify-end md:border-l md:border-slate-100 md:pl-6">
                       <div className="flex items-center gap-3 relative">
                         {consult.payment_status === 'Unpaid' ? (
-                          <Button 
+                          <Button
                             className="flex-1 bg-amber-600 hover:bg-amber-700 text-white whitespace-nowrap px-4 font-semibold"
                             onClick={() => handleInitiatePayment(consult)}
                           >
@@ -756,7 +755,7 @@ export default function ConsultationPage() {
                             Pay Fee
                           </Button>
                         ) : consult.consultation_type === 'chat' ? (
-                          <Button 
+                          <Button
                             className="flex-1 bg-green-600 hover:bg-green-700 text-white whitespace-nowrap px-4 font-semibold"
                             disabled={!hasSlot}
                             onClick={() => {
@@ -768,7 +767,7 @@ export default function ConsultationPage() {
                             Open Chat
                           </Button>
                         ) : (
-                          <Button 
+                          <Button
                             className="flex-1 bg-blue-600 hover:bg-blue-700 text-white whitespace-nowrap px-4 font-semibold"
                             disabled={!hasSlot}
                             onClick={() => {
@@ -781,23 +780,23 @@ export default function ConsultationPage() {
                           </Button>
                         )}
                         <div className="relative">
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             className="px-2 text-slate-400 cursor-pointer"
                             onClick={() => setActiveMenuId(activeMenuId === consult.id ? null : consult.id)}
                           >
                             <MoreVertical size={20} />
                           </Button>
-                          
+
                           {activeMenuId === consult.id && (
                             <>
-                              <div 
-                                className="fixed inset-0 z-10" 
+                              <div
+                                className="fixed inset-0 z-10"
                                 onClick={() => setActiveMenuId(null)}
                               />
                               <div className="absolute right-0 mt-2 w-44 bg-white border border-slate-200 rounded-xl shadow-lg py-1.5 z-20 animate-in fade-in slide-in-from-top-2 duration-150">
-                                <button 
+                                <button
                                   onClick={() => {
                                     setActiveMenuId(null);
                                     handleCancelAppointment(consult.id);
@@ -835,7 +834,7 @@ export default function ConsultationPage() {
           {pastConsultations.length > 0 ? (
             pastConsultations.map((consult) => {
               const hasSlot = consult.appointment_date && consult.appointment_time;
-              
+
               return (
                 <Card key={consult.id} className="p-6 border-slate-200 shadow-sm hover:shadow-md transition-shadow opacity-90">
                   <div className="flex flex-col md:flex-row gap-6">
@@ -855,7 +854,7 @@ export default function ConsultationPage() {
                           <div className="flex items-center text-slate-600">
                             <Clock size={16} className="mr-2 text-slate-400 flex-shrink-0" />
                             <span className="font-medium">
-                              {hasSlot 
+                              {hasSlot
                                 ? formatDate(consult.appointment_date, consult.appointment_time)
                                 : 'No date set'}
                             </span>
@@ -871,8 +870,8 @@ export default function ConsultationPage() {
                     </div>
                     <div className="flex flex-col justify-end md:border-l md:border-slate-100 md:pl-6 gap-2">
                       {consult.status === 'Completed' && (
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="outline"
                           className="border-slate-300 text-slate-700 hover:bg-slate-50 w-full cursor-pointer"
                           onClick={() => handleViewReport(consult)}
                         >
@@ -881,7 +880,7 @@ export default function ConsultationPage() {
                         </Button>
                       )}
                       {consult.status === 'Completed' && !isAppointmentRated(consult.id) && (
-                        <Button 
+                        <Button
                           className="bg-green-600 hover:bg-green-700 text-white w-full flex items-center justify-center cursor-pointer font-semibold text-sm"
                           onClick={() => {
                             setFeedbackConsultation(consult);
@@ -960,7 +959,7 @@ export default function ConsultationPage() {
                 Consultation with {selectedRequestDetails.veterinarian_name}
               </h3>
             </div>
-            
+
             <div className="flex items-center gap-4">
               <button
                 onClick={() => {
@@ -1018,7 +1017,7 @@ export default function ConsultationPage() {
                 </div>
                 <p className="text-xs text-slate-300 mt-1">Complete your virtual consultation booking</p>
               </div>
-              <button 
+              <button
                 onClick={() => setShowPaymentModal(false)}
                 className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer border-0 bg-transparent"
               >
@@ -1070,22 +1069,20 @@ export default function ConsultationPage() {
                   <button
                     type="button"
                     onClick={() => setPaymentTab('card')}
-                    className={`flex-1 py-2.5 text-xs font-bold transition-all border-b-2 cursor-pointer ${
-                      paymentTab === 'card' 
-                        ? 'border-green-600 text-green-700 bg-green-50/40' 
+                    className={`flex-1 py-2.5 text-xs font-bold transition-all border-b-2 cursor-pointer ${paymentTab === 'card'
+                        ? 'border-green-600 text-green-700 bg-green-50/40'
                         : 'border-transparent text-slate-500 hover:text-slate-700'
-                    }`}
+                      }`}
                   >
                     Credit / Debit Card (Sandbox)
                   </button>
                   <button
                     type="button"
                     onClick={() => setPaymentTab('stripe')}
-                    className={`flex-1 py-2.5 text-xs font-bold transition-all border-b-2 cursor-pointer ${
-                      paymentTab === 'stripe' 
-                        ? 'border-blue-600 text-blue-700 bg-blue-50/40' 
+                    className={`flex-1 py-2.5 text-xs font-bold transition-all border-b-2 cursor-pointer ${paymentTab === 'stripe'
+                        ? 'border-blue-600 text-blue-700 bg-blue-50/40'
                         : 'border-transparent text-slate-500 hover:text-slate-700'
-                    }`}
+                      }`}
                   >
                     Stripe Hosted Checkout
                   </button>
@@ -1283,7 +1280,7 @@ export default function ConsultationPage() {
                       </div>
                     </div>
 
-                    <Button 
+                    <Button
                       type="submit"
                       disabled={processingCard}
                       className="w-full bg-green-600 hover:bg-green-700 text-white font-bold h-11 rounded-xl shadow-lg shadow-green-600/20 transition-all active:scale-98 cursor-pointer mt-2"
@@ -1302,7 +1299,7 @@ export default function ConsultationPage() {
                         You will be securely redirected to the **Stripe Hosted Checkout** page to complete your payment with test credentials.
                       </p>
                     </div>
-                    <Button 
+                    <Button
                       onClick={handleConfirmStripe}
                       disabled={processingStripe}
                       className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold h-11 rounded-xl shadow-lg shadow-blue-600/20 cursor-pointer"
@@ -1332,7 +1329,7 @@ export default function ConsultationPage() {
               <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center text-amber-600">
                 <Star size={24} className="fill-amber-600 text-amber-600" />
               </div>
-              
+
               <div className="text-center w-full">
                 <h3 className="text-lg font-bold text-slate-900">Rate Your Consultation</h3>
                 <p className="text-sm text-slate-500 mt-1">
@@ -1414,7 +1411,7 @@ export default function ConsultationPage() {
                 </p>
               </div>
             </div>
-            
+
             <p className="text-xs text-slate-600 leading-relaxed mb-4">
               Dr. <strong>{selectedReportConsultation.veterinarian_name}</strong> completed the session and issued the following prescription and treatment advice for <strong>{selectedReportConsultation.animal_name}</strong> ({selectedReportConsultation.animal_species || 'Unknown'}):
             </p>

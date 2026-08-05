@@ -108,7 +108,6 @@ export default function UserSettings() {
 
     const [show2FAModal, setShow2FAModal] = useState(false);
     const [verificationCode, setVerificationCode] = useState('');
-    const [activeSessions, setActiveSessions] = useState([]);
 
     //isuri-notification
     // --- Simulation states ---
@@ -130,29 +129,6 @@ export default function UserSettings() {
         }, 4000);
     }
 
-
-    // --- Fetch Active Sessions on Load ---
-    useEffect(() => {
-        const fetchSessions = async () => {
-            try {
-                const token = localStorage.getItem("token");
-                if (!token) return;
-
-                const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/sessions`, {
-                    headers: { "Authorization": `Bearer ${token}` }
-                });
-
-                if (response.ok) {
-                    const data = await response.json();
-                    setActiveSessions(data); // Inject real data into the UI
-                }
-            } catch {
-                console.error("Failed to fetch sessions");
-            }
-        };
-
-        fetchSessions();
-    }, []);
 
     //isuri-user notification
     // --- URL Email Verification Check ---
@@ -562,45 +538,6 @@ export default function UserSettings() {
             }
         } catch {
             showToast('Server connection failed', 'error');
-        }
-    };
-
-    // --- Real Session Management Handlers ---
-    const handleRevokeSession = async (id) => {
-        try {
-            const token = localStorage.getItem("token");
-            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/sessions/${id}`, {
-                method: 'DELETE',
-                headers: { "Authorization": `Bearer ${token}` }
-            });
-
-            if (response.ok) {
-                setActiveSessions(activeSessions.filter(s => s.id !== id));
-                showToast('Session revoked successfully.');
-            } else {
-                showToast('Failed to revoke session.', 'error');
-            }
-        } catch {
-            showToast('Server connection failed.', 'error');
-        }
-    };
-
-    const handleSignOutOtherSessions = async () => {
-        try {
-            const token = localStorage.getItem("token");
-            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/sessions/others`, {
-                method: 'DELETE',
-                headers: { "Authorization": `Bearer ${token}` }
-            });
-
-            if (response.ok) {
-                setActiveSessions(activeSessions.filter(s => s.isCurrent));
-                showToast('All other sessions signed out.');
-            } else {
-                showToast('Failed to sign out other sessions.', 'error');
-            }
-        } catch {
-            showToast('Server connection failed.', 'error');
         }
     };
 
@@ -1068,75 +1005,6 @@ export default function UserSettings() {
                                             </span>
                                         )}
                                     </div>
-                                </div>
-                            </div>
-
-                            {/* Active Sessions Card */}
-                            <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm">
-                                <h3 className="text-base font-bold text-slate-800 mb-6 font-display">Active Sessions</h3>
-
-                                <div className="space-y-4">
-                                    {activeSessions.length === 0 ? (
-                                        <p className="text-xs text-slate-400 py-4 font-medium italic">No active sessions (Simulated error: You need at least one session).</p>
-                                    ) : (
-                                        activeSessions.map((session) => (
-                                            <div
-                                                key={session.id}
-                                                className="p-4 bg-slate-50/50 border border-slate-100 rounded-2xl flex items-center justify-between transition-all duration-300 animate-fade-in-up"
-                                            >
-                                                <div className="flex items-start gap-3">
-                                                    {/* Device icon */}
-                                                    <span className="w-10 h-10 rounded-xl bg-white border border-slate-100 text-slate-400 flex items-center justify-center shrink-0 shadow-xs">
-                                                        {session.device.toLowerCase().includes('phone') ? (
-                                                            <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                                                            </svg>
-                                                        ) : (
-                                                            <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                                                            </svg>
-                                                        )}
-                                                    </span>
-                                                    <div>
-                                                        <p className="text-sm font-semibold text-slate-800">{session.device}</p>
-                                                        <p className="text-xs text-slate-400 mt-0.5 font-medium">
-                                                            {session.location} • {session.time}
-                                                        </p>
-                                                    </div>
-                                                </div>
-
-                                                {/* Status / Revoke action */}
-                                                <div>
-                                                    {session.isCurrent ? (
-                                                        <span className="px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-600 text-[10px] font-bold">
-                                                            Current Session
-                                                        </span>
-                                                    ) : (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleRevokeSession(session.id)}
-                                                            className="text-xs font-bold text-red-500 hover:text-red-600 transition-colors py-1 px-3 hover:bg-red-50 rounded-lg cursor-pointer"
-                                                        >
-                                                            Revoke
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))
-                                    )}
-
-                                    {/* Sign out other sessions */}
-                                    {activeSessions.length > 1 && (
-                                        <div className="pt-2">
-                                            <button
-                                                type="button"
-                                                onClick={handleSignOutOtherSessions}
-                                                className="px-4 py-2.5 rounded-xl border border-red-200 text-red-500 text-xs font-bold bg-white hover:bg-red-50/50 shadow-xs transition-colors cursor-pointer"
-                                            >
-                                                Sign Out All Other Sessions
-                                            </button>
-                                        </div>
-                                    )}
                                 </div>
                             </div>
                         </div>
