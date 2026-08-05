@@ -698,6 +698,7 @@ export default function UserSettings() {
                                             value={personalInfo.email}
                                             onChange={(e) => setPersonalInfo({ ...personalInfo, email: e.target.value })}
                                             className="w-full px-4 py-3 rounded-xl border border-slate-100 bg-slate-50/30 focus:bg-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 outline-hidden transition-all text-sm font-medium text-slate-700 placeholder:text-slate-300"
+                                            disabled
                                         />
                                     </div>
                                     {/* User Type */}
@@ -710,8 +711,7 @@ export default function UserSettings() {
                                             disabled
                                         >
                                             <option value="Farmer/PetOwner">Farmer/PetOwner</option>
-                                            <option value="Veterinarian">Veterinarian</option>
-                                            <option value="Clinic Manager">Clinic Manager</option>
+                                            <option value="Veterinarian">Veterinary Doctor</option>
                                         </select>
                                     </div>
                                 </div>
