@@ -215,6 +215,8 @@ export const rejectAppointment = (req, res) => {
                 });
             }
 
+            triggerAppointmentNotification(req.app, req.params.id, "appointment_rejected");
+
             res.json({
                 message: "Appointment rejected"
             });

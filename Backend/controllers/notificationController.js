@@ -399,7 +399,13 @@ export const triggerAppointmentNotification = (app, appointmentId, triggerType) 
                     text: `Dear Dr. ${apt.vet_name}, a new consultation has been assigned to you by ${apt.owner_name}.`
                 };
             } 
-            else if (triggerType === "appointment_confirmed") {
+            else if (
+                triggerType === "appointment_confirmed" || 
+                triggerType === "appointment_approved" || 
+                triggerType === "appointment_accepted" || 
+                triggerType === "approved" || 
+                triggerType === "accepted"
+            ) {
                 ownerNotify = {
                     userId: apt.pet_owner_id,
                     userRole: "Farmer/PetOwner",
@@ -440,7 +446,9 @@ export const triggerAppointmentNotification = (app, appointmentId, triggerType) 
                         apt.consultation_type,
                         apt.reason
                     );
+                    const targetOwnerEmail = apt.owner_email || apt.user_email || apt.email;
                     emailToOwner = {
+                        to: targetOwnerEmail,
                         subject: `Appointment Approved & Confirmed - VetCloud #${appointmentId}`,
                         html: confirmationHtml,
                         text: `Dear ${apt.owner_name || 'Client'}, Dr. ${apt.vet_name || 'Doctor'} has approved your consultation request for ${apt.animal_name || 'your animal'}. Your appointment is confirmed for ${formattedDate} at ${formattedTime}.`
@@ -449,6 +457,31 @@ export const triggerAppointmentNotification = (app, appointmentId, triggerType) 
                     console.error("[NOTIFICATION EMAIL ERROR] Failed to generate confirmation template:", htmlErr);
                 }
             } 
+            else if (triggerType === "appointment_rejected" || triggerType === "rejected") {
+                ownerNotify = {
+                    userId: apt.pet_owner_id,
+                    userRole: "Farmer/PetOwner",
+                    type: "appointment_rejected",
+                    title: "Appointment Declined",
+                    message: `Dr. ${apt.vet_name || 'Doctor'} declined your consultation request for ${apt.animal_name || 'your animal'}.`
+                };
+                vetNotify = {
+                    userId: apt.veterinarian_id,
+                    userRole: "Veterinary Doctor",
+                    type: "appointment_rejected",
+                    title: "Appointment Rejected",
+                    message: `You rejected the appointment request for ${apt.owner_name || 'Client'}'s animal ${apt.animal_name || 'Patient'}.`
+                };
+                const targetOwnerEmail = apt.owner_email || apt.user_email || apt.email;
+                if (targetOwnerEmail) {
+                    emailToOwner = {
+                        to: targetOwnerEmail,
+                        subject: `Appointment Request Declined - VetCloud #${appointmentId}`,
+                        html: `<p>Dear ${apt.owner_name || 'Client'},</p><p>Dr. ${apt.vet_name || 'Doctor'} was unable to accept your consultation request for ${apt.animal_name || 'your animal'} at this time.</p><p>Please log in to your dashboard to manage your appointments.</p>`,
+                        text: `Dear ${apt.owner_name || 'Client'}, Dr. ${apt.vet_name || 'Doctor'} declined your consultation request.`
+                    };
+                }
+            }
             else if (triggerType === "appointment_rescheduled") {
                 ownerNotify = {
                     userId: apt.pet_owner_id,
@@ -495,12 +528,15 @@ export const triggerAppointmentNotification = (app, appointmentId, triggerType) 
                         slot.slot_date,
                         formattedTime
                     );
-                    sendEmail({
-                        to: apt.owner_email,
-                        subject: `Appointment Cancelled - VetCloud #${appointmentId}`,
-                        html,
-                        text: `Dear ${apt.owner_name}, your appointment with Dr. ${apt.vet_name} has been cancelled.`
-                    }).catch(console.error);
+                    const targetOwnerEmail = apt.owner_email || apt.user_email || apt.email;
+                    if (targetOwnerEmail) {
+                        sendEmail({
+                            to: targetOwnerEmail,
+                            subject: `Appointment Cancelled - VetCloud #${appointmentId}`,
+                            html,
+                            text: `Dear ${apt.owner_name}, your appointment with Dr. ${apt.vet_name} has been cancelled.`
+                        }).catch(console.error);
+                    }
                 });
 
                 emailToVet = {
@@ -549,12 +585,15 @@ export const triggerAppointmentNotification = (app, appointmentId, triggerType) 
                         apt.animal_name,
                         appointmentId
                     );
-                    sendEmail({
-                        to: apt.owner_email,
-                        subject: `Feedback Request: Rate Your Consultation with Dr. ${apt.vet_name}`,
-                        html,
-                        text: `Dear ${apt.owner_name}, please rate your consultation experience with Dr. ${apt.vet_name} for ${apt.animal_name}.`
-                    }).catch(console.error);
+                    const targetOwnerEmail = apt.owner_email || apt.user_email || apt.email;
+                    if (targetOwnerEmail) {
+                        sendEmail({
+                            to: targetOwnerEmail,
+                            subject: `Feedback Request: Rate Your Consultation with Dr. ${apt.vet_name}`,
+                            html,
+                            text: `Dear ${apt.owner_name}, please rate your consultation experience with Dr. ${apt.vet_name} for ${apt.animal_name}.`
+                        }).catch(console.error);
+                    }
                 });
             }
 
@@ -576,20 +615,28 @@ export const triggerAppointmentNotification = (app, appointmentId, triggerType) 
 
             // Send Emails
             if (emailToOwner) {
-                sendEmail({
-                    to: apt.owner_email,
-                    subject: emailToOwner.subject,
-                    html: emailToOwner.html,
-                    text: emailToOwner.text
-                }).catch(console.error);
+                const targetOwnerEmail = emailToOwner.to || apt.owner_email || apt.user_email || apt.email;
+                if (targetOwnerEmail) {
+                    sendEmail({
+                        to: targetOwnerEmail,
+                        subject: emailToOwner.subject,
+                        html: emailToOwner.html,
+                        text: emailToOwner.text
+                    }).catch(err => console.error("[EMAIL ERROR] Failed to send email to owner:", err));
+                } else {
+                    console.error("[EMAIL ERROR] Owner email address is missing for appointment confirmation:", appointmentId);
+                }
             }
             if (emailToVet) {
-                sendEmail({
-                    to: apt.vet_email,
-                    subject: emailToVet.subject,
-                    html: emailToVet.html,
-                    text: emailToVet.text
-                }).catch(console.error);
+                const targetVetEmail = emailToVet.to || apt.vet_email;
+                if (targetVetEmail) {
+                    sendEmail({
+                        to: targetVetEmail,
+                        subject: emailToVet.subject,
+                        html: emailToVet.html,
+                        text: emailToVet.text
+                    }).catch(err => console.error("[EMAIL ERROR] Failed to send email to vet:", err));
+                }
             }
         });
     });
