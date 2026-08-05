@@ -219,7 +219,12 @@ const getDiseaseImage = (disease) => {
   
   const name = disease.name ? disease.name.toLowerCase() : '';
   const category = disease.category ? disease.category.toLowerCase() : '';
-  const species = disease.species ? disease.species.map(s => s.toLowerCase()) : [];
+  const speciesList = Array.isArray(disease.species)
+    ? disease.species
+    : typeof disease.species === 'string' && disease.species
+    ? disease.species.split(',').map(s => s.trim())
+    : [];
+  const species = speciesList.map(s => (s || '').toLowerCase());
 
   if (name.includes('foot') || name.includes('mouth') || name.includes('mastitis') || species.includes('cattle') || category.includes('cattle')) {
     return '/cows.jpg';
@@ -243,6 +248,31 @@ const getDiseaseImage = (disease) => {
 function DiseaseGuideModal({ disease, onClose }) {
   const [activeTab, setActiveTab] = useState('overview');
   const riskStyles = getRiskStyles(disease.risk);
+
+  const speciesList = Array.isArray(disease.species)
+    ? disease.species
+    : typeof disease.species === 'string' && disease.species
+    ? disease.species.split(',').map(s => s.trim())
+    : [];
+
+  const clinicalSignsList = Array.isArray(disease.clinicalSigns)
+    ? disease.clinicalSigns
+    : typeof disease.clinicalSigns === 'string' && disease.clinicalSigns
+    ? [disease.clinicalSigns]
+    : [];
+
+  const preventionStepsList = Array.isArray(disease.preventionSteps)
+    ? disease.preventionSteps
+    : typeof disease.preventionSteps === 'string' && disease.preventionSteps
+    ? [disease.preventionSteps]
+    : [];
+
+  const treatmentStepsList = Array.isArray(disease.treatmentSteps)
+    ? disease.treatmentSteps
+    : typeof disease.treatmentSteps === 'string' && disease.treatmentSteps
+    ? [disease.treatmentSteps]
+    : [];
+
   // Close on Escape key press
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -251,6 +281,7 @@ function DiseaseGuideModal({ disease, onClose }) {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
@@ -295,7 +326,7 @@ function DiseaseGuideModal({ disease, onClose }) {
               {disease.name}
             </h2>
             <p className="text-emerald-300 font-semibold text-sm mt-1">
-              Affects: {disease.species.join(', ')}
+              Affects: {speciesList.length > 0 ? speciesList.join(', ') : (disease.category || 'All Animals')}
             </p>
           </div>
         </div>
@@ -364,7 +395,7 @@ function DiseaseGuideModal({ disease, onClose }) {
                   Clinical Signs & Identification
                 </h3>
                 <ul className="space-y-2.5">
-                  {disease.clinicalSigns.map((sign, index) => (
+                  {clinicalSignsList.map((sign, index) => (
                     <li key={index} className="flex gap-2.5 items-start text-sm text-slate-600 font-medium">
                       <span className="h-5 w-5 rounded-full bg-amber-50 border border-amber-100 text-amber-600 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
                         {index + 1}
@@ -387,7 +418,7 @@ function DiseaseGuideModal({ disease, onClose }) {
                   Implementing proactive biosecurity practices is the most effective way to protect your herd or flock from transmission.
                 </p>
                 <ul className="space-y-3">
-                  {disease.preventionSteps.map((step, index) => (
+                  {preventionStepsList.map((step, index) => (
                     <li key={index} className="flex gap-3 items-start text-sm text-slate-600 font-medium">
                       <span className="h-2 w-2 rounded-full bg-blue-500 shrink-0 mt-2" />
                       <span className="leading-relaxed">{step}</span>
@@ -406,7 +437,7 @@ function DiseaseGuideModal({ disease, onClose }) {
                   Treatment & Supportive Care
                 </h3>
                 <ul className="space-y-3">
-                  {disease.treatmentSteps.map((step, index) => (
+                  {treatmentStepsList.map((step, index) => (
                     <li key={index} className="flex gap-3 items-start text-sm text-slate-600 font-medium">
                       <span className="h-2 w-2 rounded-full bg-green-500 shrink-0 mt-2" />
                       <span className="leading-relaxed">{step}</span>
@@ -455,7 +486,36 @@ export default function DiseasesPage() {
         const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/admin/public/diseases`);
         if (res.ok) {
           const data = await res.json();
-          setDiseases(data);
+          if (Array.isArray(data) && data.length > 0) {
+            const normalizedData = data.map(d => ({
+              ...d,
+              species: Array.isArray(d.species)
+                ? d.species
+                : typeof d.species === 'string' && d.species
+                ? d.species.split(',').map(s => s.trim())
+                : [],
+              clinicalSigns: Array.isArray(d.clinicalSigns)
+                ? d.clinicalSigns
+                : typeof d.clinicalSigns === 'string' && d.clinicalSigns
+                ? [d.clinicalSigns]
+                : [],
+              preventionSteps: Array.isArray(d.preventionSteps)
+                ? d.preventionSteps
+                : typeof d.preventionSteps === 'string' && d.preventionSteps
+                ? [d.preventionSteps]
+                : [],
+              treatmentSteps: Array.isArray(d.treatmentSteps)
+                ? d.treatmentSteps
+                : typeof d.treatmentSteps === 'string' && d.treatmentSteps
+                ? [d.treatmentSteps]
+                : []
+            }));
+
+            // Merge DB diseases with static library to ensure added animal diseases show up seamlessly
+            const dbNames = new Set(normalizedData.map(d => (d.name || '').toLowerCase()));
+            const nonDuplicateDefault = DISEASES_DATA.filter(d => !dbNames.has((d.name || '').toLowerCase()));
+            setDiseases([...normalizedData, ...nonDuplicateDefault]);
+          }
         }
       } catch (error) {
         console.error("Failed to fetch public diseases:", error);
@@ -464,20 +524,43 @@ export default function DiseasesPage() {
     fetchDiseases();
   }, []);
 
-  const categories = ['All', 'Cattle', 'Poultry', 'Dogs', 'Cats', 'Swine'];
+  const categories = useMemo(() => {
+    const baseCategories = ['All', 'Cattle', 'Poultry', 'Dogs', 'Cats', 'Swine'];
+    const dynamicSet = new Set(baseCategories);
+    diseases.forEach((d) => {
+      if (d.category) dynamicSet.add(d.category);
+      if (Array.isArray(d.species)) {
+        d.species.forEach((s) => dynamicSet.add(s));
+      } else if (typeof d.species === 'string' && d.species.trim()) {
+        dynamicSet.add(d.species.trim());
+      }
+    });
+    return Array.from(dynamicSet);
+  }, [diseases]);
 
   // Filter diseases based on search query and category
   const filteredDiseases = useMemo(() => {
     return diseases.filter((disease) => {
+      const diseaseName = (disease.name || '').toLowerCase();
+      const diseaseSymptoms = (disease.symptoms || '').toLowerCase();
+      const speciesList = Array.isArray(disease.species)
+        ? disease.species
+        : typeof disease.species === 'string' && disease.species
+        ? [disease.species]
+        : [];
+      
+      const query = searchQuery.toLowerCase().trim();
+
       const matchesSearch =
-        disease.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        disease.symptoms.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        disease.species.some(s => s.toLowerCase().includes(searchQuery.toLowerCase()));
+        !query ||
+        diseaseName.includes(query) ||
+        diseaseSymptoms.includes(query) ||
+        speciesList.some(s => (s || '').toLowerCase().includes(query));
 
       const matchesCategory =
         selectedCategory === 'All' ||
         disease.category === selectedCategory ||
-        disease.species.includes(selectedCategory);
+        speciesList.includes(selectedCategory);
 
       return matchesSearch && matchesCategory;
     });
@@ -567,6 +650,11 @@ export default function DiseasesPage() {
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
           {filteredDiseases.map((disease) => {
             const riskStyles = getRiskStyles(disease.risk);
+            const speciesList = Array.isArray(disease.species)
+              ? disease.species
+              : typeof disease.species === 'string' && disease.species
+              ? disease.species.split(',').map(s => s.trim())
+              : [];
             return (
               <Card
                 key={disease.id}
@@ -593,7 +681,7 @@ export default function DiseasesPage() {
                       {disease.name}
                     </h3>
                     <p className="text-sm font-semibold text-green-600 mb-5">
-                      Affects: {disease.species.join(', ')}
+                      Affects: {speciesList.length > 0 ? speciesList.join(', ') : (disease.category || 'All Animals')}
                     </p>
 
                     <div className="space-y-4">
