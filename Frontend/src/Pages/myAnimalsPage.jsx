@@ -29,18 +29,7 @@ const SPECIES_IMAGES = {
   Dog: "https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&q=80&w=600",
   Poultry: "https://images.unsplash.com/photo-1548550023-2bdb3c5beed7?auto=format&fit=crop&q=80&w=600",
   Cat: "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?auto=format&fit=crop&q=80&w=600",
-// Helper to construct valid absolute URLs for backend uploads (supports relative paths, windows backslashes, etc.)
-const getMediaUrl = (path) => {
-  if (!path || typeof path !== "string") return "";
-  if (path.startsWith("http://") || path.startsWith("https://") || path.startsWith("blob:") || path.startsWith("data:")) {
-    return path;
-  }
-  let cleanPath = path.replace(/\\/g, "/");
-  if (!cleanPath.startsWith("/")) {
-    cleanPath = "/" + cleanPath;
-  }
-  const backendBase = (import.meta.env.VITE_BACKEND_URL || "http://localhost:5000").replace(/\/+$/, "");
-  return `${backendBase}${cleanPath}`;
+  Other: "https://images.unsplash.com/photo-1535268647977-a403b69fc756?auto=format&fit=crop&q=80&w=600"
 };
 
 export default function MyAnimalsPage() {
@@ -684,7 +673,11 @@ export default function MyAnimalsPage() {
               {/* Card Image */}
               <div className="h-44 w-full bg-slate-100 overflow-hidden relative">
                 <img 
-                  src={getMediaUrl(animal.image) || (SPECIES_IMAGES[animal.species] || SPECIES_IMAGES.Other)} 
+                  src={
+                    animal.image && animal.image.startsWith('/uploads/') 
+                      ? `${import.meta.env.VITE_BACKEND_URL}${animal.image}` 
+                      : (animal.image || SPECIES_IMAGES[animal.species] || SPECIES_IMAGES.Other)
+                  } 
                   alt={animal.name} 
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
                   onError={(e) => {
@@ -990,7 +983,7 @@ export default function MyAnimalsPage() {
                         <div className="flex items-center gap-2 text-xs text-emerald-600 font-medium">
                           <span>Report Uploaded</span>
                           <a 
-                            href={getMediaUrl(formHealthReport)}
+                            href={formHealthReport.startsWith('/uploads') ? `${import.meta.env.VITE_BACKEND_URL}${formHealthReport}` : formHealthReport}
                             target="_blank" 
                             rel="noopener noreferrer"
                             className="underline text-emerald-700 font-bold"
@@ -1013,7 +1006,9 @@ export default function MyAnimalsPage() {
                       src={
                         formImageFile 
                           ? URL.createObjectURL(formImageFile) 
-                          : (getMediaUrl(formImage) || (SPECIES_IMAGES[formSpecies] || SPECIES_IMAGES.Other))
+                          : (formImage && (formImage.startsWith('http') || formImage.startsWith('/uploads'))
+                              ? (formImage.startsWith('/uploads') ? `${import.meta.env.VITE_BACKEND_URL}${formImage}` : formImage)
+                              : (SPECIES_IMAGES[formSpecies] || SPECIES_IMAGES.Other))
                       }
                       alt="Preview" 
                       className="w-16 h-16 rounded-xl object-cover border border-slate-200 bg-white"
@@ -1109,7 +1104,7 @@ export default function MyAnimalsPage() {
                     </div>
                   </div>
                   <a
-                    href={getMediaUrl(selectedHistoryAnimal.health_report)}
+                    href={selectedHistoryAnimal.health_report.startsWith('/uploads') ? `${import.meta.env.VITE_BACKEND_URL}${selectedHistoryAnimal.health_report}` : selectedHistoryAnimal.health_report}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs hover:shadow-md transition-all shrink-0 active:scale-95 cursor-pointer"
@@ -1129,18 +1124,13 @@ export default function MyAnimalsPage() {
                   {selectedAnimalHistory.map((record, index) => (
                     <div key={index} className="relative space-y-1.5">
                       {/* Timeline Dot icon */}
-                      <span className={`absolute -left-[31px] top-0.5 bg-white border-2 rounded-full h-4.5 w-4.5 flex items-center justify-center shadow-sm ${record.type === 'Consultation' ? 'border-blue-500' : 'border-green-500'}`}>
-                        <span className={`h-2 w-2 rounded-full ${record.type === 'Consultation' ? 'bg-blue-500' : 'bg-green-500'}`} />
+                      <span className="absolute -left-[31px] top-0.5 bg-white border-2 border-green-500 rounded-full h-4.5 w-4.5 flex items-center justify-center shadow-sm">
+                        <span className="h-2 w-2 bg-green-500 rounded-full" />
                       </span>
                       
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-xs">
                         <span className="font-bold text-slate-400">{record.date}</span>
-                        <span className={`inline-block border px-2 py-0.5 rounded-full font-bold ${
-                          record.type === "Consultation" ? "bg-blue-50 text-blue-700 border-blue-200" :
-                          record.type === "Vaccination" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
-                          record.type === "Prescription" ? "bg-purple-50 text-purple-700 border-purple-200" :
-                          "bg-slate-100 text-slate-600 border-slate-200/50"
-                        }`}>
+                        <span className="inline-block bg-slate-100 text-slate-600 border border-slate-200/50 px-2 py-0.5 rounded-full font-bold">
                           {record.type}
                         </span>
                       </div>
