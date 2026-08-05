@@ -1,4 +1,12 @@
 import nodemailer from "nodemailer";
+import dns from "dns";
+
+// Force Node.js to resolve IPv4 first (fixes Railway IPv6 ENETUNREACH & Connection Timeout errors)
+try {
+    dns.setDefaultResultOrder("ipv4first");
+} catch {
+    // Ignore if not supported in older Node versions
+}
 
 const getFrontendUrl = () => {
     const rawUrl = process.env.CLIENT_URL || process.env.FRONTEND_URL || process.env.VERCEL_URL || "http://localhost:5173";
@@ -38,13 +46,18 @@ export const sendEmail = async ({ to, subject, html, text }) => {
             host,
             port,
             secure,
+            family: 4, // CRITICAL FOR RAILWAY: Force IPv4 connection to prevent ENETUNREACH on IPv6
             auth: {
                 user: emailUser,
                 pass: emailPass
             },
             tls: {
-                rejectUnauthorized: false
-            }
+                rejectUnauthorized: false,
+                servername: host
+            },
+            connectionTimeout: 15000,
+            greetingTimeout: 15000,
+            socketTimeout: 15000
         };
 
         if (host.includes("gmail") && !process.env.EMAIL_HOST && !process.env.SMTP_HOST) {
@@ -64,6 +77,42 @@ export const sendEmail = async ({ to, subject, html, text }) => {
         return info;
     } catch (error) {
         console.error(`[EMAIL SMTP ERROR] Failed to send email to ${to}:`, error.message || error);
+
+        // Fallback retry using port 587 STARTTLS if port 465 SSL failed on cloud host
+        if (error.message && (error.message.includes("ENETUNREACH") || error.message.includes("timeout") || error.message.includes("connect"))) {
+            try {
+                console.log(`[EMAIL RETRY] Attempting IPv4 fallback transport on port 587 to ${to}...`);
+                const fallbackTransporter = nodemailer.createTransport({
+                    host: "smtp.gmail.com",
+                    port: 587,
+                    secure: false,
+                    family: 4,
+                    auth: {
+                        user: emailUser,
+                        pass: emailPass
+                    },
+                    tls: {
+                        rejectUnauthorized: false,
+                        servername: "smtp.gmail.com"
+                    },
+                    connectionTimeout: 15000,
+                    greetingTimeout: 15000,
+                    socketTimeout: 15000
+                });
+                const fallbackInfo = await fallbackTransporter.sendMail({
+                    from: `"VetCloud Notifications" <${emailUser}>`,
+                    to,
+                    subject,
+                    text: text || "New notification from VetCloud",
+                    html
+                });
+                console.log(`[EMAIL SUCCESS - FALLBACK] Email sent to ${to}: ${fallbackInfo.messageId}`);
+                return fallbackInfo;
+            } catch (retryErr) {
+                console.error(`[EMAIL RETRY ERROR] Fallback transport also failed:`, retryErr.message || retryErr);
+            }
+        }
+
         console.log("=========================================");
         console.log(`[EMAIL FALLBACK SIMULATION] TO: ${to}`);
         console.log(`[EMAIL FALLBACK SIMULATION] SUBJECT: ${subject}`);
