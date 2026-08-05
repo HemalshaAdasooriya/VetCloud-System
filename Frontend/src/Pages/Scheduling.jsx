@@ -1576,27 +1576,39 @@ export default function Scheduling() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="p-3.5 bg-slate-50/80 rounded-xl border border-slate-100 space-y-1">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">License Number</span>
-                  <p className="text-sm font-extrabold text-slate-800 font-mono">{viewingVetModal.licenseNumber || "VET-LIC-REG"}</p>
+                  <p className="text-sm font-extrabold text-slate-800 font-mono">{viewingVetModal.licenseNumber}</p>
                 </div>
                 <div className="p-3.5 bg-slate-50/80 rounded-xl border border-slate-100 space-y-1">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Consultation Fee</span>
-                  <p className="text-sm font-extrabold text-green-700">LKR {viewingVetModal.fee || 1500} / Session</p>
+                  <p className="text-sm font-extrabold text-green-700">LKR {viewingVetModal.fee} / Session</p>
                 </div>
                 <div className="p-3.5 bg-slate-50/80 rounded-xl border border-slate-100 space-y-1">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Contact Number</span>
-                  <p className="text-sm font-bold text-slate-800">{viewingVetModal.contactNo || "N/A"}</p>
+                  <p className="text-sm font-bold text-slate-800">{viewingVetModal.contactNo}</p>
                 </div>
                 <div className="p-3.5 bg-slate-50/80 rounded-xl border border-slate-100 space-y-1">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Email Address</span>
-                  <p className="text-sm font-bold text-slate-800 truncate">{viewingVetModal.email || "N/A"}</p>
+                  <p className="text-sm font-bold text-slate-800 truncate">{viewingVetModal.email}</p>
                 </div>
               </div>
+
+              {/* Clinic Information (if available from doctor input) */}
+              {viewingVetModal.clinicName && (
+                <div className="space-y-1.5">
+                  <h5 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Clinic & Practice Location</h5>
+                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-100 space-y-1">
+                    <p className="text-xs font-extrabold text-slate-800">{viewingVetModal.clinicName}</p>
+                    {viewingVetModal.clinicAddress && <p className="text-xs text-slate-500 font-medium">{viewingVetModal.clinicAddress}</p>}
+                    {viewingVetModal.clinicPhone && <p className="text-xs text-slate-500 font-medium">Phone: {viewingVetModal.clinicPhone}</p>}
+                  </div>
+                </div>
+              )}
 
               {/* About & Biography */}
               <div className="space-y-1.5">
                 <h5 className="text-xs font-bold text-slate-400 uppercase tracking-wider">About & Biography</h5>
                 <p className="text-xs text-slate-600 font-medium leading-relaxed p-3.5 bg-slate-50 rounded-xl border border-slate-100">
-                  {viewingVetModal.bio || "Dedicated veterinary practitioner committed to compassionate animal care, advanced diagnostics, and preventative health treatments."}
+                  {viewingVetModal.bio}
                 </p>
               </div>
             </div>
