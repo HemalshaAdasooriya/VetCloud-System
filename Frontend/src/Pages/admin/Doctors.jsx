@@ -73,9 +73,9 @@ export default function Doctors() {
     };
 
     const filteredDoctors = doctors.filter(doc => 
-        doc.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        doc.specialization.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        doc.email.toLowerCase().includes(searchQuery.toLowerCase())
+        (doc.fullName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (doc.specialization || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (doc.email || '').toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     if (loading) {
@@ -129,10 +129,10 @@ export default function Doctors() {
                                     <td className="py-4 px-4 font-semibold text-slate-800">
                                         <div className="flex items-center gap-3">
                                             <div className="h-9 w-9 bg-blue-50 rounded-full flex items-center justify-center text-blue-800 font-bold text-xs">
-                                                {doc.fullName.charAt(0)}
+                                                {doc.fullName?.charAt(0) || 'D'}
                                             </div>
                                             <div>
-                                                <p className="font-semibold text-slate-800 leading-none mb-1">{doc.fullName}</p>
+                                                <p className="font-semibold text-slate-800 leading-none mb-1">{doc.fullName || 'Unnamed Doctor'}</p>
                                                 <p className="text-xs text-slate-400">{doc.email}</p>
                                             </div>
                                         </div>
@@ -200,9 +200,9 @@ export default function Doctors() {
                     <div className="space-y-6">
                         <div className="text-center">
                             <div className="h-20 w-20 bg-blue-100 rounded-full flex items-center justify-center text-blue-800 font-bold text-2xl mx-auto mb-4 border-4 border-blue-50 shadow-sm">
-                                {selectedDoc.fullName.charAt(0)}
+                                {selectedDoc.fullName?.charAt(0) || 'D'}
                             </div>
-                            <h3 className="text-lg font-bold text-slate-800">{selectedDoc.fullName}</h3>
+                            <h3 className="text-lg font-bold text-slate-800">{selectedDoc.fullName || 'Doctor Profile'}</h3>
                             <p className="text-sm text-slate-500 font-medium">{selectedDoc.professional_title || "Veterinarian Practitioner"}</p>
                             <Badge variant={selectedDoc.is_Active ? "success" : "warning"} className="mt-2.5">
                                 {selectedDoc.is_Active ? "Active & Verified" : "Awaiting Verification"}

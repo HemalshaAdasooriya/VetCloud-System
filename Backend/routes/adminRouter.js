@@ -11,6 +11,7 @@ import {
     deleteDoctor,
     getPayments,
     createPayout,
+    deleteTransaction,
     getDiseases,
     createDisease,
     updateDisease,
@@ -69,6 +70,7 @@ adminRouter.delete("/doctors/:id", authenticateAdmin, deleteDoctor);
 // Payments & Payouts
 adminRouter.get("/payments", authenticateAdmin, getPayments);
 adminRouter.post("/payouts", authenticateAdmin, createPayout);
+adminRouter.delete("/transactions/:id", authenticateAdmin, deleteTransaction);
 
 // Diseases CRUD
 adminRouter.get("/diseases", authenticateAdmin, getDiseases);
@@ -86,8 +88,10 @@ adminRouter.put("/feedback/:id/toggle-homepage", authenticateAdmin, toggleFeedba
 // Reports & Analytics
 adminRouter.get("/reports", authenticateAdmin, getReports);
 
-// Settings Profile
+// Settings Profile & System Configuration
 adminRouter.put("/profile", authenticateAdmin, updateAdminProfile);
+adminRouter.get("/settings", authenticateAdmin, getSystemSettings);
+adminRouter.put("/settings", authenticateAdmin, updateSystemSettings);
 
 // Admin Notification System Endpoints
 adminRouter.get("/notifications/system-data", authenticateAdmin, getSystemData);

@@ -69,8 +69,8 @@ export default function Users() {
     };
 
     const filteredUsers = users.filter(user => 
-        user.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        user.email.toLowerCase().includes(searchQuery.toLowerCase())
+        (user.fullName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (user.email || '').toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     if (loading) {
@@ -117,10 +117,10 @@ export default function Users() {
                                 <td className="py-4 px-4 font-semibold text-slate-800">
                                     <div className="flex items-center gap-3">
                                         <div className="h-9 w-9 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-800 font-bold text-xs">
-                                            {user.fullName.charAt(0)}
+                                            {user.fullName?.charAt(0) || 'U'}
                                         </div>
                                         <div>
-                                            <p className="font-semibold text-slate-800 leading-none mb-1">{user.fullName}</p>
+                                            <p className="font-semibold text-slate-800 leading-none mb-1">{user.fullName || 'Unnamed User'}</p>
                                             <p className="text-xs text-slate-400">{user.email}</p>
                                         </div>
                                     </div>

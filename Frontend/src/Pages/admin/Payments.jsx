@@ -59,7 +59,7 @@ export default function Payments() {
     const confirmDeleteTx = async () => {
         if (!txToDelete) return;
         try {
-            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/appointments/${txToDelete.id}`, {
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/admin/transactions/${txToDelete.id}`, {
                 method: "DELETE",
                 headers: {
                     "Authorization": `Bearer ${localStorage.getItem("token")}`

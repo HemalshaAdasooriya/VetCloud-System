@@ -100,6 +100,15 @@ export const updateUserStatus = async (req, res) => {
 export const deleteUser = async (req, res) => {
     const { id } = req.params;
     try {
+        // Clean up child tables to satisfy foreign key constraints
+        await queryPromise("DELETE FROM appointment_slots WHERE appointment_id IN (SELECT id FROM appointments WHERE pet_owner_id = ?)", [id]);
+        await queryPromise("DELETE FROM appointments WHERE pet_owner_id = ?", [id]);
+        await queryPromise("DELETE FROM consultations WHERE owner_id = ?", [id]);
+        await queryPromise("DELETE FROM pet_owner_profiles WHERE owner_id = ?", [id]);
+        await queryPromise("DELETE FROM feedbacks WHERE pet_owner_id = ?", [id]);
+        await queryPromise("DELETE FROM user_sessions WHERE user_id = ? AND user_role IN ('farmer', 'Farmer/PetOwner')", [id]);
+        await queryPromise("DELETE FROM notifications WHERE user_id = ? AND user_role IN ('farmer', 'Farmer/PetOwner')", [id]);
+        await queryPromise("DELETE FROM animals WHERE owner_id = ?", [id]);
         await queryPromise("DELETE FROM pet_owners WHERE id = ?", [id]);
         res.status(200).json({ message: "User deleted successfully" });
     } catch (error) {
@@ -156,6 +165,19 @@ export const updateDoctorStatus = async (req, res) => {
 export const deleteDoctor = async (req, res) => {
     const { id } = req.params;
     try {
+        // Clean up child tables to satisfy foreign key constraints
+        await queryPromise("DELETE FROM veterinarian_profiles WHERE vet_id = ?", [id]);
+        await queryPromise("DELETE FROM clinics WHERE veterinarian_id = ?", [id]);
+        await queryPromise("DELETE FROM veterinarian_bank_details WHERE vet_id = ?", [id]);
+        await queryPromise("DELETE FROM veterinarian_payment_methods WHERE vet_id = ?", [id]);
+        await queryPromise("DELETE FROM vet_schedule WHERE veterinarian_id = ?", [id]);
+        await queryPromise("DELETE FROM payouts WHERE veterinarian_id = ?", [id]);
+        await queryPromise("DELETE FROM feedbacks WHERE veterinarian_id = ?", [id]);
+        await queryPromise("DELETE FROM appointment_slots WHERE appointment_id IN (SELECT id FROM appointments WHERE veterinarian_id = ?)", [id]);
+        await queryPromise("DELETE FROM appointments WHERE veterinarian_id = ?", [id]);
+        await queryPromise("DELETE FROM consultations WHERE doctor_id = ?", [id]);
+        await queryPromise("DELETE FROM user_sessions WHERE user_id = ? AND user_role IN ('doctor', 'Veterinary Doctor')", [id]);
+        await queryPromise("DELETE FROM notifications WHERE user_id = ? AND user_role IN ('doctor', 'Veterinary Doctor')", [id]);
         await queryPromise("DELETE FROM veterinarians WHERE id = ?", [id]);
         res.status(200).json({ message: "Doctor deleted successfully" });
     } catch (error) {
@@ -169,18 +191,20 @@ export const getPayments = async (req, res) => {
     try {
         const transactions = await queryPromise(`
             SELECT c.id, c.appointment_date, c.appointment_time, c.consultation_type, c.fee, c.status, 
-                   p.fullName AS ownerName, v.fullName AS vetName 
+                   COALESCE(p.fullName, 'Unknown Owner') AS ownerName, 
+                   COALESCE(v.fullName, 'Unknown Vet') AS vetName 
             FROM consultations c 
-            JOIN pet_owners p ON c.owner_id = p.id 
-            JOIN veterinarians v ON c.doctor_id = v.id 
+            LEFT JOIN pet_owners p ON c.owner_id = p.id 
+            LEFT JOIN veterinarians v ON c.doctor_id = v.id 
             ORDER BY c.id DESC
         `);
 
         const payouts = await queryPromise(`
             SELECT p.id, p.amount, p.status, p.payout_date, p.bank_name, p.account_number, p.created_at, 
-                   v.fullName AS vetName, v.email AS vetEmail 
+                   COALESCE(v.fullName, 'Unknown Vet') AS vetName, 
+                   COALESCE(v.email, 'N/A') AS vetEmail 
             FROM payouts p 
-            JOIN veterinarians v ON p.veterinarian_id = v.id 
+            LEFT JOIN veterinarians v ON p.veterinarian_id = v.id 
             ORDER BY p.id DESC
         `);
 
@@ -203,6 +227,17 @@ export const getPayments = async (req, res) => {
     } catch (error) {
         console.error("Error in getPayments:", error);
         res.status(500).json({ message: "Failed to fetch payments data" });
+    }
+};
+
+export const deleteTransaction = async (req, res) => {
+    const { id } = req.params;
+    try {
+        await queryPromise("DELETE FROM consultations WHERE id = ?", [id]);
+        res.status(200).json({ message: "Consultation transaction record deleted successfully" });
+    } catch (error) {
+        console.error("Error in deleteTransaction:", error);
+        res.status(500).json({ message: "Failed to delete transaction record" });
     }
 };
 
@@ -318,9 +353,10 @@ export const getFeedback = async (req, res) => {
     try {
         const feedback = await queryPromise(`
             SELECT f.id, f.rating, f.comment, f.created_at, f.show_on_homepage,
-                   p.fullName AS ownerName, v.fullName AS vetName 
+                   COALESCE(p.fullName, 'Anonymous Owner') AS ownerName, 
+                   v.fullName AS vetName 
             FROM feedbacks f 
-            JOIN pet_owners p ON f.pet_owner_id = p.id 
+            LEFT JOIN pet_owners p ON f.pet_owner_id = p.id 
             LEFT JOIN veterinarians v ON f.veterinarian_id = v.id 
             ORDER BY f.id DESC
         `);
@@ -362,7 +398,7 @@ export const getReports = async (req, res) => {
             SELECT DATE_FORMAT(created_at, '%b %Y') AS month, COUNT(*) AS count
             FROM appointments
             WHERE created_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
-            GROUP BY month
+            GROUP BY DATE_FORMAT(created_at, '%Y-%m'), DATE_FORMAT(created_at, '%b %Y')
             ORDER BY MIN(created_at)
         `);
 
