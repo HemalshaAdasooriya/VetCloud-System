@@ -76,10 +76,15 @@ export function DashboardLayout() {
     const socket = io(import.meta.env.VITE_BACKEND_URL || "http://localhost:5000");
     socket.emit("register", { userId: user.id, role: user.role });
     socket.on("new-notification", (notification) => {
-      setNotifications((prev) => [notification, ...prev]);
-      toast.success(notification.title || "New notification");
-      // Fire a custom event to notify other pages (like farmerDashboard) to reload
-      window.dispatchEvent(new Event("notificationsUpdated"));
+      setNotifications((prev) => {
+        if (notification?.id && prev.some((n) => n.id === notification.id)) {
+          return prev;
+        }
+        toast.success(notification.title || "New notification");
+        // Fire a custom event to notify other pages (like farmerDashboard) to reload
+        window.dispatchEvent(new Event("notificationsUpdated"));
+        return [notification, ...prev];
+      });
     });
     // Listen to reload events from child pages
     const handleReload = () => {

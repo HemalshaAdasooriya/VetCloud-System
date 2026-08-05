@@ -48,9 +48,7 @@ const emitToUserRooms = (io, userId, userRole, notification) => {
     } else if (r.includes('doctor') || r.includes('vet')) {
         rooms = [`Veterinary Doctor_${userId}`, `doctor_${userId}`, `Doctor_${userId}`];
     }
-    rooms.forEach(roomName => {
-        io.to(roomName).emit("new-notification", notification);
-    });
+    io.to(rooms).emit("new-notification", notification);
     console.log(`Socket: Pushed realtime notification to rooms: ${rooms.join(', ')}`);
 };
 
