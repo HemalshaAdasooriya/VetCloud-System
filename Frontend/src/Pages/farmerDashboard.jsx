@@ -63,9 +63,9 @@ export default function FarmerDashboard() {
     }
   }, [showRegisterModal]);
 
-  // Retrieve user session info
+  // Retrieve user session info robustly
   const user = JSON.parse(localStorage.getItem("user") || "null");
-  const ownerId = user ? user.id : null;
+  const ownerId = localStorage.getItem("userId") || (user ? (user.id || user.userId || user.user_id) : null);
   const token = localStorage.getItem("token") || "";
 
   // Personalize name
@@ -557,6 +557,7 @@ export default function FarmerDashboard() {
 
                 {/* Add Animal Shortcut Button */}
                 <button
+                  type="button"
                   onClick={() => setShowRegisterModal(true)}
                   className="mt-2 border border-dashed border-slate-200 hover:border-green-600 hover:bg-green-50/20 rounded-xl py-3 w-full text-slate-500 hover:text-green-600 text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                 >
@@ -568,6 +569,7 @@ export default function FarmerDashboard() {
               <div className="text-center py-8 space-y-3">
                 <p className="text-sm text-slate-400">No animals registered yet.</p>
                 <button
+                  type="button"
                   onClick={() => setShowRegisterModal(true)}
                   className="inline-flex items-center gap-1.5 text-xs bg-green-50 border border-green-100 text-green-700 hover:bg-green-100 font-bold px-3.5 py-2 rounded-xl transition-all cursor-pointer"
                 >
