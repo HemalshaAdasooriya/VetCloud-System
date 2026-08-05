@@ -39,16 +39,32 @@ export default function FarmerDashboard() {
   const [formName, setFormName] = useState("");
   const [formSpecies, setFormSpecies] = useState("Cattle");
   const [formBreed, setFormBreed] = useState("");
-  const [formAge, setFormAge] = useState("");
+  const [formAgeYears, setFormAgeYears] = useState(0);
+  const [formAgeMonths, setFormAgeMonths] = useState(0);
+  const [formAgeDays, setFormAgeDays] = useState(0);
   const [formWeight, setFormWeight] = useState("");
   const [formStatus, setFormStatus] = useState("Healthy");
   const [formImage, setFormImage] = useState("");
   const [formImageFile, setFormImageFile] = useState(null);
+  const [formHealthReportFile, setFormHealthReportFile] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const formatAge = (years, months, days) => {
+    const parts = [];
+    const y = parseInt(years, 10) || 0;
+    const m = parseInt(months, 10) || 0;
+    const d = parseInt(days, 10) || 0;
+    if (y > 0) parts.push(`${y} ${y === 1 ? 'Year' : 'Years'}`);
+    if (m > 0) parts.push(`${m} ${m === 1 ? 'Month' : 'Months'}`);
+    if (d > 0) parts.push(`${d} ${d === 1 ? 'Day' : 'Days'}`);
+    if (parts.length === 0) return "0 Days";
+    return parts.join(", ");
+  };
 
   useEffect(() => {
     if (!showRegisterModal) {
       setFormImageFile(null);
+      setFormHealthReportFile(null);
     }
   }, [showRegisterModal]);
 
@@ -204,14 +220,48 @@ export default function FarmerDashboard() {
   // Handle Form Submission
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formName.trim() || !formBreed.trim() || !formAge.trim() || !formWeight.trim()) {
-      toast.error("Please fill in all standard fields");
+    if (!formName.trim() || !formBreed.trim() || formWeight === "") {
+      toast.error("Please fill in all required fields");
       return;
     }
+
+    const y = parseInt(formAgeYears, 10) || 0;
+    const m = parseInt(formAgeMonths, 10) || 0;
+    const d = parseInt(formAgeDays, 10) || 0;
+
+    if (y < 0 || y > 100) {
+      toast.error("Age in years must be between 0 and 100");
+      return;
+    }
+    if (m < 0 || m > 11) {
+      toast.error("Months must be between 0 and 11");
+      return;
+    }
+    if (d < 0 || d > 31) {
+      toast.error("Days must be between 0 and 31");
+      return;
+    }
+    if (y === 100 && (m > 0 || d > 0)) {
+      toast.error("Maximum allowed age is 100 years");
+      return;
+    }
+    if (y === 0 && m === 0 && d === 0) {
+      toast.error("Please enter a valid age");
+      return;
+    }
+
+    const wFloat = parseFloat(formWeight);
+    if (isNaN(wFloat) || wFloat <= 0 || wFloat > 150) {
+      toast.error("Maximum weight allowed is 150 kg (must be greater than 0)");
+      return;
+    }
+
     if (!ownerId) {
       toast.error("User session expired. Please log in again.");
       return;
     }
+
+    const ageString = formatAge(y, m, d);
 
     setIsSubmitting(true);
     const formData = new FormData();
@@ -219,14 +269,18 @@ export default function FarmerDashboard() {
     formData.append("name", formName.trim());
     formData.append("species", formSpecies);
     formData.append("breed", formBreed.trim());
-    formData.append("age", formAge.trim());
-    formData.append("weight", formWeight.trim());
+    formData.append("age", ageString);
+    formData.append("weight", wFloat.toString());
     formData.append("status", formStatus);
     
     if (formImageFile) {
       formData.append("image", formImageFile);
     } else {
       formData.append("image", formImage || SPECIES_IMAGES[formSpecies] || SPECIES_IMAGES.Other);
+    }
+
+    if (formHealthReportFile) {
+      formData.append("healthReport", formHealthReportFile);
     }
 
     try {
@@ -244,11 +298,14 @@ export default function FarmerDashboard() {
         setFormName("");
         setFormSpecies("Cattle");
         setFormBreed("");
-        setFormAge("");
+        setFormAgeYears(0);
+        setFormAgeMonths(0);
+        setFormAgeDays(0);
         setFormWeight("");
         setFormStatus("Healthy");
         setFormImage("");
         setFormImageFile(null);
+        setFormHealthReportFile(null);
         setShowRegisterModal(false);
         // Refresh list
         fetchAnimals();
@@ -628,26 +685,59 @@ export default function FarmerDashboard() {
                   />
                 </div>
 
-                {/* Age Field */}
-                <div className="space-y-1.5">
+                {/* Age Fields (Years, Months, Days) */}
+                <div className="col-span-2 space-y-1.5">
                   <label className="text-xs font-semibold text-slate-500">Age *</label>
-                  <input 
-                    type="text" 
-                    required 
-                    placeholder="e.g. 4 Years, 6 Months"
-                    value={formAge}
-                    onChange={(e) => setFormAge(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm text-slate-700 focus:ring-1 focus:ring-green-500 focus:border-green-500 focus:outline-none"
-                  />
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <span className="text-[11px] text-slate-400 font-medium block mb-1">Years</span>
+                      <input 
+                        type="number"
+                        min="0"
+                        max="100"
+                        required
+                        value={formAgeYears}
+                        onChange={(e) => setFormAgeYears(Math.min(100, Math.max(0, parseInt(e.target.value, 10) || 0)))}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm text-slate-700 focus:ring-1 focus:ring-green-500 focus:border-green-500 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[11px] text-slate-400 font-medium block mb-1">Months</span>
+                      <input 
+                        type="number"
+                        min="0"
+                        max="11"
+                        required
+                        value={formAgeMonths}
+                        onChange={(e) => setFormAgeMonths(Math.min(11, Math.max(0, parseInt(e.target.value, 10) || 0)))}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm text-slate-700 focus:ring-1 focus:ring-green-500 focus:border-green-500 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[11px] text-slate-400 font-medium block mb-1">Days</span>
+                      <input 
+                        type="number"
+                        min="0"
+                        max="31"
+                        required
+                        value={formAgeDays}
+                        onChange={(e) => setFormAgeDays(Math.min(31, Math.max(0, parseInt(e.target.value, 10) || 0)))}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm text-slate-700 focus:ring-1 focus:ring-green-500 focus:border-green-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 {/* Weight Field */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-slate-500">Weight *</label>
                   <input 
-                    type="text" 
+                    type="number" 
+                    step="0.1"
+                    min="0.1"
+                    max="150"
                     required 
-                    placeholder="e.g. 650 kg, 32 kg"
+                    placeholder="e.g. 45.5"
                     value={formWeight}
                     onChange={(e) => setFormWeight(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm text-slate-700 focus:ring-1 focus:ring-green-500 focus:border-green-500 focus:outline-none"
@@ -655,7 +745,7 @@ export default function FarmerDashboard() {
                 </div>
 
                 {/* Health Status */}
-                <div className="col-span-2 space-y-1.5">
+                <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-slate-500">Health Status *</label>
                   <select 
                     value={formStatus}
@@ -666,6 +756,47 @@ export default function FarmerDashboard() {
                     <option value="Under Treatment">Under Treatment</option>
                     <option value="Sick">Sick</option>
                   </select>
+                </div>
+
+                {/* Health Report / Vaccination Card Uploader */}
+                <div className="col-span-2 space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-500">Health Report / Vaccination Card</label>
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                    <input 
+                      type="file" 
+                      accept=".pdf,image/*,.doc,.docx"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          setFormHealthReportFile(e.target.files[0]);
+                        }
+                      }}
+                      id="farmerHealthReportUpload"
+                      className="hidden"
+                    />
+                    <div className="flex items-center gap-3">
+                      <label 
+                        htmlFor="farmerHealthReportUpload"
+                        className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 rounded-lg text-xs font-bold shadow-xs cursor-pointer active:scale-95 transition-all"
+                      >
+                        <FileText size={14} />
+                        Upload Health Report / Card
+                      </label>
+                      {formHealthReportFile ? (
+                        <div className="flex items-center gap-2 text-xs text-slate-600 font-medium truncate">
+                          <span>{formHealthReportFile.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => setFormHealthReportFile(null)}
+                            className="text-red-500 font-bold hover:underline"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-400">PDF, JPG, PNG, DOC (Optional)</span>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Profile Picture Uploader */}
