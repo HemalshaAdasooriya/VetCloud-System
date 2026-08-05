@@ -20,6 +20,7 @@ import adminRouter from "./routes/adminRouter.js";
 import scheduleRouter from "./routes/scheduleRouter.js";
 import { seedAdminAuto } from "./seedAdmin.js";
 
+import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
