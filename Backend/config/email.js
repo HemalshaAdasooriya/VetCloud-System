@@ -102,30 +102,48 @@ export const sendEmail = async ({ to, subject, html, text }) => {
         const host = process.env.EMAIL_HOST || process.env.SMTP_HOST || "smtp.gmail.com";
         const customPort = process.env.EMAIL_PORT || process.env.SMTP_PORT;
         const port = customPort ? parseInt(customPort, 10) : 465;
-        const secure = process.env.EMAIL_SECURE !== undefined 
-            ? process.env.EMAIL_SECURE === "true" 
+        const secure = process.env.EMAIL_SECURE !== undefined
+            ? process.env.EMAIL_SECURE === "true"
             : (port === 465);
+
+
+        // ===== DEBUG LOGS =====
+        console.log("========== SMTP CONFIG ==========");
+        console.log({
+            host,
+            port,
+            secure,
+            emailUser,
+            hasPassword: !!emailPass
+        });
+        console.log("=================================");
 
         // DO NOT set service: "gmail" as it overrides host and family: 4 settings, leading to IPv6 ENETUNREACH
         const transporterConfig = {
             host,
             port,
             secure,
-            family: 4, // Explicitly force IPv4 to prevent Railway IPv6 ENETUNREACH errors
+            // family: 4, // Explicitly force IPv4 to prevent Railway IPv6 ENETUNREACH errors
             auth: {
                 user: emailUser,
                 pass: emailPass
             },
             tls: {
-                rejectUnauthorized: false,
+                // rejectUnauthorized: false,
                 servername: host
             },
-            connectionTimeout: 10000,
-            greetingTimeout: 10000,
-            socketTimeout: 10000
+            connectionTimeout: 30000,
+            greetingTimeout: 30000,
+            socketTimeout: 30000,
+            logger: true,
+            debug: true
         };
 
         const transporter = nodemailer.createTransport(transporterConfig);
+
+        // Verify SMTP connection
+        await transporter.verify();
+        console.log("✅ SMTP connection verified successfully.");
 
         const info = await transporter.sendMail({
             from: `"VetCloud Notifications" <${emailUser}>`,
