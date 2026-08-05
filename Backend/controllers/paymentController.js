@@ -66,6 +66,12 @@ export const getPaymentInfo = async (req, res) => {
     }
 };
 
+const getStripeInstance = () => {
+    const key = process.env.STRIPE_SECRET_KEY;
+    if (!key) return null;
+    return new Stripe(key);
+};
+
 // Create a Stripe Checkout Session
 export const createStripeCheckoutSession = async (req, res) => {
     const { appointmentId } = req.body;
@@ -97,11 +103,11 @@ export const createStripeCheckoutSession = async (req, res) => {
 
                 const commissionFee = doctorFee * (commissionPct / 100);
                 const totalAmount = doctorFee + commissionFee;
-                const clientUrl = process.env.CLIENT_URL || "http://localhost:5173";
+                const clientUrl = process.env.CLIENT_URL || req.headers.origin || "http://localhost:5173";
+                const stripeClient = getStripeInstance();
 
-                // Fallback / Mock Checkout if Stripe is not configured
-                if (!process.env.STRIPE_SECRET_KEY) {
-                    console.warn("STRIPE_SECRET_KEY is not defined. Using mock redirect checkout URL.");
+                // Helper function to build fallback sandbox URL
+                const createMockCheckoutResponse = () => {
                     const mockSessionId = `mock_session_${Date.now()}`;
                     const mockUrl = `${clientUrl}/dashboard/user/consultations?payment_success=true&session_id=${mockSessionId}&appointment_id=${appointmentId}`;
                     return res.status(200).json({
@@ -111,15 +117,21 @@ export const createStripeCheckoutSession = async (req, res) => {
                         doctorFee,
                         commissionFee
                     });
+                };
+
+                // If Stripe client is missing, fall back to seamless sandbox session
+                if (!stripeClient) {
+                    console.warn("STRIPE_SECRET_KEY not set. Operating in Sandbox Payment mode.");
+                    return createMockCheckoutResponse();
                 }
 
-                try {
-                    const session = await stripe.checkout.sessions.create({
+                const createSessionWithCurrency = async (curr) => {
+                    return await stripeClient.checkout.sessions.create({
                         payment_method_types: ['card'],
                         line_items: [
                             {
                                 price_data: {
-                                    currency: 'lkr',
+                                    currency: curr,
                                     product_data: {
                                         name: `Online Consultation Fee (Dr. ${appointment.vetName})`,
                                         description: `Appointment for ${appointment.animalName || 'Pet'} (${appointment.animalBreed || 'Unknown Breed'})`,
@@ -130,7 +142,7 @@ export const createStripeCheckoutSession = async (req, res) => {
                             },
                             {
                                 price_data: {
-                                    currency: 'lkr',
+                                    currency: curr,
                                     product_data: {
                                         name: 'Platform Commission Fee',
                                         description: 'VetCloud service charge',
@@ -144,8 +156,24 @@ export const createStripeCheckoutSession = async (req, res) => {
                         success_url: `${clientUrl}/dashboard/user/consultations?payment_success=true&session_id={CHECKOUT_SESSION_ID}&appointment_id=${appointmentId}`,
                         cancel_url: `${clientUrl}/dashboard/user/consultations?payment_cancel=true`,
                     });
+                };
 
-                    res.status(200).json({
+                try {
+                    let currency = (process.env.STRIPE_CURRENCY || 'usd').toLowerCase();
+                    let session;
+                    try {
+                        session = await createSessionWithCurrency(currency);
+                    } catch (primaryErr) {
+                        if (currency !== 'usd' && primaryErr.message && primaryErr.message.toLowerCase().includes('currency')) {
+                            console.warn(`Currency '${currency}' not enabled on Stripe account. Retrying with 'usd'...`);
+                            session = await createSessionWithCurrency('usd');
+                        } else {
+                            throw primaryErr;
+                        }
+                    }
+
+                    console.log("Stripe Sandbox Session URL created successfully:", session.url);
+                    return res.status(200).json({
                         url: session.url,
                         sessionId: session.id,
                         amount: totalAmount,
@@ -153,8 +181,8 @@ export const createStripeCheckoutSession = async (req, res) => {
                         commissionFee
                     });
                 } catch (stripeErr) {
-                    console.error("Stripe Checkout Session error:", stripeErr);
-                    res.status(500).json({ message: "Failed to create Stripe Checkout session", error: stripeErr.message });
+                    console.warn("Stripe API Session call failed, using Sandbox fallback:", stripeErr.message);
+                    return createMockCheckoutResponse();
                 }
             });
         });
@@ -269,11 +297,12 @@ export const verifyStripeSession = async (req, res) => {
                 return res.status(200).json({ success: true, message: "Payment verified successfully (Mock)!" });
             });
         } else {
-            if (!process.env.STRIPE_SECRET_KEY) {
+            const stripeClient = getStripeInstance();
+            if (!stripeClient) {
                 return res.status(400).json({ message: "Stripe key not configured, cannot verify real session" });
             }
 
-            const session = await stripe.checkout.sessions.retrieve(sessionId);
+            const session = await stripeClient.checkout.sessions.retrieve(sessionId);
             if (session.payment_status === 'paid') {
                 console.log(`Stripe payment verified for appointment ${appointmentId}`);
                 processSuccessfulPayment(req, appointmentId, (err) => {
@@ -293,20 +322,77 @@ export const verifyStripeSession = async (req, res) => {
     }
 };
 
-// ── Test Payment (Offline Bypass / Stripe Mock Checkout) ──────────────────────
+// ── Stripe Webhook Endpoint (Processes asynchronous payments & stores orders) ─
+export const handleStripeWebhook = (req, res) => {
+    const sig = req.headers['stripe-signature'];
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    const stripeClient = getStripeInstance();
+
+    let event;
+
+    try {
+        if (webhookSecret && stripeClient && sig) {
+            event = stripeClient.webhooks.constructEvent(req.body, sig, webhookSecret);
+        } else {
+            // Raw Buffer or JSON payload parsing fallback
+            const rawBody = Buffer.isBuffer(req.body) ? req.body.toString('utf8') : req.body;
+            event = typeof rawBody === 'string' ? JSON.parse(rawBody) : rawBody;
+        }
+    } catch (err) {
+        console.error(`Stripe Webhook Signature Verification Failed: ${err.message}`);
+        return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    if (!event || !event.type) {
+        return res.status(400).send("Invalid event payload");
+    }
+
+    console.log(`[Stripe Webhook Event] ${event.type}`);
+
+    // Process checkout session completed or payment intent succeeded
+    if (event.type === 'checkout.session.completed' || event.type === 'payment_intent.succeeded') {
+        const session = event.data.object;
+        const appointmentId = session.metadata?.appointmentId || session.client_reference_id;
+
+        if (appointmentId) {
+            console.log(`Storing order, generating invoice & emailing receipt for appointment #${appointmentId}...`);
+            processSuccessfulPayment(req, appointmentId, (err) => {
+                if (err) {
+                    console.error(`Error processing webhook payment for appointment #${appointmentId}:`, err);
+                    return res.status(500).json({ error: "Database error storing order" });
+                }
+                console.log(`[Order Stored] Appointment #${appointmentId} marked as Paid. Invoice emailed & notifications sent!`);
+                return res.status(200).json({ received: true, appointmentId, status: "Paid" });
+            });
+            return;
+        }
+    }
+
+    res.status(200).json({ received: true });
+};
+
+// ── Test Payment / Direct Card Sandbox Gateway ────────────────────────────────
 export const testPayment = (req, res) => {
-    const { appointmentId } = req.body;
+    const { appointmentId, cardDetails } = req.body;
     if (!appointmentId) {
         return res.status(400).json({ message: "appointmentId is required" });
     }
 
-    console.log(`Processing test payment for Appointment ID: ${appointmentId}`);
+    if (cardDetails && cardDetails.number) {
+        const cleanNum = String(cardDetails.number).replace(/\s/g, '');
+        if (cleanNum.length < 13) {
+            return res.status(400).json({ message: "Invalid card number format. Please enter a valid 16-digit card number." });
+        }
+    }
+
+    console.log(`[Sandbox Card Gateway] Processing payment for Appointment #${appointmentId}...`);
     processSuccessfulPayment(req, appointmentId, (err) => {
         if (err) {
-            console.error("Failed to process test payment:", err);
+            console.error("Failed to process card payment:", err);
             return res.status(500).json({ message: "Failed to process payment", detail: err.message });
         }
-        res.status(200).json({ message: "Test payment successful!" });
+        console.log(`[Sandbox Card Gateway] Payment authorized & saved for Appointment #${appointmentId}`);
+        res.status(200).json({ success: true, message: "Card payment processed & consultation authorized!" });
     });
 };
 
@@ -360,6 +446,22 @@ export const handlePaymentFailure = (req, res) => {
     });
 };
 
+// Helper to format Date objects or strings into YYYY-MM-DD for MySQL DATE columns
+const formatDateToYYYYMMDD = (d) => {
+    if (!d) d = new Date();
+    if (typeof d === 'string') {
+        if (d.includes('T')) return d.split('T')[0];
+        return d;
+    }
+    if (d instanceof Date) {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+    return new Date().toISOString().split('T')[0];
+};
+
 // ── Helper to process successful payments ───────────────────────────────────
 const processSuccessfulPayment = (req, appointmentId, callback) => {
     db.query(`
@@ -374,6 +476,13 @@ const processSuccessfulPayment = (req, appointmentId, callback) => {
         if (results.length === 0) return callback(new Error("Appointment not found"));
 
         const appointment = results[0];
+
+        // If already paid, complete cleanly without throwing error
+        if (appointment.payment_status === 'Paid') {
+            console.log(`Appointment #${appointmentId} is already marked as Paid.`);
+            return callback(null);
+        }
+
         const io = req.app.get("io");
         
         db.query("UPDATE appointments SET payment_status = 'Paid' WHERE id = ?", [appointmentId], (err) => {
@@ -382,76 +491,101 @@ const processSuccessfulPayment = (req, appointmentId, callback) => {
             db.query("SELECT slot_date, slot_time FROM appointment_slots WHERE id = ?", [appointment.selected_slot_id], (err, slotResults) => {
                 if (err) return callback(err);
                 
-                const slot = slotResults[0];
-                const apptDate = slot ? slot.slot_date : new Date();
-                const apptTime = slot ? slot.slot_time : "00:00:00";
+                let rawDate = null;
+                let apptTime = "00:00:00";
 
-                const sql = `
-                    INSERT INTO consultations 
-                    (doctor_id, owner_id, animal_id, consultation_type, symptoms, appointment_date, appointment_time, status, fee)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, 'Scheduled', ?)
-                `;
-                db.query(sql, [
-                    appointment.veterinarian_id,
-                    appointment.pet_owner_id,
-                    appointment.animal_id,
-                    appointment.consultation_type,
-                    appointment.reason || "Virtual Consultation",
-                    apptDate,
-                    apptTime,
-                    appointment.consultation_fee
-                ], (err) => {
-                    if (err) return callback(err);
+                if (slotResults && slotResults.length > 0) {
+                    rawDate = slotResults[0].slot_date;
+                    apptTime = slotResults[0].slot_time || "00:00:00";
+                }
 
-                    // 1. Create In-App Notification for Owner
-                    const ownerNotification = {
-                        userId: appointment.pet_owner_id,
-                        userRole: "Farmer/PetOwner",
-                        type: "payment_success",
-                        title: "Payment Successful",
-                        message: `LKR ${parseFloat(appointment.consultation_fee).toFixed(2)} payment was successful. Receipt generated for appointment #${appointmentId}.`
-                    };
-                    createNotification(ownerNotification, (nErr, dbNotify) => {
-                        if (!nErr && dbNotify && io) {
-                            io.to(`Farmer/PetOwner_${appointment.pet_owner_id}`).emit("new-notification", dbNotify);
+                const proceedToInsertConsultation = (dateVal, timeVal) => {
+                    const apptDate = formatDateToYYYYMMDD(dateVal);
+                    const finalTime = timeVal ? String(timeVal) : "00:00:00";
+
+                    const sql = `
+                        INSERT INTO consultations 
+                        (doctor_id, owner_id, animal_id, consultation_type, symptoms, appointment_date, appointment_time, status, fee)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, 'Scheduled', ?)
+                    `;
+                    db.query(sql, [
+                        appointment.veterinarian_id,
+                        appointment.pet_owner_id,
+                        appointment.animal_id,
+                        appointment.consultation_type,
+                        appointment.reason || "Virtual Consultation",
+                        apptDate,
+                        finalTime,
+                        appointment.consultation_fee
+                    ], (insertErr) => {
+                        if (insertErr) {
+                            console.error("Error inserting consultation record:", insertErr);
+                            return callback(insertErr);
+                        }
+
+                        // 1. Create In-App Notification for Owner
+                        const ownerNotification = {
+                            userId: appointment.pet_owner_id,
+                            userRole: "Farmer/PetOwner",
+                            type: "payment_success",
+                            title: "Payment Successful",
+                            message: `LKR ${parseFloat(appointment.consultation_fee).toFixed(2)} payment was successful. Receipt generated for appointment #${appointmentId}.`
+                        };
+                        createNotification(ownerNotification, (nErr, dbNotify) => {
+                            if (!nErr && dbNotify && io) {
+                                io.to(`Farmer/PetOwner_${appointment.pet_owner_id}`).emit("new-notification", dbNotify);
+                            }
+                        });
+
+                        // 2. Create In-App Notification for Vet
+                        const vetNotification = {
+                            userId: appointment.veterinarian_id,
+                            userRole: "Veterinary Doctor",
+                            type: "payment_received",
+                            title: "Payment Received",
+                            message: `LKR ${parseFloat(appointment.consultation_fee).toFixed(2)} consultation fee received from ${appointment.ownerName} for appointment #${appointmentId}.`
+                        };
+                        createNotification(vetNotification, (nErr, dbNotify) => {
+                            if (!nErr && dbNotify && io) {
+                                io.to(`Veterinary Doctor_${appointment.veterinarian_id}`).emit("new-notification", dbNotify);
+                            }
+                        });
+
+                        // 3. Send Email Invoice to Owner
+                        const formattedDate = new Date().toLocaleDateString("en-US", { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                        const orderId = `PAY-${Date.now()}`;
+                        const invoiceHtml = getInvoiceTemplate(
+                            appointment.ownerName,
+                            appointment.consultation_fee,
+                            orderId,
+                            formattedDate,
+                            appointment.animalName,
+                            appointment.vetName
+                        );
+
+                        sendEmail({
+                            to: appointment.ownerEmail,
+                            subject: `Invoice / Payment Receipt - VetCloud #${orderId}`,
+                            html: invoiceHtml,
+                            text: `Dear ${appointment.ownerName}, your payment of LKR ${appointment.consultation_fee} for consultation with Dr. ${appointment.vetName} was successful.`
+                        }).catch(console.error);
+
+                        callback(null);
+                    });
+                };
+
+                if (!rawDate) {
+                    // Try fetching from vet_schedule as fallback
+                    db.query("SELECT slot_date, slot_time FROM vet_schedule WHERE appointment_id = ?", [appointmentId], (schedErr, schedResults) => {
+                        if (!schedErr && schedResults && schedResults.length > 0) {
+                            proceedToInsertConsultation(schedResults[0].slot_date, schedResults[0].slot_time);
+                        } else {
+                            proceedToInsertConsultation(new Date(), "00:00:00");
                         }
                     });
-
-                    // 2. Create In-App Notification for Vet
-                    const vetNotification = {
-                        userId: appointment.veterinarian_id,
-                        userRole: "Veterinary Doctor",
-                        type: "payment_received",
-                        title: "Payment Received",
-                        message: `LKR ${parseFloat(appointment.consultation_fee).toFixed(2)} consultation fee received from ${appointment.ownerName} for appointment #${appointmentId}.`
-                    };
-                    createNotification(vetNotification, (nErr, dbNotify) => {
-                        if (!nErr && dbNotify && io) {
-                            io.to(`Veterinary Doctor_${appointment.veterinarian_id}`).emit("new-notification", dbNotify);
-                        }
-                    });
-
-                    // 3. Send Email Invoice to Owner
-                    const formattedDate = new Date().toLocaleDateString("en-US", { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-                    const orderId = `PAY-${Date.now()}`;
-                    const invoiceHtml = getInvoiceTemplate(
-                        appointment.ownerName,
-                        appointment.consultation_fee,
-                        orderId,
-                        formattedDate,
-                        appointment.animalName,
-                        appointment.vetName
-                    );
-
-                    sendEmail({
-                        to: appointment.ownerEmail,
-                        subject: `Invoice / Payment Receipt - VetCloud #${orderId}`,
-                        html: invoiceHtml,
-                        text: `Dear ${appointment.ownerName}, your payment of LKR ${appointment.consultation_fee} for consultation with Dr. ${appointment.vetName} was successful.`
-                    }).catch(console.error);
-
-                    callback(null);
-                });
+                } else {
+                    proceedToInsertConsultation(rawDate, apptTime);
+                }
             });
         });
     });

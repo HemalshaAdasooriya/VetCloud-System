@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { 
   Clock, CheckCircle2, XCircle, AlertCircle, FileText, 
@@ -7,21 +7,20 @@ import {
   HourglassIcon, Stethoscope, ArrowLeft, Paperclip, MessageSquare,
   Mic, MicOff, VideoOff, Monitor, Send, X, MessageCircle, Loader2
 } from 'lucide-react';
-import { Button, Card, Badge, Textarea } from '../components/ui/ui';
+import { Button, Card, Badge, Textarea } from '../components/Ui/ui';
 import ChatConsultationRoom from '../components/consultation/ChatConsultationRoom';
 import ClientChatDrawer from '../components/consultation/ClientChatDrawer';
 import JitsiVideoCall from '../components/consultation/JitsiVideoCall';
 
 export default function DoctorConsultations() {
-  const navigate = useNavigate();
   const location = useLocation();
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // eslint-disable-next-line no-unused-vars
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('upcoming'); // 'upcoming', 'completed', 'cancelled'
-  const [selectedRequest, setSelectedRequest] = useState(null);
   const [selectedRequestDetails, setSelectedRequestDetails] = useState(null);
-  const [cancelReason, setCancelReason] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
@@ -32,20 +31,29 @@ export default function DoctorConsultations() {
   const [showVideoRoom, setShowVideoRoom] = useState(false);
   const [showChatRoom, setShowChatRoom] = useState(false);
   const [showClientChatDrawer, setShowClientChatDrawer] = useState(false);
-  const [isVideoMuted, setIsVideoMuted] = useState(false);
-  const [isVideoPaused, setIsVideoPaused] = useState(false);
-  const [isScreenSharing, setIsScreenSharing] = useState(false);
-  const [callDuration, setCallDuration] = useState(0);
-  const [showChatSidebar, setShowChatSidebar] = useState(false);
-  const [chatMessages, setChatMessages] = useState([]);
+  // eslint-disable-next-line no-unused-vars
   const [chatInput, setChatInput] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
+  // eslint-disable-next-line no-unused-vars
+  const [chatMessages, setChatMessages] = useState([]);
+  // eslint-disable-next-line no-unused-vars
+  const [callDuration, setCallDuration] = useState(0);
 
   const getVetId = () => {
-    return localStorage.getItem('userId');
+    const userId = localStorage.getItem('userId');
+    if (userId) return userId;
+    try {
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        const u = JSON.parse(userStr);
+        return u.id || u.vetId || u.user_id || null;
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    return null;
   };
 
-  const vetId = getVetId();
+  // const vetId = getVetId();
 
   const getDoctorName = () => {
     try {
@@ -167,7 +175,8 @@ export default function DoctorConsultations() {
     return () => timers.forEach(clearTimeout);
   }, [showVideoRoom, selectedRequestDetails]);
 
-  // Handle send message in call
+  // Handle send message in call (unused)
+  /*
   const handleSendMessageInCall = () => {
     if (!chatInput.trim()) return;
     const msgText = chatInput;
@@ -198,13 +207,16 @@ export default function DoctorConsultations() {
       ]);
     }, 2000);
   };
+  */
 
-  // Helper for duration strings
+  // Helper for duration strings (unused)
+  /*
   const formatDuration = (sec) => {
     const m = Math.floor(sec / 60).toString().padStart(2, '0');
     const s = (sec % 60).toString().padStart(2, '0');
     return `${m}:${s}`;
   };
+  */
 
   // Helper: Format time
   const formatTime = (timeStr) => {
@@ -236,7 +248,8 @@ export default function DoctorConsultations() {
     }
   };
 
-  // Helper: timeAgo relative format
+  // Helper: timeAgo relative format (unused)
+  /*
   const timeAgo = (dateStr) => {
     if (!dateStr) return 'Recently';
     try {
@@ -252,11 +265,12 @@ export default function DoctorConsultations() {
       if (interval >= 1) return `${interval}h ago`;
       interval = Math.floor(seconds / 60);
       if (interval >= 1) return `${interval}m ago`;
-      return 'Just now';
+      return `${Math.floor(seconds)}s ago`;
     } catch {
       return 'Recently';
     }
   };
+  */
 
   // Filter lists based on status
   const upcomingConsultations = appointments.filter(a => 
@@ -331,16 +345,6 @@ export default function DoctorConsultations() {
       return ['General Symptoms'];
     }
     return symptomsList;
-  };
-
-  // Mock file attachments helper
-  const getMockFiles = (animalName, species) => {
-    const cleanName = animalName || 'Patient';
-    const cleanSpecies = (species || 'Animal').charAt(0).toUpperCase() + (species || 'Animal').slice(1).toLowerCase();
-    return [
-      { name: `${cleanName}_Health_Record.pdf`, size: '2.4 MB' },
-      { name: `${cleanSpecies}_Vaccination_Log.xlsx`, size: '1.1 MB' }
-    ];
   };
 
   // Status Badge Renderer
@@ -459,7 +463,6 @@ export default function DoctorConsultations() {
   const request = selectedRequestDetails;
   const notes = request?.reason_notes || request?.reason || '';
   const symptoms = request ? extractSymptoms(notes) : [];
-  const mockFiles = request ? getMockFiles(request.animal_name, request.animal_species) : [];
 
   return (
     <div className="space-y-6">
@@ -470,7 +473,6 @@ export default function DoctorConsultations() {
           <button
             onClick={() => {
               setSelectedRequestDetails(null);
-              setCancelReason('');
             }}
             className="flex items-center gap-2 text-slate-500 hover:text-slate-700 transition-colors group font-semibold"
           >
@@ -653,26 +655,6 @@ export default function DoctorConsultations() {
                     <span className="text-slate-400 font-medium">Email</span>
                     <span className="text-slate-800 font-bold truncate max-w-[170px]">{request.owner_email || 'Not provided'}</span>
                   </div>
-                </div>
-              </Card>
-
-              {/* Attachments Card */}
-              <Card className="p-6 border-slate-200 shadow-sm bg-white rounded-2xl space-y-4">
-                <div className="flex items-center gap-2 text-slate-800 font-bold border-b border-slate-100 pb-3">
-                  <FileText size={18} className="text-slate-400" />
-                  <span>Medical Records</span>
-                </div>
-
-                <div className="space-y-2">
-                  {mockFiles.map((file, i) => (
-                    <div key={i} className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-100 rounded-xl">
-                      <Paperclip size={16} className="text-slate-400 flex-shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-bold text-slate-800 truncate">{file.name}</p>
-                        <p className="text-[10px] text-slate-400 mt-0.5">{file.size}</p>
-                      </div>
-                    </div>
-                  ))}
                 </div>
               </Card>
 

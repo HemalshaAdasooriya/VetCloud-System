@@ -11,7 +11,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Video, MessageCircle, Calendar as CalendarIcon, Clock, ChevronRight, CheckCircle2, Search, Star, ShieldCheck, MapPin, Plus } from 'lucide-react';
-import { Button, Card, Input, Badge } from '../components/ui/ui';
+import { Button, Card, Input, Badge } from '../components/Ui/ui';
 
 export default function ConsultationRequest() {
   const navigate = useNavigate();
@@ -43,7 +43,7 @@ export default function ConsultationRequest() {
   ];
 
   const getSelectedAnimal = () => animals.find(a => a.id === selectedAnimal);
-  const getSelectedVet = () => vets.find(v => v.id === selectedVet);
+  // const getSelectedVet = () => vets.find(v => v.id === selectedVet);
 
   return (
     <div className="bg-slate-50 min-h-[calc(100vh-4rem)] py-12">

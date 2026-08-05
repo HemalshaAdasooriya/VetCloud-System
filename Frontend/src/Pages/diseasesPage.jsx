@@ -3,6 +3,7 @@ import Navigation from '../layouts/navigation';
 import Footer from '../layouts/footer';
 import { Badge, Button, Card, Input } from '../components/Ui/ui';
 import { Search, Filter, BookOpen, AlertTriangle, ShieldCheck, Activity, Info, X, ChevronRight } from 'lucide-react';
+// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 
 const DISEASES_DATA = [

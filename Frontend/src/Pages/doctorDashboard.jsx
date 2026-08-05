@@ -17,7 +17,18 @@ export default function DoctorDashboard() {
     const [actionLoading, setActionLoading] = useState({});
 
     const getVetId = () => {
-        return localStorage.getItem("userId");
+        const userId = localStorage.getItem("userId");
+        if (userId) return userId;
+        try {
+            const userStr = localStorage.getItem("user");
+            if (userStr) {
+                const u = JSON.parse(userStr);
+                return u.id || u.vetId || u.user_id || null;
+            }
+        } catch (e) {
+            console.error(e);
+        }
+        return null;
     };
 
     const fetchDashboardData = async () => {
@@ -25,26 +36,46 @@ export default function DoctorDashboard() {
         setError(null);
         try {
             const token = localStorage.getItem("token");
-            const vetId = getVetId();
-            if (!vetId || !token) {
-                throw new Error("Veterinarian ID or Token not found. Please log in again.");
+            let vetId = getVetId();
+            if (!token) {
+                throw new Error("Authentication token not found. Please log in again.");
             }
 
             // 1. Fetch Veterinarian Profile
-            const profileRes = await fetch(`${import.meta.env.VITE_BACKEND_URL || "http://localhost:5000"}/api/users/profile`, {
-                headers: { "Authorization": `Bearer ${token}` }
-            });
-            if (profileRes.ok) {
-                const profileData = await profileRes.json();
-                setDoctorProfile(profileData);
+            try {
+                const profileRes = await axios.get(`${import.meta.env.VITE_BACKEND_URL || "http://localhost:5000"}/api/users/profile`, {
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                if (profileRes.data) {
+                    setDoctorProfile(profileRes.data);
+                    if (profileRes.data.id) {
+                        vetId = profileRes.data.id;
+                    }
+                }
+            } catch (profErr) {
+                console.warn("Failed to fetch doctor profile:", profErr);
+            }
+
+            if (!vetId) {
+                throw new Error("Veterinarian ID not found. Please log in again.");
             }
 
             // 2. Fetch Appointments
-            const appointmentsRes = await axios.get(`${import.meta.env.VITE_BACKEND_URL || "http://localhost:5000"}/api/vet-appointments/vet/${vetId}`);
-            setAppointments(appointmentsRes.data || []);
+            try {
+                const appointmentsRes = await axios.get(`${import.meta.env.VITE_BACKEND_URL || "http://localhost:5000"}/api/vet-appointments/vet/${vetId}`);
+                if (Array.isArray(appointmentsRes.data)) {
+                    setAppointments(appointmentsRes.data);
+                } else {
+                    console.warn("Appointments API returned non-array:", appointmentsRes.data);
+                    setAppointments([]);
+                }
+            } catch (aptErr) {
+                console.error("Failed to fetch doctor appointments:", aptErr);
+                setAppointments([]);
+            }
         } catch (err) {
             console.error("Error loading dashboard data:", err);
-            setError("Failed to load dashboard statistics. Please try again later.");
+            setError(err.message || "Failed to load dashboard statistics. Please try again later.");
         } finally {
             setLoading(false);
         }
@@ -66,21 +97,22 @@ export default function DoctorDashboard() {
     const todayStr = getLocalTodayDateString();
 
     // ── METRICS CALCULATIONS ────────────────────────────────────────────────
+    const safeAppointments = Array.isArray(appointments) ? appointments : [];
     
     // Today's Patients (approved or completed appointments scheduled for today)
-    const todayAppointments = appointments.filter(a => 
+    const todayAppointments = safeAppointments.filter(a => 
         (a.status?.toLowerCase() === "approved" || a.status?.toLowerCase() === "completed") && 
         a.appointment_date === todayStr
     );
     const todayCount = todayAppointments.length;
 
     // Pending Requests
-    const pendingRequests = appointments.filter(a => a.status?.toLowerCase() === "pending");
+    const pendingRequests = safeAppointments.filter(a => a.status?.toLowerCase() === "pending");
     const pendingCount = pendingRequests.length;
 
     // Earnings calculation (Completed appointments * consultation fee)
     const consultationFee = parseFloat(doctorProfile?.consultation_fee) || 0;
-    const completedAppointments = appointments.filter(a => a.status?.toLowerCase() === "completed");
+    const completedAppointments = safeAppointments.filter(a => a.status?.toLowerCase() === "completed");
     
     // Weekly earnings (completed in the last 7 days)
     const sevenDaysAgo = new Date();

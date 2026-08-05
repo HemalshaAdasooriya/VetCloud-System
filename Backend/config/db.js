@@ -1,10 +1,13 @@
 import mysql from "mysql2";
+import dotenv from "dotenv";
+dotenv.config();
 
 const dbConfig = {
-    host: "localhost",
-    user: "root",
-    password: "",
-    database: "vetcloud"
+    host: process.env.MYSQLHOST,
+    user: process.env.MYSQLUSER,
+    password: process.env.MYSQLPASSWORD,
+    database: process.env.MYSQLDATABASE,
+    port: process.env.MYSQLPORT
 };
 
 let connection;
@@ -43,7 +46,7 @@ function reconnect() {
         connection.removeAllListeners();
         try {
             connection.end();
-        } catch (e) {}
+        } catch (e) { }
     }
 
     console.log("🔄 Reconnecting database in 2 seconds...");
@@ -64,3 +67,4 @@ const dbWrapper = {
 };
 
 export default dbWrapper;
+

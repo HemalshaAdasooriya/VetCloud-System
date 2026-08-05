@@ -14,6 +14,7 @@ export default function ClientChatDrawer({
   useEffect(() => {
     if (isOpen && requestDetails) {
       const animalName = requestDetails.animal_name || 'Bessie';
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setClientChatMessages([
         {
           id: 1,

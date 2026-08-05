@@ -7,23 +7,19 @@ import {
 import { Button, Card, Badge } from "../components/Ui/ui"; 
 
 export default function DoctorSchedule() {
-  // ── LIVE CALENDAR STATE ────────────────────────────────────────────────
-  const [currentViewDate, setCurrentViewDate] = useState(new Date()); // Tracks the month being viewed
-  const [selectedDate, setSelectedDate] = useState(new Date()); // Tracks the specifically clicked day
-  
   // ── DATA STATE ─────────────────────────────────────────────────────────
   const [appointments, setAppointments] = useState([]);
   const [selectedSlots, setSelectedSlots] = useState({});
   const user = JSON.parse(localStorage.getItem("user"));
 
-  const [newSlotTime, setNewSlotTime] = useState('04:00 PM');
-  const [newSlotType, setNewSlotType] = useState('video');
-  const [isAdding, setIsAdding] = useState(false);
+  const API_BASE = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+  const vetId = localStorage.getItem("userId") || (user ? user.id : null);
 
   // ── FETCH APPOINTMENTS FROM BACKEND ────────────────────────────────────
   const fetchAppointments = async () => {
+    if (!vetId) return;
     try {
-      const res = await axios.get(`http://localhost:5000/api/appointments/vet/${user.id}`);
+      const res = await axios.get(`${API_BASE}/api/appointments/vet/${vetId}`);
       setAppointments(res.data);
     } catch (err) {
       console.error("Error fetching appointments:", err);
@@ -31,6 +27,7 @@ export default function DoctorSchedule() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchAppointments();
   }, []);
 
@@ -44,7 +41,7 @@ export default function DoctorSchedule() {
           availability: parsed.availability
         };
       }
-    } catch (e) {
+    } catch {
       // fallback when reason is plain text
     }
     return { notes: reason, availability: [] };
@@ -60,9 +57,9 @@ export default function DoctorSchedule() {
   const updateStatus = async (id, status, payload = null) => {
     try {
       if (status === "approve" && payload) {
-        await axios.patch(`http://localhost:5000/api/appointments/${id}/approve`, payload);
+        await axios.patch(`${API_BASE}/api/appointments/${id}/approve`, payload);
       } else {
-        await axios.patch(`http://localhost:5000/api/appointments/${id}/${status}`);
+        await axios.patch(`${API_BASE}/api/appointments/${id}/${status}`);
       }
       fetchAppointments();
     } catch (err) {
@@ -70,9 +67,9 @@ export default function DoctorSchedule() {
     }
   };
 
-  const handleRemoveSlot = (id) => {
-    setAvailableSlots(availableSlots.filter(slot => slot.id !== id));
-  };
+  // const handleRemoveSlot = (id) => {
+  //   setAvailableSlots(availableSlots.filter(slot => slot.id !== id));
+  // };
 
   return (
     <div className="p-6">

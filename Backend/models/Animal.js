@@ -1,6 +1,16 @@
 // models/Animal.js
 import db from "../config/db.js";
 
+// Ensure health_report column exists in animals table
+db.query("SHOW COLUMNS FROM animals LIKE 'health_report'", (err, results) => {
+    if (!err && results && results.length === 0) {
+        db.query("ALTER TABLE animals ADD COLUMN health_report TEXT NULL", (alterErr) => {
+            if (alterErr) console.error("Error adding health_report column:", alterErr.message);
+            else console.log("Added health_report column to animals table.");
+        });
+    }
+});
+
 // Fetch all animals for a specific pet owner
 export const getAnimalsByOwner = (ownerId, callback) => {
     const sql = "SELECT * FROM animals WHERE owner_id = ? ORDER BY id DESC";
@@ -19,8 +29,8 @@ export const getAnimalById = (id, callback) => {
 // Create a new animal
 export const createAnimal = (animalData, callback) => {
     const sql = `
-        INSERT INTO animals (owner_id, name, species, breed, age, weight, status, image, lastVisit)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO animals (owner_id, name, species, breed, age, weight, status, image, lastVisit, health_report)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     db.query(
         sql,
@@ -33,7 +43,8 @@ export const createAnimal = (animalData, callback) => {
             animalData.weight,
             animalData.status || "Healthy",
             animalData.image || null,
-            animalData.lastVisit || null
+            animalData.lastVisit || null,
+            animalData.health_report || null
         ],
         callback
     );
@@ -43,7 +54,7 @@ export const createAnimal = (animalData, callback) => {
 export const updateAnimal = (id, animalData, callback) => {
     const sql = `
         UPDATE animals
-        SET name = ?, species = ?, breed = ?, age = ?, weight = ?, status = ?, image = ?, lastVisit = ?
+        SET name = ?, species = ?, breed = ?, age = ?, weight = ?, status = ?, image = ?, lastVisit = ?, health_report = ?
         WHERE id = ?
     `;
     db.query(
@@ -57,6 +68,7 @@ export const updateAnimal = (id, animalData, callback) => {
             animalData.status,
             animalData.image,
             animalData.lastVisit,
+            animalData.health_report || null,
             id
         ],
         callback

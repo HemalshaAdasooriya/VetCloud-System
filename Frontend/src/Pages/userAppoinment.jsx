@@ -12,7 +12,7 @@ const parseRequestPayload = (reason) => {
         availability: parsed.availability
       };
     }
-  } catch (e) {
+  } catch {
     // Reason may be plain text if not structured.
   }
   return { notes: reason, availability: [] };
@@ -25,8 +25,9 @@ export default function UserAppoinment() {
 
   const fetchAppointments = async () => {
     try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
       const res = await axios.get(
-        `http://localhost:5000/api/appointments/owner/${user.id}`
+        `${backendUrl}/api/appointments/owner/${user.id}`
       );
       setAppointments(res.data);
     } catch (err) {
@@ -35,6 +36,7 @@ export default function UserAppoinment() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchAppointments();
   }, []);
 

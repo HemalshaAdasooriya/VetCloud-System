@@ -14,7 +14,6 @@ export default function FarmerChatRoom({
 }) {
   const [chatRoomMessages, setChatRoomMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
   const [callState, setCallState] = useState('idle'); // 'idle', 'calling', 'incoming', 'active'
   const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
   const [prescriptionText, setPrescriptionText] = useState('');

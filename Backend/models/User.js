@@ -14,8 +14,8 @@ export const createPetOwner = (userData, callback) => {
     // Database Action 1: Save the core data to the main table
     const insertMainSql = `
         INSERT INTO pet_owners
-        (email, password, fullName, contact_No, address, numberOfAnimals, image, provider)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        (email, password, fullName, contact_No, address, numberOfAnimals, image, provider, is_Active)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
     `;
 
     const mainValues = [

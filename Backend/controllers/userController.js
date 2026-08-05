@@ -32,7 +32,7 @@ import {
     getFullVeterinarianProfile,
     updateClinicDetails,
     updateConsultationFees,
-    getUserPasswordById, 
+    getUserPasswordById,
     updateUserPasswordById
 } from "../models/User.js";
 //... Navindu
@@ -43,7 +43,8 @@ import { updatePayoutSettings } from "../models/Payment.js";
 
 
 
-const googleClient = new OAuth2Client(process.env.VITE_GOOGLE_CLIENT_ID);
+const googleClientId = process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID;
+const googleClient = new OAuth2Client(googleClientId);
 
 export function registerUser(req, res) {
     const data = req.body;
@@ -79,13 +80,13 @@ export function registerUser(req, res) {
                     {
                         email: data.email,
                         password: hashedPassword,
-                        firstName: data.firstName, 
-                        lastName: data.lastName, 
+                        firstName: data.firstName,
+                        lastName: data.lastName,
                         contact_No: data.contact_No,
-                        street: data.street,       
-                        city: data.city,           
-                        state: data.state,         
-                        zip: data.zip,             
+                        street: data.street,
+                        city: data.city,
+                        state: data.state,
+                        zip: data.zip,
                         country: data.country,
                         numberOfAnimals: data.numberOfAnimals, // Matched to frontend payload exactly
                         image: imagePath,
@@ -121,14 +122,14 @@ export function registerUser(req, res) {
                         });
                     }
                 );
-            } 
+            }
             // ROUTE B: Veterinarian Registration
             else if (data.role === "Veterinary Doctor") {
                 createVeterinarian(
                     {
                         email: data.email,
                         password: hashedPassword,
-                        firstName: data.firstName, 
+                        firstName: data.firstName,
                         lastName: data.lastName,
                         contact_No: data.contact_No,
                         license_number: data.license_number,
@@ -147,7 +148,7 @@ export function registerUser(req, res) {
                             return res.status(500).json(err);
                         }
                         //isuri-user notification
-                         // Send verification email in background
+                        // Send verification email in background
                         const verifyHtml = getAccountVerificationTemplate(`${data.firstName} ${data.lastName}`, data.email);
                         sendEmail({
                             to: data.email,
@@ -167,13 +168,13 @@ export function registerUser(req, res) {
                         }).catch(console.error);
                         // Do not automatically log in if they are inactive (which they are by default)
                         getUserByEmailAndRole(data.email, "doctor", (fetchErr, userResults) => {
-                            return res.status(201).json({ 
-                                message: "Veterinarian registered successfully. Please wait for administrator approval to log in." 
+                            return res.status(201).json({
+                                message: "Veterinarian registered successfully. Please wait for administrator approval to log in."
                             });
                         });
                     }
                 );
-            } 
+            }
             // Invalid Role Fallback
             else {
                 return res.status(400).json({ message: "Invalid user role specified." });
@@ -237,9 +238,11 @@ export async function loginUser(req, res) {
             // 1. Generate the JWT Token
             console.log("STEP 1: Generating Token...");
             const token = jwt.sign(
-                {   id: user.id, 
+                {
+                    id: user.id,
                     email: user.email,
-                    role: role }, 
+                    role: role
+                },
                 process.env.JWT_SECRET
             );
 
@@ -285,7 +288,7 @@ export async function googleLogin(req, res) {
         if (token && token.split('.').length === 3) {
             const ticket = await googleClient.verifyIdToken({
                 idToken: token,
-                audience: process.env.VITE_GOOGLE_CLIENT_ID, 
+                audience: googleClientId,
             });
             const payload = ticket.getPayload();
             email = payload.email;
@@ -332,61 +335,62 @@ function handleSocialLogin(req, res, email, name, image, role, provider) {
     const nameParts = name.split(" ");
     const splitFirstName = nameParts[0] || "";
     const splitLastName = nameParts.slice(1).join(" ") || "";
-    
-    // First lookup: check if user exists in pet_owners (farmer)
-    getUserByEmailAndRole(email, "farmer", (errFarmer, farmerResults) => {
-        if (errFarmer) {
-            console.error("Farmer lookup failed during social login:", errFarmer);
+
+    const dbRole = (role === "Farmer/PetOwner" || role === "farmer" || role === "Farmer") ? "farmer" : "doctor";
+
+    // Lookup user ONLY in the preferred (selected) role
+    getUserByEmailAndRole(email, dbRole, (errPreferred, preferredResults) => {
+        if (errPreferred) {
+            console.error(`${dbRole} lookup failed during social login:`, errPreferred);
             return res.status(500).json({ message: "Database error during social login." });
         }
 
-        if (farmerResults && farmerResults.length > 0) {
-            // User exists as a farmer! Log them in.
-            return issueTokenAndSession(req, res, farmerResults[0], "farmer");
+        if (preferredResults && preferredResults.length > 0) {
+            // User exists as the selected role! Log them in.
+            return issueTokenAndSession(req, res, preferredResults[0], dbRole);
         }
 
-        // Second lookup: check if user exists in veterinarians (doctor)
-        getUserByEmailAndRole(email, "doctor", (errDoctor, doctorResults) => {
-            if (errDoctor) {
-                console.error("Doctor lookup failed during social login:", errDoctor);
-                return res.status(500).json({ message: "Database error during social login." });
-            }
+        // No existing user found in the selected role: proceed to register as a new user with selected role
+        const userData = {
+            email,
+            password: null,
+            firstName: splitFirstName,
+            lastName: splitLastName,
+            image,
+            provider,
+            contact_No: "",
+            license_number: "TEMP-" + Math.random().toString(36).substring(2, 11).toUpperCase(),
+            specialization: "General"
+        };
 
-            if (doctorResults && doctorResults.length > 0) {
-                // User exists as a doctor! Log them in.
-                return issueTokenAndSession(req, res, doctorResults[0], "doctor");
-            }
+        const callback = (regErr, result) => {
+            if (regErr) return res.status(500).json(regErr);
 
-            // No existing user found: proceed to register as a new user with selected role
-            const dbRole = (role === "Farmer/PetOwner" || role === "farmer") ? "farmer" : "doctor";
-            const userData = { 
-                email, 
-                password: null, 
-                firstName: splitFirstName, 
-                lastName: splitLastName, 
-                image, 
-                provider,
-                contact_No: "",
-                license_number: "TEMP-" + Math.random().toString(36).substring(2, 11).toUpperCase(),
-                specialization: "General"
-            };
-            
-            const callback = (regErr, result) => {
-                if (regErr) return res.status(500).json(regErr);
-                
-                // Fetch the newly created user to issue a proper session
-                getUserByEmailAndRole(email, dbRole, (fetchErr, userResults) => {
-                    if (fetchErr || userResults.length === 0) return res.status(500).json({ message: "Database error during social registration." });
-                    issueTokenAndSession(req, res, userResults[0], dbRole);
-                });
-            };
+            // Fetch the newly created user to issue a proper session
+            getUserByEmailAndRole(email, dbRole, (fetchErr, userResults) => {
+                if (fetchErr || userResults.length === 0) return res.status(500).json({ message: "Database error during social registration." });
 
-            if (dbRole === "farmer") {
-                createPetOwner(userData, callback);
-            } else {
-                createVeterinarian(userData, callback);
-            }
-        });
+                if (dbRole === "doctor") {
+                    // Notify admins of new veterinarian registration request via Social Login
+                    const io = req.app.get("io");
+                    import("../models/Notification.js").then(({ createAdminNotification }) => {
+                        createAdminNotification(io, {
+                            type: "new_vet_registration",
+                            title: "New Vet Registration Request",
+                            message: `New veterinarian registered via Google: Dr. ${splitFirstName} ${splitLastName} (${email}, License: ${userData.license_number}). Pending approval.`
+                        });
+                    }).catch(console.error);
+                }
+
+                issueTokenAndSession(req, res, userResults[0], dbRole);
+            });
+        };
+
+        if (dbRole === "farmer") {
+            createPetOwner(userData, callback);
+        } else {
+            createVeterinarian(userData, callback);
+        }
     });
 }
 
@@ -398,7 +402,7 @@ function issueTokenAndSession(req, res, user, role) {
     }
     // 1. Generate the JWT Token
     const token = jwt.sign(
-        { id: user.id, email: user.email, role: role }, 
+        { id: user.id, email: user.email, role: role },
         process.env.JWT_SECRET
     );
 
@@ -455,6 +459,7 @@ export function sendForgotPasswordOTP(req, res) {
             });
         }
 
+        const userObj = results[0];
         const otp = otpGenerator.generate(6, {
             upperCaseAlphabets: false,
             lowerCaseAlphabets: false,
@@ -464,23 +469,42 @@ export function sendForgotPasswordOTP(req, res) {
         const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
         savePasswordResetOTP(email, otp, expiresAt, async (err) => {
-
             if (err) {
                 return res.status(500).json(err);
             }
 
             try {
-                await transporter.sendMail({
-                    from: process.env.EMAIL_USER,
+                // 1. Send Email Notification using VetCloud Password Reset Template
+                const { getPasswordResetTemplate } = await import("../config/email.js");
+                const html = getPasswordResetTemplate(userObj.fullName || userObj.name || "User", otp);
+
+                await sendEmail({
                     to: email,
                     subject: "VetCloud Password Reset OTP",
-                    html: `
-                        <h2>Password Reset Request</h2>
-                        <p>Your OTP code is:</p>
-                        <h1>${otp}</h1>
-                        <p>This OTP expires in 10 minutes.</p>
-                    `
+                    html,
+                    text: `Your VetCloud Password Reset OTP is: ${otp}. It expires in 10 minutes.`
                 });
+
+                // 2. Create In-App Notification for User
+                if (userObj.id) {
+                    const { createNotification } = await import("../models/Notification.js");
+                    const userRole = (userObj.role && (userObj.role.toLowerCase().includes('vet') || userObj.role.toLowerCase().includes('doctor')))
+                        ? "Veterinary Doctor"
+                        : "Farmer/PetOwner";
+
+                    createNotification({
+                        userId: userObj.id,
+                        userRole,
+                        type: "password_reset_requested",
+                        title: "Password Reset Requested",
+                        message: "A password reset request was initiated for your account. Please check your email for your 6-digit OTP code."
+                    }, (nErr, dbNotify) => {
+                        const io = req.app ? req.app.get("io") : null;
+                        if (!nErr && dbNotify && io) {
+                            io.to(`${userRole}_${userObj.id}`).emit("new-notification", dbNotify);
+                        }
+                    });
+                }
 
                 return res.status(200).json({
                     message: "OTP sent successfully"
@@ -541,6 +565,34 @@ export async function resetPassword(req, res) {
 
         const hashedPassword = await bcrypt.hash(newPassword, 11);
 
+        const notifyPasswordChanged = async (userRole) => {
+            checkEmailExists(email, async (err, results) => {
+                if (!err && results && results.length > 0) {
+                    const u = results[0];
+                    const { createNotification } = await import("../models/Notification.js");
+                    createNotification({
+                        userId: u.id,
+                        userRole: userRole || "Farmer/PetOwner",
+                        type: "password_reset_success",
+                        title: "Password Changed Successfully",
+                        message: "Your VetCloud account password was successfully updated."
+                    }, (nErr, dbNotify) => {
+                        const io = req.app ? req.app.get("io") : null;
+                        if (!nErr && dbNotify && io) {
+                            io.to(`${userRole}_${u.id}`).emit("new-notification", dbNotify);
+                        }
+                    });
+
+                    sendEmail({
+                        to: email,
+                        subject: "Security Notification: VetCloud Password Changed",
+                        html: `<p>Dear ${u.fullName || "User"},</p><p>This email confirms that your VetCloud account password was successfully updated.</p><p>If you did not perform this change, please contact VetCloud support immediately.</p>`,
+                        text: `Your VetCloud account password was successfully updated.`
+                    }).catch(console.error);
+                }
+            });
+        };
+
         updatePetOwnerPassword(email, hashedPassword, (err, result) => {
 
             if (err) {
@@ -548,6 +600,7 @@ export async function resetPassword(req, res) {
             }
 
             if (result.affectedRows > 0) {
+                notifyPasswordChanged("Farmer/PetOwner");
                 return res.status(200).json({
                     message: "Password updated successfully"
                 });
@@ -560,6 +613,7 @@ export async function resetPassword(req, res) {
                 }
 
                 if (result2.affectedRows > 0) {
+                    notifyPasswordChanged("Veterinary Doctor");
                     return res.status(200).json({
                         message: "Password updated successfully"
                     });
@@ -605,10 +659,10 @@ export const updateProfilePhoto = (req, res) => {
         // 4. Update the Database
         updateUserImage(userId, userRole, imageUrl, (err, result) => {
             if (err) return res.status(500).json({ message: "Database error" });
-            
-            res.status(200).json({ 
-                message: "Image uploaded successfully", 
-                imageUrl: imageUrl 
+
+            res.status(200).json({
+                message: "Image uploaded successfully",
+                imageUrl: imageUrl
             });
         });
 
@@ -635,10 +689,10 @@ export const removeProfilePhoto = (req, res) => {
         // 2. Update the Database back to the default image
         updateUserImage(userId, userRole, defaultImage, (err, result) => {
             if (err) return res.status(500).json({ message: "Database error" });
-            
-            res.status(200).json({ 
-                message: "Profile photo removed successfully", 
-                imageUrl: defaultImage 
+
+            res.status(200).json({
+                message: "Profile photo removed successfully",
+                imageUrl: defaultImage
             });
         });
 
@@ -666,10 +720,10 @@ export const updateUserProfile = (req, res) => {
 
         // 3. Route to the correct database update function
         if (userRole === "Farmer/PetOwner" || userRole === "farmer") {
-            
+
             updatePetOwnerProfile(userId, profileData, (err, result) => {
                 if (err) return res.status(500).json({ message: "Database error during update" });
-                
+
                 // Send security alert email
                 getUserByIdAndRole(userId, 'farmer', (errUser, userInfo) => {
                     if (!errUser && userInfo) {
@@ -686,10 +740,10 @@ export const updateUserProfile = (req, res) => {
             });
 
         } else if (userRole === "Veterinary Doctor" || userRole === "doctor") {
-            
+
             updateVeterinarianProfile(userId, profileData, (err, result) => {
                 if (err) return res.status(500).json({ message: "Database error during update" });
-                
+
                 // Send security alert email
                 getUserByIdAndRole(userId, 'doctor', (errUser, userInfo) => {
                     if (!errUser && userInfo) {
@@ -732,7 +786,7 @@ export const getUserProfile = (req, res) => {
 
         // 3. Route to the correct database fetch based on their role
         if (userRole === "Farmer/PetOwner" || userRole === "farmer") {
-            
+
             getFullPetOwnerProfile(userId, (err, profileData) => {
                 if (err) {
                     console.error("Database Error:", err);
@@ -741,7 +795,7 @@ export const getUserProfile = (req, res) => {
                 if (!profileData) {
                     return res.status(404).json({ message: "Profile not found in database" });
                 }
-                
+
                 // Success! Send the data back to React
                 return res.status(200).json(profileData);
             });
@@ -817,7 +871,7 @@ export const changePassword = (req, res) => {
 // Generate the Secret and QR Code
 export const generate2FA = async (req, res) => {
     const secret = speakeasy.generateSecret({ name: 'VetCloud' });
-    
+
     qrcode.toDataURL(secret.otpauth_url, (err, data_url) => {
         if (err) return res.status(500).json({ message: "Error generating QR code" });
         // Send the QR code and the raw secret back to React temporarily
@@ -840,9 +894,9 @@ export const verifyAndEnable2FA = (req, res) => {
         const decoded = jwt.verify(jwtToken, process.env.JWT_SECRET);
         const userId = decoded.id;
         const userRole = decoded.role;
-        
+
         // 'token' here is the 6-digit code they typed
-        const { token, secret } = req.body; 
+        const { token, secret } = req.body;
 
         // 2. Do the math to verify the 6-digit code
         const verified = speakeasy.totp.verify({
@@ -855,7 +909,7 @@ export const verifyAndEnable2FA = (req, res) => {
             // 3. ACTUALLY SAVE IT TO THE DATABASE!
             enableUser2FA(userId, userRole, secret, (err) => {
                 if (err) return res.status(500).json({ message: "Failed to save to database" });
-                
+
                 // Send security alert email
                 getUserByIdAndRole(userId, userRole === 'Veterinary Doctor' || userRole === 'doctor' ? 'doctor' : 'farmer', (errUser, userInfo) => {
                     if (!errUser && userInfo) {
@@ -944,7 +998,7 @@ export const verifyLogin2FA = (req, res) => {
         if (verified) {
             // 3. Success! Issue the real JWT Token
             const token = jwt.sign(
-                { id: user.id, email: user.email, role: role }, 
+                { id: user.id, email: user.email, role: role },
                 process.env.JWT_SECRET
             );
 
@@ -962,10 +1016,10 @@ export const verifyLogin2FA = (req, res) => {
             const { password, two_factor_secret, ...safeUserData } = user;
             safeUserData.role = role;
 
-            return res.status(200).json({ 
+            return res.status(200).json({
                 message: "Login successful",
-                token: token, 
-                user: safeUserData 
+                token: token,
+                user: safeUserData
             });
         } else {
             return res.status(400).json({ message: "Invalid 6-digit code" });
@@ -995,7 +1049,7 @@ export const disable2FA = (req, res) => {
                 console.error("Database Error:", err);
                 return res.status(500).json({ message: "Failed to disable 2FA in database" });
             }
-            
+
             // Send security alert email
             getUserByIdAndRole(userId, userRole === 'Veterinary Doctor' || userRole === 'doctor' ? 'doctor' : 'farmer', (errUser, userInfo) => {
                 if (!errUser && userInfo) {
@@ -1021,9 +1075,9 @@ export const disable2FA = (req, res) => {
 export const getActiveSessions = (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader) return res.status(401).json({ message: "Unauthorized" });
-    
+
     const currentToken = authHeader.split(" ")[1];
-    
+
     try {
         const decoded = jwt.verify(currentToken, process.env.JWT_SECRET);
 
@@ -1035,7 +1089,7 @@ export const getActiveSessions = (req, res) => {
                 device: session.device,
                 location: session.location,
                 time: session.login_time,
-                isCurrent: session.token === currentToken 
+                isCurrent: session.token === currentToken
             }));
 
             res.status(200).json(formattedSessions);
@@ -1047,8 +1101,8 @@ export const getActiveSessions = (req, res) => {
 
 // --- Revoke a Specific Session ---
 export const revokeSession = (req, res) => {
-    const sessionId = req.params.id; 
-    
+    const sessionId = req.params.id;
+
     deleteSessionById(sessionId, (err) => {
         if (err) return res.status(500).json({ message: "Failed to revoke session" });
         res.status(200).json({ message: "Session revoked successfully" });
@@ -1059,7 +1113,7 @@ export const revokeSession = (req, res) => {
 export const revokeOtherSessions = (req, res) => {
     const authHeader = req.headers.authorization;
     const currentToken = authHeader.split(" ")[1];
-    
+
     try {
         const decoded = jwt.verify(currentToken, process.env.JWT_SECRET);
 
@@ -1118,7 +1172,7 @@ export const savePayoutSettings = (req, res) => {
         // 2. Read the badge to see which doctor this is
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         const vetId = decoded.id;
-        
+
         // 3. Send the data to the Payment Model to save in the database
         updatePayoutSettings(vetId, req.body, (err, result) => {
             if (err) {
@@ -1127,14 +1181,14 @@ export const savePayoutSettings = (req, res) => {
             }
             return res.status(200).json({ message: "Payout details updated successfully!" });
         });
-        
+
     } catch (error) {
         return res.status(401).json({ message: "Invalid or expired token" });
     }
 };
 
 
- 
+
 export const saveConsultationFees = (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {

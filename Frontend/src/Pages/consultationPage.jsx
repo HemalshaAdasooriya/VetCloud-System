@@ -5,7 +5,7 @@ import {
   Video, Calendar as CalendarIcon, Clock, CheckCircle2,
   MoreVertical, FileText, AlertCircle, XCircle, HourglassIcon
 } from 'lucide-react';
-import { Button, Card, Badge } from '../components/ui/ui';
+import { Button, Card, Badge } from '../components/Ui/ui';
 
 const TAB_STYLES = {
   pending: { text: 'text-amber-600', underline: 'bg-amber-600' },
@@ -30,7 +30,8 @@ export default function ConsultationPage() {
       }
 
       try {
-        const res = await axios.get(`http://localhost:5000/api/appointments/owner/${ownerId}`);
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+        const res = await axios.get(`${backendUrl}/api/appointments/owner/${ownerId}`);
         setAppointments(res.data);
       } catch (err) {
         console.error('Failed to fetch appointments:', err);

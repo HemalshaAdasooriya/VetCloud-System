@@ -79,21 +79,7 @@ export const selectAppointmentSlot = (
     db.beginTransaction((err) => {
         if (err) return callback(err);
 
-        const updateSlotSql = `
-            UPDATE appointment_slots
-            SET is_selected = 1
-            WHERE id = ? AND appointment_id = ?
-        `;
-
-        db.query(updateSlotSql, [slotId, appointmentId], (err, result) => {
-            if (err) {
-                return db.rollback(() => callback(err));
-            }
-
-            if (result.affectedRows === 0) {
-                return db.rollback(() => callback(new Error('Slot not found or already selected')));
-            }
-
+        const finishAppointmentUpdate = () => {
             const updateAppointmentSql = `
                 UPDATE appointments
                 SET selected_slot_id = ?, status = ?
@@ -112,6 +98,32 @@ export const selectAppointmentSlot = (
                     callback(null, { appointmentId, slotId, status });
                 });
             });
+        };
+
+        const updateSlotSql = `
+            UPDATE appointment_slots
+            SET is_selected = 1
+            WHERE id = ? AND appointment_id = ?
+        `;
+
+        db.query(updateSlotSql, [slotId, appointmentId], (err, result) => {
+            if (err) {
+                return db.rollback(() => callback(err));
+            }
+
+            if (!result || result.affectedRows === 0) {
+                // Fallback: try updating by slotId alone or associating slotId with appointmentId
+                const fallbackSlotSql = `
+                    UPDATE appointment_slots
+                    SET is_selected = 1, appointment_id = ?
+                    WHERE id = ?
+                `;
+                db.query(fallbackSlotSql, [appointmentId, slotId], () => {
+                    finishAppointmentUpdate();
+                });
+            } else {
+                finishAppointmentUpdate();
+            }
         });
     });
 };

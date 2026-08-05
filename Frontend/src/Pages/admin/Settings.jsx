@@ -97,7 +97,7 @@ export default function Settings() {
                 throw new Error(err.message || "Failed to update profile");
             }
 
-            const data = await res.json();
+            await res.json();
             toast.success("Profile details updated!");
             
             // Save updated user data back into localstorage & trigger layout update
