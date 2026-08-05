@@ -447,6 +447,19 @@ export default function Scheduling() {
     });
   };
 
+  const handleProceedToReview = () => {
+    setRequestError('');
+    if (selectedDates.length === 0) {
+      setRequestError('Please select at least one date from the calendar.');
+      return;
+    }
+    if (selectedSlots.length === 0) {
+      setRequestError('Please select at least one available time slot provided by the doctor.');
+      return;
+    }
+    setStep(4);
+  };
+
   const buildAvailabilityPayload = () => {
     return selectedSlots.map((slot) => ({
       date: getSlotDateKey(slot),
@@ -992,12 +1005,18 @@ export default function Scheduling() {
                   </div>
                 </div>
 
-                <div className="flex justify-between pt-6 border-t border-slate-100">
-                  <Button variant="outline" onClick={() => setStep(2)}>Back</Button>
-                  <Button
-                    onClick={() => setStep(4)}
-                    disabled={selectedSlots.length === 0}
-                  >Review & Request <ChevronRight size={16} className="ml-2" /></Button>
+                {requestError && (
+                  <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600 flex items-center gap-2">
+                    <AlertCircle size={16} className="shrink-0" />
+                    <span>{requestError}</span>
+                  </div>
+                )}
+
+                <div className="flex justify-between pt-6 border-t border-slate-100 mt-4">
+                  <Button variant="outline" onClick={() => { setRequestError(''); setStep(2); }}>Back</Button>
+                  <Button onClick={handleProceedToReview}>
+                    Review & Request <ChevronRight size={16} className="ml-2" />
+                  </Button>
                 </div>
               </div>
             </div>
