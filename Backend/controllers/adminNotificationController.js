@@ -551,9 +551,16 @@ export const simulateAction = async (req, res) => {
         }
 
         else if (type === "daily_schedule") {
-            const appts = [
-                { slot_time: "09:30 AM", owner_name: "John Doe", animal_name: "Bobby", animal_species: "Dog", consultation_type: "video" },
-                { slot_time: "11:00 AM", owner_name: "Alice Perera", animal_name: "Molly", animal_species: "Cow", consultation_type: "chat" }
+            const realAppts = await queryPromise(`
+                SELECT c.appointment_time AS slot_time, p.fullName AS owner_name, COALESCE(a.name, 'Animal Patient') AS animal_name, COALESCE(a.species, 'Livestock/Pet') AS animal_species, c.consultation_type 
+                FROM consultations c
+                LEFT JOIN pet_owners p ON c.owner_id = p.id
+                LEFT JOIN animals a ON c.animal_id = a.id
+                WHERE c.doctor_id = ?
+                LIMIT 5
+            `, [vetId]);
+            const appts = realAppts.length > 0 ? realAppts : [
+                { slot_time: "09:30 AM", owner_name: ownerName, animal_name: "Patient", animal_species: "Livestock/Pet", consultation_type: "video" }
             ];
             const emailHtml = getDailyAppointmentScheduleTemplate(vetName, appts);
             sendEmail({
@@ -563,11 +570,29 @@ export const simulateAction = async (req, res) => {
                 text: `Daily appointment schedule report.`
             }).catch(console.error);
 
-            return res.status(200).json({ message: "Simulated daily schedule email dispatched." });
+            return res.status(200).json({ message: "Simulated daily schedule email dispatched with real vet appointments." });
         }
 
         else if (type === "monthly_performance_report") {
-            const stats = { completedCount: 24, revenue: 36000.00, averageRating: 4.8 };
+            const [vetStats] = await queryPromise(`
+                SELECT 
+                    (COUNT(DISTINCT c.id) + COUNT(DISTINCT a.id)) AS completedCount,
+                    (COALESCE(SUM(c.fee), 0) + COALESCE(SUM(CASE WHEN a.payment_status = 'Paid' THEN v.consultation_fee ELSE 0 END), 0)) AS revenue,
+                    COALESCE(AVG(f.rating), 5.0) AS averageRating
+                FROM veterinarians v
+                LEFT JOIN consultations c ON v.id = c.doctor_id
+                LEFT JOIN appointments a ON v.id = a.veterinarian_id
+                LEFT JOIN feedbacks f ON v.id = f.veterinarian_id
+                WHERE v.id = ?
+                GROUP BY v.id
+            `, [vetId]);
+
+            const stats = vetStats ? {
+                completedCount: vetStats.completedCount || 0,
+                revenue: parseFloat(vetStats.revenue || 0),
+                averageRating: parseFloat(vetStats.averageRating || 5.0)
+            } : { completedCount: 0, revenue: 0, averageRating: 5.0 };
+
             const emailHtml = getMonthlyPerformanceReportTemplate(vetName, stats);
             sendEmail({
                 to: vetEmail,
@@ -576,7 +601,7 @@ export const simulateAction = async (req, res) => {
                 text: `Monthly performance stats summary.`
             }).catch(console.error);
 
-            return res.status(200).json({ message: "Simulated monthly performance report email dispatched." });
+            return res.status(200).json({ message: "Simulated monthly performance report email dispatched using real database metrics." });
         }
 
         else if (type === "system_announcement") {

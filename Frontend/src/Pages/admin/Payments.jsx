@@ -114,14 +114,13 @@ export default function Payments() {
         }
     };
 
-    // Auto-fill bank details if doctor is selected
+    // Auto-fill real bank details if doctor is selected
     useEffect(() => {
         if (selectedVetId) {
             const vet = vets.find(v => v.id === parseInt(selectedVetId));
-            // Let's see if we can find bank details or mock some
             if (vet) {
-                setBankName("National Savings Bank");
-                setAccountNumber(`100${vet.id}25${vet.license_number.replace(/\D/g, '') || '91'}`);
+                setBankName(vet.bank_name || "");
+                setAccountNumber(vet.account_number || "");
             }
         }
     }, [selectedVetId, vets]);
