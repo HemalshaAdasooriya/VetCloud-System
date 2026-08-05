@@ -42,6 +42,61 @@ export default function VetConsultationRequests() {
   const [prescriptionText, setPrescriptionText] = useState("");
   const [completingAptId, setCompletingAptId] = useState(null);
   
+  // Helper to normalize file upload URLs
+  const getFileUrl = (url) => {
+    if (!url) return "#";
+    if (url.startsWith("http://") || url.startsWith("https://")) return url;
+    const backendUrl = (import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000').replace(/\/$/, "");
+    const cleanPath = url.startsWith("/") ? url : `/${url}`;
+    return `${backendUrl}${cleanPath}`;
+  };
+
+  // Helper function to format medical history notes cleanly
+  const formatNotesContent = (notesStr) => {
+    if (!notesStr) return "No notes available.";
+    let str = String(notesStr).trim();
+    if (str.includes('{') && str.includes('}')) {
+      try {
+        const jsonStart = str.indexOf('{');
+        const jsonEnd = str.lastIndexOf('}');
+        const jsonSub = str.substring(jsonStart, jsonEnd + 1);
+        const parsed = JSON.parse(jsonSub);
+        const cleanReason = parsed.notes || parsed.symptoms || parsed.reason || "";
+        const prefix = str.substring(0, jsonStart).replace(/\|\s*Notes:\s*$/, '').replace(/Notes:\s*$/, '').trim();
+        if (cleanReason) {
+          return prefix ? `${prefix} • Reason: ${cleanReason}` : cleanReason;
+        } else {
+          return prefix || "Veterinary Consultation Session";
+        }
+      } catch {
+        // Fallback
+      }
+    }
+    return str;
+  };
+
+  const [viewingHistoryModal, setViewingHistoryModal] = useState(false);
+  const [selectedAnimalHistory, setSelectedAnimalHistory] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
+  const handleOpenPatientHistory = async (animalId) => {
+    if (!animalId) return;
+    setViewingHistoryModal(true);
+    setLoadingHistory(true);
+    setSelectedAnimalHistory([]);
+    try {
+      const token = localStorage.getItem("token") || "";
+      const res = await axios.get(`${API_BASE}/api/animals/${animalId}/history`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setSelectedAnimalHistory(res.data || []);
+    } catch (err) {
+      console.error("Failed to fetch animal history:", err);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
   // State for data from backend
   const [pendingRequests, setPendingRequests] = useState([]);
   const [reviewedRequests, setReviewedRequests] = useState([]);
@@ -211,10 +266,12 @@ export default function VetConsultationRequests() {
       image: app.animal_image || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=1974&auto=format&fit=crop',
       requestedAt: app.created_at ? timeAgo(app.created_at) : 'Recently',
       ownerContact: app.owner_contact || '',
-       animalAge: app.animal_age || 'N/A',
+      animalAge: app.animal_age || 'N/A',
       animalBreed: app.animal_breed || 'Unknown',
       animalSpecies: app.animal_species || 'Unknown Species',
       animalWeight: app.animal_weight || 'Unknown Weight',
+      animalStatus: app.animal_status || 'Healthy',
+      healthReport: app.animal_health_report || app.health_report || null,
       animalId: app.animal_id,
       slots: slots.map(slot => ({
         id: slot.id,
@@ -832,16 +889,53 @@ export default function VetConsultationRequests() {
                 </div>
                 <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
                   <p className="text-xs text-slate-400 font-medium uppercase tracking-wider mb-1">Breed</p>
-                  <p className="text-base font-bold text-slate-800">{request.animalBreed || request.originalData?.animal_breed || 'Holstein-Friesian'}</p>
+                  <p className="text-base font-bold text-slate-800">{request.animalBreed || request.originalData?.animal_breed || 'Unknown'}</p>
                 </div>
                 <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
                   <p className="text-xs text-slate-400 font-medium uppercase tracking-wider mb-1">Age</p>
-                  <p className="text-base font-bold text-slate-800">{request.animalAge || request.originalData?.animal_age || '4 Years'}</p>
+                  <p className="text-base font-bold text-slate-800">{request.animalAge || request.originalData?.animal_age || 'N/A'}</p>
                 </div>
                 <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
                   <p className="text-xs text-slate-400 font-medium uppercase tracking-wider mb-1">Weight</p>
-                  <p className="text-base font-bold text-slate-800">{request.animalWeight || request.originalData?.animal_weight || '1,400 lbs'}</p>
+                  <p className="text-base font-bold text-slate-800">{request.animalWeight || request.originalData?.animal_weight || 'N/A'}</p>
                 </div>
+              </div>
+
+              {/* Health Report / Vaccination Card Section */}
+              {(request.healthReport || request.originalData?.animal_health_report || request.originalData?.health_report) && (
+                <div className="bg-emerald-50/90 border border-emerald-200 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-emerald-100 text-emerald-700 rounded-lg shrink-0">
+                      <FileText size={20} />
+                    </div>
+                    <div>
+                      <h4 className="font-extrabold text-slate-800 text-sm">Health Report / Vaccination Card</h4>
+                      <p className="text-xs text-slate-500 font-medium">Uploaded record for patient {request.patientName}</p>
+                    </div>
+                  </div>
+                  <a
+                    href={getFileUrl(request.healthReport || request.originalData?.animal_health_report || request.originalData?.health_report)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs hover:shadow-md transition-all shrink-0 active:scale-95 cursor-pointer"
+                  >
+                    <FileText size={14} />
+                    View Health Report / Card
+                  </a>
+                </div>
+              )}
+
+              {/* Patient Medical History Trigger */}
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100">
+                <span className="text-xs text-slate-500 font-medium">Patient Clinical History Management</span>
+                <button
+                  type="button"
+                  onClick={() => handleOpenPatientHistory(request.animalId || request.originalData?.animal_id)}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer"
+                >
+                  <FileText size={16} />
+                  View Patient Medical History
+                </button>
               </div>
 
               {/* Primary Reason for Visit */}
@@ -1472,6 +1566,78 @@ export default function VetConsultationRequests() {
               </div>
             </div>
           </Card>
+        </div>
+      )}
+      {/* PATIENT MEDICAL HISTORY MODAL */}
+      {viewingHistoryModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
+              <div className="flex items-center gap-2">
+                <span className="p-2 bg-blue-50 text-blue-600 rounded-xl">
+                  <FileText size={20} />
+                </span>
+                <div>
+                  <h3 className="font-extrabold text-slate-800 text-lg">Patient Medical Record History</h3>
+                  <p className="text-xs text-slate-400">Clinical timeline and past consultations for patient animal</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewingHistoryModal(false)}
+                className="p-1 hover:bg-slate-200 text-slate-400 hover:text-slate-600 rounded-lg transition-colors cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 max-h-[70vh] overflow-y-auto space-y-4">
+              {loadingHistory ? (
+                <div className="flex flex-col items-center justify-center py-12 space-y-3">
+                  <Loader2 className="animate-spin text-blue-600" size={32} />
+                  <p className="text-xs text-slate-400 font-medium">Retrieving patient clinical records...</p>
+                </div>
+              ) : selectedAnimalHistory && selectedAnimalHistory.length > 0 ? (
+                <div className="relative pl-6 border-l border-slate-200 space-y-6 ml-2 py-2">
+                  {selectedAnimalHistory.map((record, index) => (
+                    <div key={index} className="relative space-y-1.5">
+                      <span className="absolute -left-[31px] top-0.5 bg-white border-2 border-blue-500 rounded-full h-4.5 w-4.5 flex items-center justify-center shadow-xs">
+                        <span className="h-2 w-2 bg-blue-500 rounded-full" />
+                      </span>
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-xs">
+                        <span className="font-bold text-slate-400">{record.date}</span>
+                        <Badge className="bg-slate-100 text-slate-700 font-bold border-slate-200 text-[10px]">
+                          {record.type}
+                        </Badge>
+                      </div>
+                      <h4 className="font-extrabold text-slate-800 text-sm">{record.title}</h4>
+                      <p className="text-xs text-slate-600 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100 font-medium">
+                        {formatNotesContent(record.notes)}
+                      </p>
+                      <div className="text-[11px] text-slate-400 font-medium pt-1">
+                        Attending Veterinarian: <span className="font-semibold text-slate-600">{record.vet}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12 space-y-2">
+                  <FileText size={40} className="mx-auto text-slate-300" />
+                  <p className="text-sm font-bold text-slate-700">No Medical History Found</p>
+                  <p className="text-xs text-slate-400 max-w-sm mx-auto">This animal patient has no recorded clinical history or prior consultation sessions in the database yet.</p>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 border-t border-slate-100 flex justify-end bg-slate-50/50">
+              <Button type="button" onClick={() => setViewingHistoryModal(false)}>
+                Close
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>

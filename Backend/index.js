@@ -20,6 +20,13 @@ import adminRouter from "./routes/adminRouter.js";
 import scheduleRouter from "./routes/scheduleRouter.js";
 import { seedAdminAuto } from "./seedAdmin.js";
 
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 // Create notifications table and seed admin on startup
 initializeNotificationTables();
 initializePaymentSettingsTable();
@@ -145,7 +152,21 @@ app.use("/api/schedule", scheduleRouter); //Navindu 2026/06/26
 app.use("/api/payments", paymentRouter);
 app.use("/api/notifications", notificationRouter);
 app.use("/api/admin", adminRouter);
-app.use("/uploads", express.static("uploads"));
+const uploadsDir = path.join(__dirname, "uploads");
+const cwdUploadsDir = path.resolve(process.cwd(), "uploads");
+
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+}
+if (!fs.existsSync(cwdUploadsDir)) {
+    fs.mkdirSync(cwdUploadsDir, { recursive: true });
+}
+
+app.use("/uploads", (req, res, next) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    next();
+}, express.static(uploadsDir), express.static(cwdUploadsDir));
 
 // Express Global Error Handler Middleware
 app.use((err, req, res, next) => {

@@ -55,6 +55,7 @@ export default function Scheduling() {
   const [loadingAnimals, setLoadingAnimals] = useState(true);
   const [searchAnimal, setSearchAnimal] = useState('');
   const [searchVet, setSearchVet] = useState('');
+  const [viewingVetModal, setViewingVetModal] = useState(null);
 
   // Add Animal Modal
   const [showAddAnimalModal, setShowAddAnimalModal] = useState(false);
@@ -727,24 +728,45 @@ export default function Scheduling() {
                 {filteredVets.map((vet) => (
                   <Card
                     key={vet.id}
-                    className={`p-4 cursor-pointer hover:border-green-500 transition-colors ${selectedVet === vet.id ? 'border-2 border-green-500 bg-green-50' : 'border border-slate-200'}`}
+                    className={`p-4 cursor-pointer hover:border-green-500 transition-all ${selectedVet === vet.id ? 'border-2 border-green-500 bg-green-50/80 shadow-md' : 'border border-slate-200 bg-white hover:shadow-sm'}`}
                     onClick={() => setSelectedVet(vet.id)}
                   >
                     <div className="flex gap-4">
-                      <img src={vet.image} alt={vet.name} className="w-24 h-24 rounded-lg object-cover" />
-                      <div className="flex-1">
-                        <div className="flex justify-between items-start">
-                          <h3 className="font-bold text-lg text-slate-900">{vet.name}</h3>
-                          {vet.available ? (
-                            <Badge variant="success" className="text-[10px] uppercase tracking-wider">Available Now</Badge>
-                          ) : (
-                            <Badge className="text-[10px] uppercase tracking-wider bg-slate-100 text-slate-500">Offline</Badge>
-                          )}
+                      <img src={vet.image} alt={vet.name} className="w-24 h-24 rounded-xl object-cover shrink-0 border border-slate-100" />
+                      <div className="flex-1 flex flex-col justify-between">
+                        <div>
+                          <div className="flex justify-between items-start">
+                            <h3 className="font-bold text-lg text-slate-900">{vet.name}</h3>
+                            {vet.available ? (
+                              <Badge variant="success" className="text-[10px] uppercase tracking-wider">Available Now</Badge>
+                            ) : (
+                              <Badge className="text-[10px] uppercase tracking-wider bg-slate-100 text-slate-500">Offline</Badge>
+                            )}
+                          </div>
+                          <p className="text-xs font-bold text-slate-700">{vet.professionalTitle}</p>
+                          <p className="text-sm font-medium text-green-600 mb-1">{vet.spec}</p>
+                          <div className="flex items-center gap-3 text-sm text-slate-500 mb-3">
+                            <span className="flex items-center gap-1 font-medium text-xs"><ShieldCheck size={14} className="text-blue-500" /> {vet.exp} Experience</span>
+                          </div>
                         </div>
-                        <p className="text-sm font-medium text-green-600 mb-1">{vet.spec}</p>
-                        <div className="flex items-center gap-3 text-sm text-slate-500">
-                          <span className="flex items-center gap-1"><Star size={14} className="text-amber-400 fill-amber-400" /> {vet.rating}</span>
-                          <span className="flex items-center gap-1"><ShieldCheck size={14} className="text-blue-500" /> {vet.exp}</span>
+
+                        <div className="flex items-center justify-between pt-2 border-t border-slate-100/80">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setViewingVetModal(vet);
+                            }}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all active:scale-95 cursor-pointer"
+                          >
+                            <AlertCircle size={14} className="text-slate-500" />
+                            View Doctor Details
+                          </button>
+                          {selectedVet === vet.id && (
+                            <span className="text-xs font-extrabold text-green-700 flex items-center gap-1">
+                              <CheckCircle2 size={16} /> Selected
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1493,6 +1515,129 @@ export default function Scheduling() {
               </Button>
             </div>
           </Card>
+        </div>
+      )}
+      {/* VETERINARIAN FULL DETAILS MODAL */}
+      {viewingVetModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
+              <div className="flex items-center gap-2">
+                <span className="p-2 bg-blue-50 text-blue-600 rounded-xl">
+                  <ShieldCheck size={20} />
+                </span>
+                <div>
+                  <h3 className="font-extrabold text-slate-800 text-lg">Veterinarian Profile</h3>
+                  <p className="text-xs text-slate-400">Verified Clinical Practitioner Details</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewingVetModal(null)}
+                className="p-1 hover:bg-slate-200 text-slate-400 hover:text-slate-600 rounded-lg transition-colors cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
+              {/* Doctor Main Header Card */}
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                <img
+                  src={viewingVetModal.image}
+                  alt={viewingVetModal.name}
+                  className="w-24 h-24 rounded-2xl object-cover border-2 border-white shadow-sm shrink-0"
+                />
+                <div className="flex-1 text-center sm:text-left space-y-1">
+                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                    <h4 className="text-xl font-extrabold text-slate-900">{viewingVetModal.name}</h4>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[10px] font-extrabold uppercase tracking-wide">
+                      <ShieldCheck size={12} /> Verified
+                    </span>
+                  </div>
+                  <p className="text-xs font-bold text-green-700">{viewingVetModal.professionalTitle}</p>
+                  
+                  <div className="flex items-center justify-center sm:justify-start gap-4 pt-1 text-xs text-slate-600">
+                    <span className="font-semibold text-slate-500">
+                      {viewingVetModal.exp} Experience
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Key Credentials & Information Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="p-3.5 bg-slate-50/80 rounded-xl border border-slate-100 space-y-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Professional Title</span>
+                  <p className="text-sm font-extrabold text-slate-800">{viewingVetModal.professionalTitle}</p>
+                </div>
+                <div className="p-3.5 bg-slate-50/80 rounded-xl border border-slate-100 space-y-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Specialization</span>
+                  <p className="text-sm font-extrabold text-green-700">{viewingVetModal.spec}</p>
+                </div>
+                <div className="p-3.5 bg-slate-50/80 rounded-xl border border-slate-100 space-y-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">License Number</span>
+                  <p className="text-sm font-extrabold text-slate-800 font-mono">{viewingVetModal.licenseNumber}</p>
+                </div>
+                <div className="p-3.5 bg-slate-50/80 rounded-xl border border-slate-100 space-y-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Consultation Fee</span>
+                  <p className="text-sm font-extrabold text-green-700">LKR {viewingVetModal.fee} / Session</p>
+                </div>
+                <div className="p-3.5 bg-slate-50/80 rounded-xl border border-slate-100 space-y-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Contact Number</span>
+                  <p className="text-sm font-bold text-slate-800">{viewingVetModal.contactNo}</p>
+                </div>
+                <div className="p-3.5 bg-slate-50/80 rounded-xl border border-slate-100 space-y-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Email Address</span>
+                  <p className="text-sm font-bold text-slate-800 truncate">{viewingVetModal.email}</p>
+                </div>
+              </div>
+
+              {/* Clinic Information (if available from doctor input) */}
+              {viewingVetModal.clinicName && (
+                <div className="space-y-1.5">
+                  <h5 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Clinic & Practice Location</h5>
+                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-100 space-y-1">
+                    <p className="text-xs font-extrabold text-slate-800">{viewingVetModal.clinicName}</p>
+                    {viewingVetModal.clinicAddress && <p className="text-xs text-slate-500 font-medium">{viewingVetModal.clinicAddress}</p>}
+                    {viewingVetModal.clinicPhone && <p className="text-xs text-slate-500 font-medium">Phone: {viewingVetModal.clinicPhone}</p>}
+                  </div>
+                </div>
+              )}
+
+              {/* About & Biography */}
+              <div className="space-y-1.5">
+                <h5 className="text-xs font-bold text-slate-400 uppercase tracking-wider">About & Biography</h5>
+                <p className="text-xs text-slate-600 font-medium leading-relaxed p-3.5 bg-slate-50 rounded-xl border border-slate-100">
+                  {viewingVetModal.bio}
+                </p>
+              </div>
+            </div>
+
+            {/* Modal Footer / Action Button */}
+            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <Button
+                variant="outline"
+                type="button"
+                onClick={() => setViewingVetModal(null)}
+              >
+                Close
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  setSelectedVet(viewingVetModal.id);
+                  setViewingVetModal(null);
+                  setStep(3);
+                }}
+                className="bg-green-600 hover:bg-green-700 text-white font-bold"
+              >
+                Select & Continue with {viewingVetModal.name.split(" ")[1] || viewingVetModal.name} <ChevronRight size={16} className="ml-1" />
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>

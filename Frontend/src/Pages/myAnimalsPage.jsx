@@ -44,6 +44,30 @@ export default function MyAnimalsPage() {
   const [sortBy, setSortBy] = useState("name-asc");
   const [showFilterPanel, setShowFilterPanel] = useState(false);
 
+  // Helper function to format medical history notes cleanly
+  const formatNotesContent = (notesStr) => {
+    if (!notesStr) return "No notes available.";
+    let str = String(notesStr).trim();
+    if (str.includes('{') && str.includes('}')) {
+      try {
+        const jsonStart = str.indexOf('{');
+        const jsonEnd = str.lastIndexOf('}');
+        const jsonSub = str.substring(jsonStart, jsonEnd + 1);
+        const parsed = JSON.parse(jsonSub);
+        const cleanReason = parsed.notes || parsed.symptoms || parsed.reason || "";
+        const prefix = str.substring(0, jsonStart).replace(/\|\s*Notes:\s*$/, '').replace(/Notes:\s*$/, '').trim();
+        if (cleanReason) {
+          return prefix ? `${prefix} • Reason: ${cleanReason}` : cleanReason;
+        } else {
+          return prefix || "Veterinary Consultation Session";
+        }
+      } catch {
+        // Fallback
+      }
+    }
+    return str;
+  };
+
   // Helper functions for Age parsing and formatting
   const parseAge = (ageStr) => {
     if (!ageStr) return { years: 0, months: 0, days: 0 };
@@ -99,10 +123,19 @@ export default function MyAnimalsPage() {
   // Action Menu State
   const [activeMenuId, setActiveMenuId] = useState(null);
 
-   // Retrieve user and token from localStorage
+  // Retrieve user and token from localStorage
   const user = JSON.parse(localStorage.getItem("user") || "null");
   const ownerId = user ? user.id : null;
   const token = localStorage.getItem("token") || "";
+
+  // Helper to normalize file upload URLs
+  const getFileUrl = (url) => {
+    if (!url) return "#";
+    if (url.startsWith("http://") || url.startsWith("https://")) return url;
+    const backendUrl = (import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000').replace(/\/$/, "");
+    const cleanPath = url.startsWith("/") ? url : `/${url}`;
+    return `${backendUrl}${cleanPath}`;
+  };
   // Load animals from backend
   const fetchAnimals = async () => {
     if (!ownerId) {
@@ -983,7 +1016,7 @@ export default function MyAnimalsPage() {
                         <div className="flex items-center gap-2 text-xs text-emerald-600 font-medium">
                           <span>Report Uploaded</span>
                           <a 
-                            href={formHealthReport.startsWith('/uploads') ? `${import.meta.env.VITE_BACKEND_URL}${formHealthReport}` : formHealthReport}
+                            href={getFileUrl(formHealthReport)}
                             target="_blank" 
                             rel="noopener noreferrer"
                             className="underline text-emerald-700 font-bold"
@@ -1093,25 +1126,48 @@ export default function MyAnimalsPage() {
             <div className="p-6 max-h-[70vh] overflow-y-auto space-y-6">
               {/* Health Report / Vaccination Card Section */}
               {selectedHistoryAnimal.health_report && (
-                <div className="bg-emerald-50/80 border border-emerald-200 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2.5 bg-emerald-100 text-emerald-700 rounded-lg shrink-0">
-                      <FileText size={20} />
+                <div className="bg-emerald-50/90 border border-emerald-200 rounded-2xl p-4 space-y-3">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 bg-emerald-100 text-emerald-700 rounded-xl shrink-0">
+                        <FileText size={22} />
+                      </div>
+                      <div>
+                        <h4 className="font-extrabold text-slate-800 text-sm">Health Report / Vaccination Card</h4>
+                        <p className="text-xs text-slate-500 font-medium">Official uploaded health record for {selectedHistoryAnimal.name}</p>
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="font-extrabold text-slate-800 text-sm">Health Report / Vaccination Card</h4>
-                      <p className="text-xs text-slate-500 font-medium">Uploaded record for {selectedHistoryAnimal.name}</p>
-                    </div>
+                    <a
+                      href={getFileUrl(selectedHistoryAnimal.health_report)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm hover:shadow-md transition-all shrink-0 active:scale-95 cursor-pointer"
+                    >
+                      <FileText size={14} />
+                      Open Full Report / Card
+                    </a>
                   </div>
-                  <a
-                    href={selectedHistoryAnimal.health_report.startsWith('/uploads') ? `${import.meta.env.VITE_BACKEND_URL}${selectedHistoryAnimal.health_report}` : selectedHistoryAnimal.health_report}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs hover:shadow-md transition-all shrink-0 active:scale-95 cursor-pointer"
-                  >
-                    <FileText size={14} />
-                    View Health Report / Card
-                  </a>
+
+                  {/* Inline Image Preview if file is an image */}
+                  {/\.(jpg|jpeg|png|webp|gif)$/i.test(selectedHistoryAnimal.health_report) && (
+                    <div className="mt-2 pt-3 border-t border-emerald-200/60 flex justify-center">
+                      <a 
+                        href={getFileUrl(selectedHistoryAnimal.health_report)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group relative block overflow-hidden rounded-xl border border-emerald-200 shadow-xs max-h-56 w-full max-w-md bg-white text-center"
+                      >
+                        <img 
+                          src={getFileUrl(selectedHistoryAnimal.health_report)} 
+                          alt="Vaccination Card / Health Report Preview" 
+                          className="w-full h-auto max-h-52 object-contain mx-auto p-1 transition-transform duration-300 group-hover:scale-105"
+                        />
+                        <div className="absolute inset-0 bg-slate-900/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-1">
+                          <FileText size={14} /> Click to Open Full Image
+                        </div>
+                      </a>
+                    </div>
+                  )}
                 </div>
               )}
              {isLoadingHistory ? (
@@ -1140,7 +1196,7 @@ export default function MyAnimalsPage() {
                       </h4>
                       
                       <p className="text-xs text-slate-500 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100 font-medium">
-                        {record.notes}
+                        {formatNotesContent(record.notes)}
                       </p>
 
                       <div className="flex items-center justify-between gap-4 border-t border-slate-100/50 pt-2 mt-2">

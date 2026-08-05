@@ -15,14 +15,19 @@ import fs from "fs";
 
 const animalRouter = express.Router();
 
-//profile pic
-const uploadDir = 'uploads/';
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// profile pic & health report upload dir
+const uploadDir = path.join(__dirname, '../uploads');
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
 }
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, 'uploads/');
+        cb(null, uploadDir);
     },
     filename: (req, file, cb) => {
         cb(null, 'animal-' + Date.now() + path.extname(file.originalname));
