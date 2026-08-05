@@ -152,12 +152,21 @@ app.use("/api/schedule", scheduleRouter); //Navindu 2026/06/26
 app.use("/api/payments", paymentRouter);
 app.use("/api/notifications", notificationRouter);
 app.use("/api/admin", adminRouter);
-const uploadsDir = path.resolve(process.cwd(), "uploads");
+const uploadsDir = path.join(__dirname, "uploads");
+const cwdUploadsDir = path.resolve(process.cwd(), "uploads");
+
 if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
 }
-app.use("/uploads", express.static(uploadsDir));
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+if (!fs.existsSync(cwdUploadsDir)) {
+    fs.mkdirSync(cwdUploadsDir, { recursive: true });
+}
+
+app.use("/uploads", (req, res, next) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    next();
+}, express.static(uploadsDir), express.static(cwdUploadsDir));
 
 // Express Global Error Handler Middleware
 app.use((err, req, res, next) => {

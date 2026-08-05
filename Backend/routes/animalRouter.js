@@ -15,8 +15,13 @@ import fs from "fs";
 
 const animalRouter = express.Router();
 
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 // profile pic & health report upload dir
-const uploadDir = path.resolve(process.cwd(), 'uploads');
+const uploadDir = path.join(__dirname, '../uploads');
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
 }
