@@ -14,6 +14,7 @@ import {
 } from "../models/Animal.js";
 
 import { triggerHistoryNotification } from "./notificationController.js";//isuri- user notification
+import { uploadToSupabase } from "../config/supabaseClient.js";
 
 // Get all animals for an owner
 export const getAnimals = (req, res) => {
@@ -57,7 +58,7 @@ const SPECIES_WEIGHT_LIMITS = {
 };
 
 // Create a new animal profile
-export const createNewAnimal = (req, res) => {
+export const createNewAnimal = async (req, res) => {
     const { owner_id, name, species, breed, age, weight, status, image, health_report } = req.body;
 
     if (!owner_id || !name || !species || !breed || !age || weight === undefined || weight === null || weight === "") {
@@ -80,15 +81,25 @@ export const createNewAnimal = (req, res) => {
     });
 
     let animalImage = image || null;
-    if (req.files && req.files['image'] && req.files['image'][0]) {
-        animalImage = `/uploads/${req.files['image'][0].filename}`;
-    } else if (req.file) {
-        animalImage = `/uploads/${req.file.filename}`;
+    const imageFile = (req.files && req.files['image'] && req.files['image'][0]) || req.file;
+    if (imageFile) {
+        try {
+            const uploadedUrl = await uploadToSupabase(imageFile, "animal");
+            if (uploadedUrl) animalImage = uploadedUrl;
+        } catch (err) {
+            console.error("Failed to upload animal image to Supabase:", err);
+        }
     }
 
     let healthReportPath = health_report || null;
-    if (req.files && req.files['healthReport'] && req.files['healthReport'][0]) {
-        healthReportPath = `/uploads/${req.files['healthReport'][0].filename}`;
+    const healthReportFile = req.files && req.files['healthReport'] && req.files['healthReport'][0];
+    if (healthReportFile) {
+        try {
+            const uploadedReportUrl = await uploadToSupabase(healthReportFile, "report");
+            if (uploadedReportUrl) healthReportPath = uploadedReportUrl;
+        } catch (err) {
+            console.error("Failed to upload health report to Supabase:", err);
+        }
     }
 
     const animalData = {
@@ -142,7 +153,7 @@ export const updateAnimalProfile = (req, res) => {
     }
 
     // Retain previous last visit date or set current one
-    getAnimalById(id, (err, existing) => {
+    getAnimalById(id, async (err, existing) => {
         if (err) {
             console.error("Error retrieving existing animal:", err);
             return res.status(500).json({ message: "Database lookup failed.", error: err });
@@ -153,15 +164,25 @@ export const updateAnimalProfile = (req, res) => {
         }
 
         let animalImage = image || existing.image;
-        if (req.files && req.files['image'] && req.files['image'][0]) {
-            animalImage = `/uploads/${req.files['image'][0].filename}`;
-        } else if (req.file) {
-            animalImage = `/uploads/${req.file.filename}`;
+        const imageFile = (req.files && req.files['image'] && req.files['image'][0]) || req.file;
+        if (imageFile) {
+            try {
+                const uploadedUrl = await uploadToSupabase(imageFile, "animal");
+                if (uploadedUrl) animalImage = uploadedUrl;
+            } catch (uErr) {
+                console.error("Failed to upload updated animal image to Supabase:", uErr);
+            }
         }
 
         let healthReportPath = health_report || existing.health_report || null;
-        if (req.files && req.files['healthReport'] && req.files['healthReport'][0]) {
-            healthReportPath = `/uploads/${req.files['healthReport'][0].filename}`;
+        const healthReportFile = req.files && req.files['healthReport'] && req.files['healthReport'][0];
+        if (healthReportFile) {
+            try {
+                const uploadedReportUrl = await uploadToSupabase(healthReportFile, "report");
+                if (uploadedReportUrl) healthReportPath = uploadedReportUrl;
+            } catch (uErr) {
+                console.error("Failed to upload updated health report to Supabase:", uErr);
+            }
         }
 
         const animalData = {

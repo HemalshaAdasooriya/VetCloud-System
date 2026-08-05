@@ -40,13 +40,14 @@ import fs from "fs";
 import path from "path";
 import db from "../config/db.js";
 import { updatePayoutSettings } from "../models/Payment.js";
+import { uploadToSupabase } from "../config/supabaseClient.js";
 
 
 
 const googleClientId = process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID;
 const googleClient = new OAuth2Client(googleClientId);
 
-export function registerUser(req, res) {
+export async function registerUser(req, res) {
     const data = req.body;
 
     // 1. Basic validation
@@ -87,7 +88,14 @@ export function registerUser(req, res) {
         }
     }
 
-    const imagePath = req.file ? `/uploads/${req.file.filename}` : "/default.jpg";
+    let imagePath = "/default.jpg";
+    if (req.file) {
+        try {
+            imagePath = (await uploadToSupabase(req.file, "profile")) || "/default.jpg";
+        } catch (err) {
+            console.error("Failed to upload profile image to Supabase:", err);
+        }
+    }
 
     // 2. Check if email already exists in either table
     checkEmailExists(data.email, (err, results) => {
@@ -703,7 +711,7 @@ export async function resetPassword(req, res) {
 //... Navindu
 
 //Hemalsha 2026/05/30 ... Profile Picture Upload Functionality
-export const updateProfilePhoto = (req, res) => {
+export const updateProfilePhoto = async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });
     }
@@ -722,8 +730,8 @@ export const updateProfilePhoto = (req, res) => {
         const userId = decoded.id;
         const userRole = decoded.role;
 
-        // 3. Create the URL
-        const imageUrl = `/uploads/${req.file.filename}`;
+        // 3. Upload to Supabase Storage
+        const imageUrl = await uploadToSupabase(req.file, "profile");
 
         // 4. Update the Database
         updateUserImage(userId, userRole, imageUrl, (err, result) => {
@@ -736,7 +744,8 @@ export const updateProfilePhoto = (req, res) => {
         });
 
     } catch (error) {
-        return res.status(401).json({ message: "Unauthorized: Invalid token" });
+        console.error("Error updating profile photo:", error);
+        return res.status(500).json({ message: "Failed to upload image" });
     }
 };
 
