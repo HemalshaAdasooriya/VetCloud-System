@@ -14,6 +14,7 @@ import {
 } from "../models/Animal.js";
 
 import { triggerHistoryNotification } from "./notificationController.js";//isuri- user notification
+import fs from "fs";
 
 // Get all animals for an owner
 export const getAnimals = (req, res) => {
@@ -88,7 +89,16 @@ export const createNewAnimal = (req, res) => {
 
     let healthReportPath = health_report || null;
     if (req.files && req.files['healthReport'] && req.files['healthReport'][0]) {
-        healthReportPath = `/uploads/${req.files['healthReport'][0].filename}`;
+        const file = req.files['healthReport'][0];
+        try {
+            const fileData = fs.readFileSync(file.path);
+            const base64Str = fileData.toString('base64');
+            const mimeType = file.mimetype || 'application/pdf';
+            healthReportPath = `data:${mimeType};base64,${base64Str}`;
+        } catch (err) {
+            console.error("Error reading health report file into base64:", err);
+            healthReportPath = `/uploads/${file.filename}`;
+        }
     }
 
     const animalData = {
@@ -161,7 +171,16 @@ export const updateAnimalProfile = (req, res) => {
 
         let healthReportPath = health_report || existing.health_report || null;
         if (req.files && req.files['healthReport'] && req.files['healthReport'][0]) {
-            healthReportPath = `/uploads/${req.files['healthReport'][0].filename}`;
+            const file = req.files['healthReport'][0];
+            try {
+                const fileData = fs.readFileSync(file.path);
+                const base64Str = fileData.toString('base64');
+                const mimeType = file.mimetype || 'application/pdf';
+                healthReportPath = `data:${mimeType};base64,${base64Str}`;
+            } catch (err) {
+                console.error("Error reading health report file into base64:", err);
+                healthReportPath = `/uploads/${file.filename}`;
+            }
         }
 
         const animalData = {
