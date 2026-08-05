@@ -56,6 +56,19 @@ export function registerUser(req, res) {
         });
     }
 
+    // Specific mandatory validation for Veterinary Doctor registration
+    if (data.role === "Veterinary Doctor") {
+        if (!data.contact_No || !String(data.contact_No).trim() ||
+            !data.license_number || !String(data.license_number).trim() ||
+            !data.specialization || !String(data.specialization).trim() ||
+            data.years_of_experience === undefined || data.years_of_experience === "" ||
+            data.consultation_fee === undefined || data.consultation_fee === "") {
+            return res.status(400).json({
+                message: "Contact Number and Professional Details (License Number, Specialization, Years of Experience, Consultation Fee) are required for Veterinary Doctor registration."
+            });
+        }
+    }
+
     const imagePath = req.file ? `/uploads/${req.file.filename}` : "/default.jpg";
 
     // 2. Check if email already exists in either table
@@ -348,6 +361,20 @@ function handleSocialLogin(req, res, email, name, image, role, provider, extraDe
         if (preferredResults && preferredResults.length > 0) {
             // User exists as the selected role! Log them in.
             return issueTokenAndSession(req, res, preferredResults[0], dbRole);
+        }
+
+        // Validate that new doctor registrations have required professional details and contact number
+        if (dbRole === "doctor") {
+            if (!extraDetails.contact_No || !String(extraDetails.contact_No).trim() ||
+                !extraDetails.license_number || !String(extraDetails.license_number).trim() ||
+                String(extraDetails.license_number).startsWith("TEMP-") ||
+                !extraDetails.specialization || !String(extraDetails.specialization).trim() ||
+                extraDetails.years_of_experience === undefined || extraDetails.years_of_experience === "" ||
+                extraDetails.consultation_fee === undefined || extraDetails.consultation_fee === "") {
+                return res.status(400).json({
+                    message: "Veterinary Doctor registration requires Contact Number and Professional Details (License Number, Specialization, Years of Experience, Consultation Fee) for administrator approval."
+                });
+            }
         }
 
         // No existing user found in the selected role: proceed to register as a new user with selected role

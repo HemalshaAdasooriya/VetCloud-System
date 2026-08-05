@@ -154,6 +154,20 @@ export default function RegisterPage() {
             return;
         }
 
+        // Additional mandatory validation for Veterinary Doctors
+        if (role === 'vet') {
+            if (!phone || phone.trim() === '') {
+                setSubmitMessage({ text: "Contact Number is required for Veterinary Doctor registration.", isError: true });
+                toast.error("Contact Number is required for Veterinary Doctor registration.");
+                return;
+            }
+            if (!license || license.trim() === '' || !specialization || specialization.trim() === '' || experience === '' || fee === '') {
+                setSubmitMessage({ text: "All Professional Details (License Number, Specialization, Years of Experience, Consultation Fee) are required for Veterinary Doctor registration.", isError: true });
+                toast.error("All Professional Details are required for Veterinary Doctor registration.");
+                return;
+            }
+        }
+
         setIsLoading(true);
         setSubmitMessage({ text: "", isError: false });
 
