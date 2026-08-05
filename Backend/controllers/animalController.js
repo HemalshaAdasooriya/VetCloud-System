@@ -10,7 +10,7 @@ import {
     addMedicalHistoryRecord,
     updateMedicalHistoryRecord,
     deleteMedicalHistoryRecord
-    
+
 } from "../models/Animal.js";
 
 import { triggerHistoryNotification } from "./notificationController.js";//isuri- user notification
@@ -290,7 +290,7 @@ export const updateAnimalHistory = (req, res) => {
             console.error("Error updating medical history record:", err);
             return res.status(500).json({ message: "Failed to update medical history record.", error: err });
         }
-         triggerHistoryNotification(req.app, historyId, "updated");//isuri-notification
+        triggerHistoryNotification(req.app, historyId, "updated");//isuri-notification
 
         return res.status(200).json({
             message: "Medical record updated successfully.",
