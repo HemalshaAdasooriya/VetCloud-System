@@ -17,8 +17,72 @@ const getFrontendUrl = () => {
     return url;
 };
 
-// Helper to send email with robust fallbacks
+// Helper to send email with robust fallbacks & HTTP API support for Railway/Cloud hosts
 export const sendEmail = async ({ to, subject, html, text }) => {
+    // 1. HTTP API Provider Fallbacks (Port 443 HTTPS - Never blocked by Railway / cloud firewalls)
+    const resendApiKey = (process.env.RESEND_API_KEY || "").trim();
+    const brevoApiKey = (process.env.BREVO_API_KEY || process.env.SENDINBLUE_API_KEY || "").trim();
+    const senderEmail = (process.env.EMAIL_USER || process.env.SMTP_USER || process.env.GMAIL_USER || "notifications@vetcloud.com").trim();
+
+    // Provider A: Resend HTTP API (https://resend.com)
+    if (resendApiKey) {
+        try {
+            console.log(`[EMAIL DISPATCH] Sending via Resend HTTP API to ${to}...`);
+            const res = await fetch("https://api.resend.com/emails", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${resendApiKey}`
+                },
+                body: JSON.stringify({
+                    from: process.env.RESEND_FROM || "VetCloud <onboarding@resend.dev>",
+                    to: [to],
+                    subject,
+                    html,
+                    text: text || "New notification from VetCloud"
+                })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                console.log(`[EMAIL SUCCESS - RESEND] Sent to ${to}: ${data.id || "OK"}`);
+                return data;
+            }
+            console.error(`[EMAIL RESEND ERROR]`, data);
+        } catch (resendErr) {
+            console.error(`[EMAIL RESEND EXCEPTION]`, resendErr.message || resendErr);
+        }
+    }
+
+    // Provider B: Brevo (Sendinblue) HTTP API (https://brevo.com)
+    if (brevoApiKey) {
+        try {
+            console.log(`[EMAIL DISPATCH] Sending via Brevo HTTP API to ${to}...`);
+            const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "api-key": brevoApiKey
+                },
+                body: JSON.stringify({
+                    sender: { name: "VetCloud Notifications", email: senderEmail },
+                    to: [{ email: to }],
+                    subject,
+                    htmlContent: html,
+                    textContent: text || "New notification from VetCloud"
+                })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                console.log(`[EMAIL SUCCESS - BREVO] Sent to ${to}: ${data.messageId || "OK"}`);
+                return data;
+            }
+            console.error(`[EMAIL BREVO ERROR]`, data);
+        } catch (brevoErr) {
+            console.error(`[EMAIL BREVO EXCEPTION]`, brevoErr.message || brevoErr);
+        }
+    }
+
+    // 2. Standard SMTP Fallback (Nodemailer)
     const rawUser = process.env.EMAIL_USER || process.env.SMTP_USER || process.env.GMAIL_USER || process.env.MAIL_USER || "";
     const rawPass = process.env.EMAIL_PASS || process.env.SMTP_PASS || process.env.GMAIL_PASS || process.env.MAIL_PASS || "";
 
@@ -42,11 +106,12 @@ export const sendEmail = async ({ to, subject, html, text }) => {
             ? process.env.EMAIL_SECURE === "true" 
             : (port === 465);
 
+        // DO NOT set service: "gmail" as it overrides host and family: 4 settings, leading to IPv6 ENETUNREACH
         const transporterConfig = {
             host,
             port,
             secure,
-            family: 4, // CRITICAL FOR RAILWAY: Force IPv4 connection to prevent ENETUNREACH on IPv6
+            family: 4, // Explicitly force IPv4 to prevent Railway IPv6 ENETUNREACH errors
             auth: {
                 user: emailUser,
                 pass: emailPass
@@ -55,14 +120,10 @@ export const sendEmail = async ({ to, subject, html, text }) => {
                 rejectUnauthorized: false,
                 servername: host
             },
-            connectionTimeout: 15000,
-            greetingTimeout: 15000,
-            socketTimeout: 15000
+            connectionTimeout: 10000,
+            greetingTimeout: 10000,
+            socketTimeout: 10000
         };
-
-        if (host.includes("gmail") && !process.env.EMAIL_HOST && !process.env.SMTP_HOST) {
-            transporterConfig.service = "gmail";
-        }
 
         const transporter = nodemailer.createTransport(transporterConfig);
 
@@ -77,41 +138,6 @@ export const sendEmail = async ({ to, subject, html, text }) => {
         return info;
     } catch (error) {
         console.error(`[EMAIL SMTP ERROR] Failed to send email to ${to}:`, error.message || error);
-
-        // Fallback retry using port 587 STARTTLS if port 465 SSL failed on cloud host
-        if (error.message && (error.message.includes("ENETUNREACH") || error.message.includes("timeout") || error.message.includes("connect"))) {
-            try {
-                console.log(`[EMAIL RETRY] Attempting IPv4 fallback transport on port 587 to ${to}...`);
-                const fallbackTransporter = nodemailer.createTransport({
-                    host: "smtp.gmail.com",
-                    port: 587,
-                    secure: false,
-                    family: 4,
-                    auth: {
-                        user: emailUser,
-                        pass: emailPass
-                    },
-                    tls: {
-                        rejectUnauthorized: false,
-                        servername: "smtp.gmail.com"
-                    },
-                    connectionTimeout: 15000,
-                    greetingTimeout: 15000,
-                    socketTimeout: 15000
-                });
-                const fallbackInfo = await fallbackTransporter.sendMail({
-                    from: `"VetCloud Notifications" <${emailUser}>`,
-                    to,
-                    subject,
-                    text: text || "New notification from VetCloud",
-                    html
-                });
-                console.log(`[EMAIL SUCCESS - FALLBACK] Email sent to ${to}: ${fallbackInfo.messageId}`);
-                return fallbackInfo;
-            } catch (retryErr) {
-                console.error(`[EMAIL RETRY ERROR] Fallback transport also failed:`, retryErr.message || retryErr);
-            }
-        }
 
         console.log("=========================================");
         console.log(`[EMAIL FALLBACK SIMULATION] TO: ${to}`);
