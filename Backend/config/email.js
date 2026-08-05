@@ -1,9 +1,18 @@
 import nodemailer from "nodemailer";
 
+const getFrontendUrl = () => {
+    const rawUrl = process.env.CLIENT_URL || process.env.FRONTEND_URL || process.env.VERCEL_URL || "http://localhost:5173";
+    let url = rawUrl.trim().replace(/\/+$/, '');
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        url = `https://${url}`;
+    }
+    return url;
+};
+
 // Helper to send email with robust fallbacks
 export const sendEmail = async ({ to, subject, html, text }) => {
-    const rawUser = process.env.EMAIL_USER || "";
-    const rawPass = process.env.EMAIL_PASS || "";
+    const rawUser = process.env.EMAIL_USER || process.env.SMTP_USER || process.env.GMAIL_USER || process.env.MAIL_USER || "";
+    const rawPass = process.env.EMAIL_PASS || process.env.SMTP_PASS || process.env.GMAIL_PASS || process.env.MAIL_PASS || "";
 
     const emailUser = rawUser.trim().replace(/^["']|["']$/g, '');
     const emailPass = rawPass.trim().replace(/\s+/g, '').replace(/^["']|["']$/g, '');
@@ -18,11 +27,17 @@ export const sendEmail = async ({ to, subject, html, text }) => {
     }
 
     try {
-        const transporter = nodemailer.createTransport({
-            service: "gmail",
-            host: "smtp.gmail.com",
-            port: 587,
-            secure: false, // true for 465, false for 587
+        const host = process.env.EMAIL_HOST || process.env.SMTP_HOST || "smtp.gmail.com";
+        const customPort = process.env.EMAIL_PORT || process.env.SMTP_PORT;
+        const port = customPort ? parseInt(customPort, 10) : 465;
+        const secure = process.env.EMAIL_SECURE !== undefined 
+            ? process.env.EMAIL_SECURE === "true" 
+            : (port === 465);
+
+        const transporterConfig = {
+            host,
+            port,
+            secure,
             auth: {
                 user: emailUser,
                 pass: emailPass
@@ -30,7 +45,13 @@ export const sendEmail = async ({ to, subject, html, text }) => {
             tls: {
                 rejectUnauthorized: false
             }
-        });
+        };
+
+        if (host.includes("gmail") && !process.env.EMAIL_HOST && !process.env.SMTP_HOST) {
+            transporterConfig.service = "gmail";
+        }
+
+        const transporter = nodemailer.createTransport(transporterConfig);
 
         const info = await transporter.sendMail({
             from: `"VetCloud Notifications" <${emailUser}>`,
@@ -180,7 +201,7 @@ export const getVaccinationReminderTemplate = (ownerName, animalName, vaccineNam
 
         <p>Keeping up with vaccinations is vital to ensure long-term health and prevent contagious diseases in your household or flock.</p>
         <p>Please log in to your dashboard to request a consultation with a vet to administer this vaccine.</p>
-        <a href="http://localhost:5173/dashboard/user/appoinment" class="button">Schedule Consultation</a>
+        <a href="${getFrontendUrl()}/dashboard/user/appoinment" class="button">Schedule Consultation</a>
     `;
     return wrapTemplate("Vaccination Schedule Reminder", content);
 };
@@ -220,7 +241,7 @@ export const getMedicalReportTemplate = (ownerName, animalName, reportTitle, rep
         </div>
 
         <p>You can view the full record and details in the "My Animals" section of your dashboard.</p>
-        <a href="http://localhost:5173/dashboard/user/animals" class="button">View Medical Records</a>
+        <a href="${getFrontendUrl()}/dashboard/user/animals" class="button">View Medical Records</a>
     `;
     return wrapTemplate("Medical Report Delivered", content);
 };
@@ -262,7 +283,7 @@ export const getInvoiceTemplate = (ownerName, amount, orderId, date, animalName,
 
 // 5. Account Verification Email Template
 export const getAccountVerificationTemplate = (ownerName, email) => {
-    const verificationUrl = `http://localhost:5173/dashboard/user/settings?verifyEmail=${encodeURIComponent(email)}`;
+    const verificationUrl = `${getFrontendUrl()}/dashboard/user/settings?verifyEmail=${encodeURIComponent(email)}`;
     const content = `
         <p>Welcome to VetCloud, ${ownerName}!</p>
         <p>Thank you for registering on our platform. To finalize your account setup and enable all dashboard features, please verify your email address by clicking the button below:</p>
@@ -334,7 +355,7 @@ export const getDailyAppointmentScheduleTemplate = (vetName, appointments) => {
         </table>
 
         <p>Please log in to your VetCloud Dashboard to manage these appointments and start calls on time.</p>
-        <a href="http://localhost:5173/dashboard/doctor/schedule" class="button">View My Schedule</a>
+        <a href="${getFrontendUrl()}/dashboard/doctor/schedule" class="button">View My Schedule</a>
     `;
     return wrapTemplate("Daily Appointment Schedule", content);
 };
@@ -466,7 +487,7 @@ export const getNewConsultationAssignmentTemplate = (vetName, ownerName, animalN
         </div>
         
         <p>Please log in to your dashboard to accept/confirm or reschedule this consultation.</p>
-        <a href="http://localhost:5173/dashboard/doctor/requests" class="button">View Requests</a>
+        <a href="${getFrontendUrl()}/dashboard/doctor/requests" class="button">View Requests</a>
     `;
     return wrapTemplate("New Consultation Assignment", content);
 };
@@ -498,7 +519,7 @@ export const getAppointmentCancelledTemplate = (ownerName, animalName, vetName, 
         </div>
 
         <p>If you need to book a new appointment slot, please visit your VetCloud dashboard.</p>
-        <a href="http://localhost:5173/dashboard/user/consultations" class="button">Book New Consultation</a>
+        <a href="${getFrontendUrl()}/dashboard/user/consultations" class="button">Book New Consultation</a>
     `;
     return wrapTemplate("Appointment Cancelled", content);
 };
@@ -512,7 +533,7 @@ export const getFeedbackRequestTemplate = (ownerName, vetName, animalName, appoi
         <p>We would love to hear about your experience. Your feedback helps us maintain the highest quality of veterinary care on VetCloud.</p>
 
         <div style="text-align: center; margin: 25px 0;">
-            <a href="http://localhost:5173/dashboard/user/consultations" class="button" style="background-color: #059669; font-size: 16px; padding: 14px 28px;">
+            <a href="${getFrontendUrl()}/dashboard/user/consultations" class="button" style="background-color: #059669; font-size: 16px; padding: 14px 28px;">
                 ⭐ Rate & Review Doctor
             </a>
         </div>

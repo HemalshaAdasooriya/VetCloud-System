@@ -110,8 +110,23 @@ io.on("connection", (socket) => {
 // Start Background Reminder Checks
 startReminderScheduler(io);
 
+const allowedOrigins = [
+    process.env.CLIENT_URL,
+    process.env.FRONTEND_URL,
+    "https://vet-cloud-system.vercel.app",
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://localhost:5000"
+].filter(Boolean);
+
 app.use(cors({
-    origin: ["https://vet-cloud-system.vercel.app", "http://localhost:5173", "http://localhost:3000", "http://localhost:5000"],
+    origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+            return callback(null, true);
+        }
+        return callback(null, true);
+    },
     credentials: true
 }));
 
