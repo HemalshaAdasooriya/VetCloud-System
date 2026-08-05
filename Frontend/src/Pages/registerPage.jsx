@@ -42,6 +42,9 @@ export default function RegisterPage() {
     const [previewUrl, setPreviewUrl] = useState(null);
     const fileInputRef = useRef(null);
 
+    // Doctor approval popup modal state
+    const [showApprovalModal, setShowApprovalModal] = useState(false);
+
     // Password validation states
     const [passwordTouched, setPasswordTouched] = useState(false);
     const [confirmPasswordTouched, setConfirmPasswordTouched] = useState(false);
@@ -74,29 +77,58 @@ export default function RegisterPage() {
     // GOOGLE HANDLER
     const handleGoogleSuccess = async (credentialResponse) => {
         console.log("handleGoogleSuccess (register) triggered. credentialResponse:", credentialResponse);
+
+        // Validation for Veterinary Doctors: Contact Number and Professional Details are required for admin approval
+        if (role === 'vet') {
+            if (!phone || !/^[0-9]{10}$/.test(phone)) {
+                setSubmitMessage({ text: "Please enter a valid 10-digit Contact Number before registering with Google.", isError: true });
+                toast.error("Contact Number must contain exactly 10 digits.");
+                return;
+            }
+            if (!license || !specialization || !experience || !fee) {
+                setSubmitMessage({ text: "Please fill in all Professional Details (License Number, Specialization, Experience, Consultation Fee) before registering with Google.", isError: true });
+                toast.error("Professional details are required for administrator approval.");
+                return;
+            }
+        }
+
         setIsLoading(true);
         const backendRole = role === 'user' ? "Farmer/PetOwner" : "Veterinary Doctor";
 
         try {
             console.log("Sending token to backend at:", `${import.meta.env.VITE_BACKEND_URL}/api/users/google-login`);
+            const payload = {
+                token: credentialResponse.access_token,
+                role: backendRole,
+                contact_No: phone,
+                license_number: license,
+                specialization: specialization,
+                years_of_experience: experience,
+                consultation_fee: fee
+            };
+
             const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/google-login`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ token: credentialResponse.access_token, role: backendRole })
+                body: JSON.stringify(payload)
             });
             const data = await response.json();
             console.log("Backend response status:", response.status, "data:", data);
 
-            if (response.ok) {
-                toast.success("Google Authentication Successful!");
-                if (data.token) localStorage.setItem("token", data.token);
-                if (data.user) localStorage.setItem("user", JSON.stringify(data.user));
+            if (response.ok || data.isPendingApproval) {
+                if (data.isPendingApproval || role === 'vet' || (data.message && data.message.includes("administrator approval"))) {
+                    setShowApprovalModal(true);
+                } else {
+                    toast.success("Google Authentication Successful!");
+                    if (data.token) localStorage.setItem("token", data.token);
+                    if (data.user) localStorage.setItem("user", JSON.stringify(data.user));
 
-                const finalRole = data.user?.role || (role === 'user' ? 'farmer' : 'doctor');
-                if (finalRole === 'farmer') {
-                    navigate("/dashboard/user");
-                } else if (finalRole === 'doctor') {
-                    navigate("/dashboard/doctor");
+                    const finalRole = data.user?.role || (role === 'user' ? 'farmer' : 'doctor');
+                    if (finalRole === 'farmer') {
+                        navigate("/dashboard/user");
+                    } else if (finalRole === 'doctor') {
+                        navigate("/dashboard/doctor");
+                    }
                 }
             } else {
                 setSubmitMessage({ text: data.message || "Google registration failed", isError: true });
@@ -127,6 +159,31 @@ export default function RegisterPage() {
             setSubmitMessage({ text: "Passwords do not match!", isError: true });
             setConfirmPasswordTouched(true);
             return;
+        }
+
+        // Email structure validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            setSubmitMessage({ text: "Please enter a valid email address (e.g., user@example.com).", isError: true });
+            toast.error("Please enter a valid email address.");
+            return;
+        }
+
+        // Contact Number structure validation (must be exactly 10 digits)
+        const phoneRegex = /^[0-9]{10}$/;
+        if (!phone || !phoneRegex.test(phone)) {
+            setSubmitMessage({ text: "Contact Number must contain exactly 10 numeric digits.", isError: true });
+            toast.error("Contact Number must contain exactly 10 digits.");
+            return;
+        }
+
+        // Additional mandatory validation for Veterinary Doctors
+        if (role === 'vet') {
+            if (!license || license.trim() === '' || !specialization || specialization.trim() === '' || experience === '' || fee === '') {
+                setSubmitMessage({ text: "All Professional Details (License Number, Specialization, Years of Experience, Consultation Fee) are required for Veterinary Doctor registration.", isError: true });
+                toast.error("All Professional Details are required for Veterinary Doctor registration.");
+                return;
+            }
         }
 
         setIsLoading(true);
@@ -167,15 +224,17 @@ export default function RegisterPage() {
 
             const result = await response.json();
             if (response.status === 201 || response.status === 200) {
-                toast.success("Account created successfully!");
-                if (result.token) localStorage.setItem("token", result.token);
-                if (result.user) localStorage.setItem("user", JSON.stringify(result.user));
-                if (result.user && result.user.id) localStorage.setItem("userId", result.user.id);
+                if (role === 'vet' || result.isPendingApproval || (result.message && result.message.includes("administrator approval"))) {
+                    setShowApprovalModal(true);
+                } else {
+                    toast.success("Account created successfully!");
+                    if (result.token) localStorage.setItem("token", result.token);
+                    if (result.user) localStorage.setItem("user", JSON.stringify(result.user));
+                    if (result.user && result.user.id) localStorage.setItem("userId", result.user.id);
 
-                if (role === 'user') {
-                    navigate("/dashboard/user");
-                } else if (role === 'vet') {
-                    navigate("/dashboard/doctor");
+                    if (role === 'user') {
+                        navigate("/dashboard/user");
+                    }
                 }
             } else {
                 setSubmitMessage({ text: result.message || "Registration failed", isError: true });
@@ -231,27 +290,7 @@ export default function RegisterPage() {
                             </div>
                         </div>
 
-                        <div className="h-px w-full bg-slate-100" />
 
-                        {/* SOCIAL OAUTH BUTTONS AREA */}
-                        <div className="space-y-4">
-                            <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
-                                <CustomGoogleButton
-                                    onSuccess={handleGoogleSuccess}
-                                    onError={() => setSubmitMessage({ text: "Google Authentication failed.", isError: true })}
-                                    isLoading={isLoading}
-                                />
-                            </GoogleOAuthProvider>
-                        </div>
-
-                        <div className="relative">
-                            <div className="absolute inset-0 flex items-center">
-                                <div className="w-full border-t border-slate-200"></div>
-                            </div>
-                            <div className="relative flex justify-center text-sm">
-                                <span className="px-4 bg-white text-slate-500 font-medium">Or continue with email</span>
-                            </div>
-                        </div>
 
                         {/* 2. Basic Information */}
                         <div className="space-y-5">
@@ -265,23 +304,23 @@ export default function RegisterPage() {
                                     <label className="block text-sm font-medium text-slate-700 mb-1.5">First Name</label>
                                     <div className="relative">
                                         <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                                        <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="John" required className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" />
+                                        <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="John" required className={`w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 ${role === 'vet' ? 'focus:ring-blue-500' : 'focus:ring-green-500'}`} />
                                     </div>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1.5">Last Name</label>
                                     <div className="relative">
                                         <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                                        <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Doe" required className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" />
+                                        <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Doe" required className={`w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 ${role === 'vet' ? 'focus:ring-blue-500' : 'focus:ring-green-500'}`} />
                                     </div>
                                 </div>
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1.5">Contact Number</label>
+                                <label className="block text-sm font-medium text-slate-700 mb-1.5">Contact Number (10 digits)</label>
                                 <div className="relative">
                                     <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                                    <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))} placeholder="0712345678" pattern="[0-9]{10}" required className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" />
+                                    <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))} maxLength={10} placeholder="0712345678" pattern="[0-9]{10}" required className={`w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 ${role === 'vet' ? 'focus:ring-blue-500' : 'focus:ring-green-500'}`} />
                                 </div>
                             </div>
 
@@ -289,7 +328,7 @@ export default function RegisterPage() {
                                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Email Address</label>
                                 <div className="relative">
                                     <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                                    <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="john@example.com" required className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" />
+                                    <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="john@example.com" required className={`w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 ${role === 'vet' ? 'focus:ring-blue-500' : 'focus:ring-green-500'}`} />
                                 </div>
                             </div>
 
@@ -307,10 +346,10 @@ export default function RegisterPage() {
                                             placeholder="••••••••"
                                             required
                                             className={`w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] pr-[40px] p-[10px] text-[14px] focus:outline-none focus:ring-2 ${passwordTouched && !isPasswordValid
-                                                    ? 'border-red-500 focus:ring-red-500'
-                                                    : passwordTouched && isPasswordValid
-                                                        ? 'border-green-500 focus:ring-green-500'
-                                                        : 'border-gray-300 focus:ring-green-500'
+                                                ? 'border-red-500 focus:ring-red-500'
+                                                : passwordTouched && isPasswordValid
+                                                    ? 'border-green-500 focus:ring-green-500'
+                                                    : `border-gray-300 ${role === 'vet' ? 'focus:ring-blue-500' : 'focus:ring-green-500'}`
                                                 }`}
                                         />
                                         <button
@@ -364,10 +403,10 @@ export default function RegisterPage() {
                                             placeholder="••••••••"
                                             required
                                             className={`w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] pr-[40px] p-[10px] text-[14px] focus:outline-none focus:ring-2 ${confirmPasswordTouched && confirmPassword.length > 0 && !doPasswordsMatch
-                                                    ? 'border-red-500 focus:ring-red-500'
-                                                    : confirmPasswordTouched && doPasswordsMatch
-                                                        ? 'border-green-500 focus:ring-green-500'
-                                                        : 'border-gray-300 focus:ring-green-500'
+                                                ? 'border-red-500 focus:ring-red-500'
+                                                : confirmPasswordTouched && doPasswordsMatch
+                                                    ? 'border-green-500 focus:ring-green-500'
+                                                    : `border-gray-300 ${role === 'vet' ? 'focus:ring-blue-500' : 'focus:ring-green-500'}`
                                                 }`}
                                         />
                                         <button
@@ -522,11 +561,11 @@ export default function RegisterPage() {
                             <label className="flex items-start gap-3 mb-6 cursor-pointer group">
                                 <div className="relative flex items-center justify-center mt-0.5">
                                     <input type="checkbox" required className="peer sr-only" />
-                                    <div className="w-5 h-5 border-2 border-slate-300 rounded peer-checked:bg-green-600 peer-checked:border-green-600 transition-colors"></div>
+                                    <div className={`w-5 h-5 border-2 border-slate-300 rounded transition-colors ${role === 'vet' ? 'peer-checked:bg-blue-600 peer-checked:border-blue-600' : 'peer-checked:bg-green-600 peer-checked:border-green-600'}`}></div>
                                     <CheckCircle2 className="absolute text-white w-3 h-3 opacity-0 peer-checked:opacity-100 transition-opacity" />
                                 </div>
                                 <span className="text-sm text-slate-600 leading-relaxed">
-                                    I agree to the <Link to="#" className="text-green-600 font-semibold hover:underline">Terms & Conditions</Link> and <Link to="#" className="text-green-600 font-semibold hover:underline">Privacy Policy</Link>, and consent to the processing of my data.
+                                    I agree to the <Link to="#" className={`font-semibold hover:underline ${role === 'vet' ? 'text-blue-600' : 'text-green-600'}`}>Terms & Conditions</Link> and <Link to="#" className={`font-semibold hover:underline ${role === 'vet' ? 'text-blue-600' : 'text-green-600'}`}>Privacy Policy</Link>, and consent to the processing of my data.
                                 </span>
                             </label>
 
@@ -534,8 +573,8 @@ export default function RegisterPage() {
                                 type="submit"
                                 disabled={isLoading || !isPasswordValid || !doPasswordsMatch}
                                 className={`w-full h-14 rounded-xl text-lg text-white shadow-sm flex items-center justify-center gap-2 transition-all duration-200 active:scale-95 ${role === 'vet'
-                                        ? 'bg-blue-600 hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
-                                        : 'bg-green-600 hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-offset-2'
+                                    ? 'bg-blue-600 hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
+                                    : 'bg-green-600 hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-offset-2'
                                     } ${(isLoading || !isPasswordValid || !doPasswordsMatch) ? 'opacity-70 cursor-not-allowed' : ''}`}
                             >
                                 {isLoading ? (
@@ -544,6 +583,32 @@ export default function RegisterPage() {
                                     "Create Account"
                                 )}
                             </button>
+                        </div>
+
+                        {/* SOCIAL OAUTH BUTTONS AREA */}
+                        <div className="pt-4 space-y-4">
+                            <div className="relative">
+                                <div className="absolute inset-0 flex items-center">
+                                    <div className="w-full border-t border-slate-200"></div>
+                                </div>
+                                <div className="relative flex justify-center text-sm">
+                                    <span className="px-4 bg-white text-slate-500 font-medium">Or continue with</span>
+                                </div>
+                            </div>
+
+                            {role === 'vet' && (
+                                <p className="text-xs text-blue-700 bg-blue-50 border border-blue-200 p-3 rounded-xl text-center">
+                                    <strong>Note for Doctors:</strong> Please complete your Contact Number and Professional Details above before continuing with Google for administrator verification.
+                                </p>
+                            )}
+
+                            <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
+                                <CustomGoogleButton
+                                    onSuccess={handleGoogleSuccess}
+                                    onError={() => setSubmitMessage({ text: "Google Authentication failed.", isError: true })}
+                                    isLoading={isLoading}
+                                />
+                            </GoogleOAuthProvider>
                         </div>
                     </form>
 
@@ -560,7 +625,7 @@ export default function RegisterPage() {
             <div className="hidden xl:flex xl:w-5/12 relative bg-slate-900 overflow-hidden">
                 <div className={`absolute inset-0 bg-gradient-to-br mix-blend-multiply z-10 ${role === 'vet' ? 'from-blue-600/80 to-slate-900/90' : 'from-green-600/80 to-blue-900/90'}`} />
                 <img
-                    src={role === 'vet' ? "/public/vetcat.jpg" : "https://images.unsplash.com/photo-1544568100-847a948585b9?q=80&w=1974&auto=format&fit=crop"}
+                    src={role === 'vet' ? "https://fmuznyrfnjdwxbqsdijw.supabase.co/storage/v1/object/public/uploads/vetcat.jpg" : "https://fmuznyrfnjdwxbqsdijw.supabase.co/storage/v1/object/public/uploads/vetdog.avif"}
                     alt="Veterinary Care"
                     className="absolute inset-0 w-full h-full object-cover"
                 />
@@ -590,6 +655,28 @@ export default function RegisterPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Approval Success Modal Overlay */}
+            {showApprovalModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl text-center flex flex-col items-center animate-in zoom-in-95 duration-200">
+                        <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-5">
+                            <CheckCircle2 size={36} />
+                        </div>
+                        <h3 className="text-2xl font-bold text-slate-900 mb-3">Registration Submitted!</h3>
+                        <p className="text-slate-600 text-base leading-relaxed mb-8">
+                            Please wait for administrator approval. Thank you.
+                        </p>
+                        <button
+                            type="button"
+                            onClick={() => navigate('/login')}
+                            className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center cursor-pointer"
+                        >
+                            Go to Login Page
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

@@ -83,7 +83,11 @@ export default function LoginPage({ defaultRole = null }) {
                 if (role === "doctor") navigate("/dashboard/doctor");
                 if (role === "admin") navigate("/dashboard/admin");
             } else {
-                toast.error(data.message || "Login failed");
+                if (data.isPendingApproval || (data.message && data.message.includes("administrator approval"))) {
+                    toast(data.message, { icon: "⏳" });
+                } else {
+                    toast.error(data.message || "Login failed");
+                }
             }
         } catch (error) {
             console.error("Login error:", error);
@@ -168,7 +172,11 @@ export default function LoginPage({ defaultRole = null }) {
                 else if (finalRole === "doctor") navigate("/dashboard/doctor");
                 else if (finalRole === "admin") navigate("/dashboard/admin");
             } else {
-                toast.error(data.message || "Google login failed");
+                if (data.isPendingApproval || (data.message && data.message.includes("administrator approval"))) {
+                    toast(data.message, { icon: "⏳" });
+                } else {
+                    toast.error(data.message || "Google login failed");
+                }
             }
         } catch (error) {
             console.error("Google login fetch error:", error);

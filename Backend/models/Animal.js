@@ -86,10 +86,82 @@ export const deleteAnimal = (id, callback) => {
     });
 };
 
-// Fetch medical histories for an animal
+// Fetch medical histories & real consultations for an animal
 export const getMedicalHistoryByAnimal = (animalId, callback) => {
-    const sql = "SELECT * FROM animal_medical_histories WHERE animal_id = ? ORDER BY id DESC";
-    db.query(sql, [animalId], callback);
+    const medicalHistorySql = "SELECT * FROM animal_medical_histories WHERE animal_id = ? ORDER BY id DESC";
+    
+    db.query(medicalHistorySql, [animalId], (err, historyResults) => {
+        if (err) return callback(err, null);
+
+        // Fetch real consultations/appointments from appointments table
+        const appointmentsSql = `
+            SELECT 
+                a.id as appointment_id,
+                a.animal_id,
+                DATE_FORMAT(a.created_at, '%d %b, %Y') as date,
+                CASE 
+                    WHEN a.consultation_type = 'video' THEN 'Video Consultation'
+                    WHEN a.consultation_type = 'chat' THEN 'Chat Consultation'
+                    ELSE 'Consultation'
+                END as type,
+                a.reason as raw_reason,
+                a.status,
+                COALESCE(v.fullName, CONCAT('Dr. ', vp.firstName, ' ', vp.lastName), 'Attending Veterinarian') as vet
+            FROM appointments a
+            LEFT JOIN veterinarians v ON a.veterinarian_id = v.id
+            LEFT JOIN veterinarian_profiles vp ON a.veterinarian_id = vp.vet_id
+            WHERE a.animal_id = ?
+            ORDER BY a.created_at DESC
+        `;
+
+        db.query(appointmentsSql, [animalId], (aptErr, appointmentResults) => {
+            if (aptErr) {
+                console.error("Error fetching appointments for history:", aptErr);
+                return callback(null, historyResults || []);
+            }
+
+            const formattedAppointments = (appointmentResults || []).map(apt => {
+                let cleanNotes = "";
+                if (apt.raw_reason) {
+                    try {
+                        const parsed = JSON.parse(apt.raw_reason);
+                        if (typeof parsed === 'object' && parsed !== null) {
+                            cleanNotes = parsed.notes || parsed.symptoms || parsed.reason || "";
+                        } else {
+                            cleanNotes = String(apt.raw_reason);
+                        }
+                    } catch {
+                        cleanNotes = String(apt.raw_reason);
+                    }
+                }
+
+                const title = cleanNotes 
+                    ? (cleanNotes.length > 50 ? `${cleanNotes.substring(0, 50)}...` : cleanNotes)
+                    : "Veterinary Consultation Session";
+
+                const formattedNotes = cleanNotes
+                    ? `Status: ${apt.status} • Reason: ${cleanNotes}`
+                    : `Status: ${apt.status}`;
+
+                return {
+                    id: `apt-${apt.appointment_id}`,
+                    animal_id: apt.animal_id,
+                    date: apt.date,
+                    type: apt.type,
+                    title: title,
+                    vet: apt.vet,
+                    notes: formattedNotes
+                };
+            });
+
+            const combinedRecords = [
+                ...(historyResults || []),
+                ...formattedAppointments
+            ];
+
+            callback(null, combinedRecords);
+        });
+    });
 };
 
 // Seed default history helper for standard species

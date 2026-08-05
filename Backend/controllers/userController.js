@@ -56,6 +56,37 @@ export function registerUser(req, res) {
         });
     }
 
+    // 2. Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(data.email)) {
+        return res.status(400).json({
+            message: "Please enter a valid email address."
+        });
+    }
+
+    // 3. Contact Number format validation
+    if (data.contact_No) {
+        const phoneRegex = /^[0-9]{10}$/;
+        if (!phoneRegex.test(String(data.contact_No).trim())) {
+            return res.status(400).json({
+                message: "Contact Number must contain exactly 10 numeric digits."
+            });
+        }
+    }
+
+    // Specific mandatory validation for Veterinary Doctor registration
+    if (data.role === "Veterinary Doctor") {
+        if (!data.contact_No || !String(data.contact_No).trim() ||
+            !data.license_number || !String(data.license_number).trim() ||
+            !data.specialization || !String(data.specialization).trim() ||
+            data.years_of_experience === undefined || data.years_of_experience === "" ||
+            data.consultation_fee === undefined || data.consultation_fee === "") {
+            return res.status(400).json({
+                message: "Contact Number and Professional Details (License Number, Specialization, Years of Experience, Consultation Fee) are required for Veterinary Doctor registration."
+            });
+        }
+    }
+
     const imagePath = req.file ? `/uploads/${req.file.filename}` : "/default.jpg";
 
     // 2. Check if email already exists in either table
@@ -66,7 +97,7 @@ export function registerUser(req, res) {
 
         if (results.length > 0) {
             return res.status(400).json({
-                message: "Email already exists on this platform."
+                message: "An account with this email address already exists on VetCloud. A single email address cannot be used for both Doctor and Farmer accounts."
             });
         }
 
@@ -169,7 +200,8 @@ export function registerUser(req, res) {
                         // Do not automatically log in if they are inactive (which they are by default)
                         getUserByEmailAndRole(data.email, "doctor", (fetchErr, userResults) => {
                             return res.status(201).json({
-                                message: "Veterinarian registered successfully. Please wait for administrator approval to log in."
+                                message: "Please wait for administrator approval. Thank you.",
+                                isPendingApproval: true
                             });
                         });
                     }
@@ -232,7 +264,7 @@ export async function loginUser(req, res) {
                 });
             }
             if (role === "doctor" && !user.is_Active) {
-                return res.status(403).json({ message: "Your account is currently inactive. Please wait for administrator approval." });
+                return res.status(403).json({ message: "Please wait for administrator approval. Thank you.", isPendingApproval: true });
             }
 
             // 1. Generate the JWT Token
@@ -279,7 +311,7 @@ export async function loginUser(req, res) {
 
 // 2. GOOGLE LOGIN / REGISTRATION
 export async function googleLogin(req, res) {
-    const { token, role } = req.body;
+    const { token, role, contact_No, license_number, specialization, years_of_experience, consultation_fee } = req.body;
 
     try {
         let email, name, picture;
@@ -305,7 +337,7 @@ export async function googleLogin(req, res) {
         }
 
         // Notice we are now passing 'req' so we can read the device info
-        handleSocialLogin(req, res, email, name, picture, role, 'google');
+        handleSocialLogin(req, res, email, name, picture, role, 'google', { contact_No, license_number, specialization, years_of_experience, consultation_fee });
     } catch (error) {
         console.error("Google login verification failed:", error.response?.data || error.message || error);
         return res.status(401).json({ message: "Invalid Google Token" });
@@ -331,7 +363,7 @@ export async function facebookLogin(req, res) {
 }
 
 // --- Helper Function to avoid repeating code for Social Logins ---
-function handleSocialLogin(req, res, email, name, image, role, provider) {
+function handleSocialLogin(req, res, email, name, image, role, provider, extraDetails = {}) {
     const nameParts = name.split(" ");
     const splitFirstName = nameParts[0] || "";
     const splitLastName = nameParts.slice(1).join(" ") || "";
@@ -350,47 +382,84 @@ function handleSocialLogin(req, res, email, name, image, role, provider) {
             return issueTokenAndSession(req, res, preferredResults[0], dbRole);
         }
 
-        // No existing user found in the selected role: proceed to register as a new user with selected role
-        const userData = {
-            email,
-            password: null,
-            firstName: splitFirstName,
-            lastName: splitLastName,
-            image,
-            provider,
-            contact_No: "",
-            license_number: "TEMP-" + Math.random().toString(36).substring(2, 11).toUpperCase(),
-            specialization: "General"
-        };
+        // Before creating a NEW account, verify if the email is already registered under the OTHER role
+        checkEmailExists(email, (errCheck, checkResults) => {
+            if (errCheck) {
+                console.error("Email existence check failed during social login:", errCheck);
+                return res.status(500).json({ message: "Database error during social login check." });
+            }
 
-        const callback = (regErr, result) => {
-            if (regErr) return res.status(500).json(regErr);
+            if (checkResults && checkResults.length > 0) {
+                const otherRoleName = dbRole === "doctor" ? "Pet Owner / Farmer" : "Veterinary Doctor";
+                return res.status(400).json({
+                    message: `An account with this email address is already registered as a ${otherRoleName}. A single email address cannot be used for both Doctor and Farmer accounts.`
+                });
+            }
 
-            // Fetch the newly created user to issue a proper session
-            getUserByEmailAndRole(email, dbRole, (fetchErr, userResults) => {
-                if (fetchErr || userResults.length === 0) return res.status(500).json({ message: "Database error during social registration." });
-
-                if (dbRole === "doctor") {
-                    // Notify admins of new veterinarian registration request via Social Login
-                    const io = req.app.get("io");
-                    import("../models/Notification.js").then(({ createAdminNotification }) => {
-                        createAdminNotification(io, {
-                            type: "new_vet_registration",
-                            title: "New Vet Registration Request",
-                            message: `New veterinarian registered via Google: Dr. ${splitFirstName} ${splitLastName} (${email}, License: ${userData.license_number}). Pending approval.`
-                        });
-                    }).catch(console.error);
+            // Validate that new doctor registrations have required professional details and a valid 10-digit contact number
+            if (dbRole === "doctor") {
+                const phoneRegex = /^[0-9]{10}$/;
+                if (!extraDetails.contact_No || !phoneRegex.test(String(extraDetails.contact_No).trim()) ||
+                    !extraDetails.license_number || !String(extraDetails.license_number).trim() ||
+                    String(extraDetails.license_number).startsWith("TEMP-") ||
+                    !extraDetails.specialization || !String(extraDetails.specialization).trim() ||
+                    extraDetails.years_of_experience === undefined || extraDetails.years_of_experience === "" ||
+                    extraDetails.consultation_fee === undefined || extraDetails.consultation_fee === "") {
+                    return res.status(400).json({
+                        message: "Veterinary Doctor registration requires a valid 10-digit Contact Number and Professional Details (License Number, Specialization, Years of Experience, Consultation Fee) for administrator approval."
+                    });
                 }
+            }
 
-                issueTokenAndSession(req, res, userResults[0], dbRole);
-            });
-        };
+            // No existing user found in either role: proceed to register as a new user with selected role
+            const userData = {
+                email,
+                password: null,
+                firstName: splitFirstName,
+                lastName: splitLastName,
+                image,
+                provider,
+                contact_No: extraDetails.contact_No || "",
+                license_number: extraDetails.license_number || ("TEMP-" + Math.random().toString(36).substring(2, 11).toUpperCase()),
+                specialization: extraDetails.specialization || "General",
+                years_of_experience: extraDetails.years_of_experience || 0,
+                consultation_fee: extraDetails.consultation_fee || 0
+            };
 
-        if (dbRole === "farmer") {
-            createPetOwner(userData, callback);
-        } else {
-            createVeterinarian(userData, callback);
-        }
+            const callback = (regErr, result) => {
+                if (regErr) return res.status(500).json(regErr);
+
+                // Fetch the newly created user to issue a proper session
+                getUserByEmailAndRole(email, dbRole, (fetchErr, userResults) => {
+                    if (fetchErr || userResults.length === 0) return res.status(500).json({ message: "Database error during social registration." });
+
+                    if (dbRole === "doctor") {
+                        // Notify admins of new veterinarian registration request via Social Login
+                        const io = req.app.get("io");
+                        import("../models/Notification.js").then(({ createAdminNotification }) => {
+                            createAdminNotification(io, {
+                                type: "new_vet_registration",
+                                title: "New Vet Registration Request",
+                                message: `New veterinarian registered via Google: Dr. ${splitFirstName} ${splitLastName} (${email}, License: ${userData.license_number}). Pending approval.`
+                            });
+                        }).catch(console.error);
+
+                        return res.status(201).json({
+                            message: "Please wait for administrator approval. Thank you.",
+                            isPendingApproval: true
+                        });
+                    }
+
+                    issueTokenAndSession(req, res, userResults[0], dbRole);
+                });
+            };
+
+            if (dbRole === "farmer") {
+                createPetOwner(userData, callback);
+            } else {
+                createVeterinarian(userData, callback);
+            }
+        });
     });
 }
 
@@ -398,7 +467,7 @@ function handleSocialLogin(req, res, email, name, image, role, provider) {
 // --- Standardized Function to Generate Token & Save Session ---
 function issueTokenAndSession(req, res, user, role) {
     if (role === "doctor" && !user.is_Active) {
-        return res.status(403).json({ message: "Your account is currently inactive. Please wait for administrator approval." });
+        return res.status(403).json({ message: "Please wait for administrator approval. Thank you.", isPendingApproval: true });
     }
     // 1. Generate the JWT Token
     const token = jwt.sign(
@@ -1131,9 +1200,14 @@ export const revokeOtherSessions = (req, res) => {
 //Navindu 2026/06/10 ... get vet details for scheduling appointments
 export const getAllVets = (req, res) => {
     const sql = `
-        SELECT v.id, v.fullName, v.specialization, v.years_of_experience, v.consultation_fee, v.image,
-               COALESCE(ROUND(AVG(f.rating), 1), 5.0) AS rating
+        SELECT v.id, v.fullName, v.email, v.contact_No, v.license_number, v.specialization, v.years_of_experience, v.consultation_fee, v.image,
+               vp.firstName, vp.lastName, vp.bio, vp.professional_title,
+               c.clinic_name, c.address AS clinic_address, c.city AS clinic_city, c.phone AS clinic_phone,
+               COALESCE(ROUND(AVG(f.rating), 1), 5.0) AS rating,
+               COUNT(DISTINCT f.id) AS total_reviews
         FROM veterinarians v
+        LEFT JOIN veterinarian_profiles vp ON v.id = vp.vet_id
+        LEFT JOIN clinics c ON v.id = c.veterinarian_id
         LEFT JOIN feedbacks f ON v.id = f.veterinarian_id
         WHERE v.is_Active = 1
         GROUP BY v.id
@@ -1144,15 +1218,33 @@ export const getAllVets = (req, res) => {
             return res.status(500).json({ message: "Database error", err });
         }
 
-        const vets = results.map(v => ({
-            id: v.id,
-            name: `Dr. ${v.fullName}`,
-            spec: v.specialization,
-            exp: `${v.years_of_experience} Years`,
-            rating: parseFloat(v.rating),
-            available: true,
-            image: v.image || "/default.jpg"
-        }));
+        const vets = results.map(v => {
+            const vetName = (v.firstName && v.lastName)
+                ? `Dr. ${v.firstName} ${v.lastName}`
+                : (v.fullName ? (v.fullName.startsWith('Dr.') ? v.fullName : `Dr. ${v.fullName}`) : "Doctor");
+
+            return {
+                id: v.id,
+                name: vetName,
+                fullName: v.fullName || `${v.firstName || ''} ${v.lastName || ''}`.trim(),
+                email: v.email || "Not provided",
+                contactNo: v.contact_No || "Not provided",
+                licenseNumber: v.license_number || "Not provided",
+                spec: v.specialization || "General Veterinary Medicine",
+                exp: `${v.years_of_experience ?? 0} Years`,
+                yearsOfExperience: v.years_of_experience ?? 0,
+                fee: v.consultation_fee !== null && v.consultation_fee !== undefined ? v.consultation_fee : 0,
+                bio: (v.bio && v.bio.trim()) ? v.bio.trim() : "No biography provided yet.",
+                professionalTitle: (v.professional_title && v.professional_title.trim()) ? v.professional_title.trim() : "Veterinary Doctor",
+                clinicName: v.clinic_name || "",
+                clinicAddress: v.clinic_address ? `${v.clinic_address}${v.clinic_city ? `, ${v.clinic_city}` : ''}` : "",
+                clinicPhone: v.clinic_phone || "",
+                rating: parseFloat(v.rating) || 5.0,
+                totalReviews: parseInt(v.total_reviews, 10) || 0,
+                available: true,
+                image: v.image || "/default.jpg"
+            };
+        });
 
         res.json(vets);
     });

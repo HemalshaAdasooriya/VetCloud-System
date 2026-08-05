@@ -299,7 +299,7 @@ export default function FarmerDashboard() {
           className="inline-flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 active:scale-95 text-white font-semibold text-sm md:text-[15px] px-6 py-3.5 rounded-xl shadow-md hover:shadow-lg hover:shadow-green-100 transition-all cursor-pointer self-start md:self-auto"
         >
           <Plus size={18} strokeWidth={2.5} />
-          Request Consultation
+          Book New Consultation
         </Link>
       </div>
 

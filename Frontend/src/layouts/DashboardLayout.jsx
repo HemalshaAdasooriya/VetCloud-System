@@ -402,7 +402,9 @@ export function DashboardLayout() {
                   {user?.fullName || 'Loading...'}
                 </p>
                 <p className="text-slate-500 text-xs">
-                  {user?.role || 'Guest'}
+                  {isUser || (user?.role && (user.role.toLowerCase() === 'farmer' || user.role.toLowerCase().includes('farmer') || user.role.toLowerCase().includes('owner')))
+                    ? 'Farmer/PetOwner'
+                    : (user?.role || 'Guest')}
                 </p>
               </div>
             </div>
