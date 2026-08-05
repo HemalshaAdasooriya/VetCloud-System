@@ -82,13 +82,18 @@ export default function ConsultationPage() {
       return 'No slots provided';
     }
     
-    return availability
+    const formatted = availability
       .map((s) => {
-        const date = s.date ?? s.slot_date ?? '';
+        let date = s.date ?? s.slot_date ?? '';
+        if (typeof date === 'string' && date.includes('T')) {
+          date = date.split('T')[0];
+        }
         const time = s.time ?? s.slot_time ?? '';
         return `${date}${time ? ` at ${time}` : ''}`.trim();
       })
-      .join(' • ');
+      .filter(Boolean);
+
+    return formatted.length > 0 ? formatted.join(' • ') : 'No slots provided';
   };
 
   // Format submitted date

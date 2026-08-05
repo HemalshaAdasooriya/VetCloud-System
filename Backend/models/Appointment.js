@@ -43,7 +43,7 @@ export const createAppointment = (data, callback) => {
             data.veterinarian_id,
             data.animal_id,
             data.consultation_type || 'video',
-            data.reason || null,
+            formatReasonPayload(data.reason, data.availability),
             'Pending'
         ],
         (err, result) => {
@@ -239,7 +239,14 @@ export const getAppointmentsByOwner = (ownerId, callback) => {
             s.slot_time AS appointment_time,
             s.id AS selected_slot_id,
             s.is_selected,
-            h.notes AS prescription
+            h.notes AS prescription,
+            (
+                SELECT JSON_ARRAYAGG(
+                    JSON_OBJECT('date', slot_date, 'time', slot_time, 'id', id, 'is_selected', is_selected)
+                )
+                FROM appointment_slots
+                WHERE appointment_id = a.id
+            ) AS db_slots_json
         FROM appointments a
         JOIN animals an ON a.animal_id = an.id
         JOIN veterinarians v ON a.veterinarian_id = v.id
@@ -254,6 +261,19 @@ export const getAppointmentsByOwner = (ownerId, callback) => {
         
         const formattedResults = results.map(row => {
             const parsedReason = parseReasonField(row.reason);
+            let availabilitySlots = parsedReason.availability;
+
+            if ((!availabilitySlots || availabilitySlots.length === 0) && row.db_slots_json) {
+                try {
+                    const dbSlots = typeof row.db_slots_json === 'string' ? JSON.parse(row.db_slots_json) : row.db_slots_json;
+                    if (Array.isArray(dbSlots)) {
+                        availabilitySlots = dbSlots;
+                    }
+                } catch (e) {
+                    console.error("Failed to parse db_slots_json:", e);
+                }
+            }
+
             return {
                 ...row,
                 animal_breed: row.animal_breed || 'Unknown',
@@ -265,7 +285,7 @@ export const getAppointmentsByOwner = (ownerId, callback) => {
                 appointment_date: row.appointment_date || null,
                 appointment_time: row.appointment_time || null,
                 reason_notes: parsedReason.notes,
-                availability_slots: parsedReason.availability,
+                availability_slots: availabilitySlots || [],
                 prescription: row.prescription || null
             };
         });
@@ -292,7 +312,14 @@ export const getAppointmentsByVet = (vetId, callback) => {
             s.slot_date AS appointment_date,
             s.slot_time AS appointment_time,
             s.id AS selected_slot_id,
-            s.is_selected
+            s.is_selected,
+            (
+                SELECT JSON_ARRAYAGG(
+                    JSON_OBJECT('date', slot_date, 'time', slot_time, 'id', id, 'is_selected', is_selected)
+                )
+                FROM appointment_slots
+                WHERE appointment_id = a.id
+            ) AS db_slots_json
         FROM appointments a
         JOIN pet_owners p ON a.pet_owner_id = p.id
         JOIN animals an ON a.animal_id = an.id
@@ -306,6 +333,19 @@ export const getAppointmentsByVet = (vetId, callback) => {
         
         const formattedResults = results.map(row => {
             const parsedReason = parseReasonField(row.reason);
+            let availabilitySlots = parsedReason.availability;
+
+            if ((!availabilitySlots || availabilitySlots.length === 0) && row.db_slots_json) {
+                try {
+                    const dbSlots = typeof row.db_slots_json === 'string' ? JSON.parse(row.db_slots_json) : row.db_slots_json;
+                    if (Array.isArray(dbSlots)) {
+                        availabilitySlots = dbSlots;
+                    }
+                } catch (e) {
+                    console.error("Failed to parse db_slots_json:", e);
+                }
+            }
+
             return {
                 ...row,
                 animal_breed: row.animal_breed || 'Unknown',
@@ -318,7 +358,7 @@ export const getAppointmentsByVet = (vetId, callback) => {
                 appointment_date: row.appointment_date || null,
                 appointment_time: row.appointment_time || null,
                 reason_notes: parsedReason.notes,
-                availability_slots: parsedReason.availability,
+                availability_slots: availabilitySlots || [],
                 rejection_reason: row.rejection_reason || null // Include rejection reason
             };
         });
