@@ -505,8 +505,14 @@ export default function Scheduling() {
 
   const handleProceedToReview = () => {
     setRequestError('');
-    if (selectedDates.length === 0) {
-      setRequestError('Please select at least one date from the calendar.');
+    if (!selectedAnimal) {
+      setRequestError('Please select an animal first.');
+      setStep(1);
+      return;
+    }
+    if (!selectedVet) {
+      setRequestError('Please select a veterinarian first.');
+      setStep(2);
       return;
     }
     if (selectedSlots.length === 0) {
@@ -1177,7 +1183,7 @@ export default function Scheduling() {
                 <Button
                   size="lg"
                   className="w-48"
-                  disabled={selectedDates.length === 0 || selectedTimes.length === 0 || isSubmittingRequest}
+                  disabled={selectedSlots.length === 0 || isSubmittingRequest}
                   onClick={handleSubmitAppointmentRequest}
                 >
                   {isSubmittingRequest ? 'Submitting...' : resubmitAppointmentId ? 'Resubmit Request' : 'Submit Request'}
