@@ -49,6 +49,13 @@ export const getAnimalHistory = (req, res) => {
     });
 };
 
+const SPECIES_WEIGHT_LIMITS = {
+    Cattle: 3000,
+    Dog: 200,
+    Cat: 30,
+    Poultry: 10
+};
+
 // Create a new animal profile
 export const createNewAnimal = (req, res) => {
     const { owner_id, name, species, breed, age, weight, status, image, health_report } = req.body;
@@ -58,8 +65,12 @@ export const createNewAnimal = (req, res) => {
     }
 
     const weightFloat = parseFloat(weight);
-    if (isNaN(weightFloat) || weightFloat <= 0 || weightFloat > 150) {
-        return res.status(400).json({ message: "Animal weight must be a valid number between 0 and 150 kg." });
+    const maxWeightLimit = SPECIES_WEIGHT_LIMITS[species] || null;
+    if (isNaN(weightFloat) || weightFloat <= 0 || (maxWeightLimit !== null && weightFloat > maxWeightLimit)) {
+        if (maxWeightLimit !== null) {
+            return res.status(400).json({ message: `Maximum weight allowed for ${species} is ${maxWeightLimit} kg (must be greater than 0).` });
+        }
+        return res.status(400).json({ message: "Animal weight must be a valid number greater than 0." });
     }
 
     const lastVisit = new Date().toLocaleDateString("en-GB", {
@@ -122,8 +133,12 @@ export const updateAnimalProfile = (req, res) => {
     }
 
     const weightFloat = parseFloat(weight);
-    if (isNaN(weightFloat) || weightFloat <= 0 || weightFloat > 150) {
-        return res.status(400).json({ message: "Animal weight must be a valid number between 0 and 150 kg." });
+    const maxWeightLimit = SPECIES_WEIGHT_LIMITS[species] || null;
+    if (isNaN(weightFloat) || weightFloat <= 0 || (maxWeightLimit !== null && weightFloat > maxWeightLimit)) {
+        if (maxWeightLimit !== null) {
+            return res.status(400).json({ message: `Maximum weight allowed for ${species} is ${maxWeightLimit} kg (must be greater than 0).` });
+        }
+        return res.status(400).json({ message: "Animal weight must be a valid number greater than 0." });
     }
 
     // Retain previous last visit date or set current one
