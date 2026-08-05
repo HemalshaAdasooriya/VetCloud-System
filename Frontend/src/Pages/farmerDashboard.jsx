@@ -26,6 +26,19 @@ const SPECIES_IMAGES = {
   Other: "https://images.unsplash.com/photo-1535268647977-a403b69fc756?auto=format&fit=crop&q=80&w=120"
 };
 
+const getMediaUrl = (path) => {
+  if (!path || typeof path !== "string") return "";
+  if (path.startsWith("http://") || path.startsWith("https://") || path.startsWith("blob:") || path.startsWith("data:")) {
+    return path;
+  }
+  let cleanPath = path.replace(/\\/g, "/");
+  if (!cleanPath.startsWith("/")) {
+    cleanPath = "/" + cleanPath;
+  }
+  const backendBase = (import.meta.env.VITE_BACKEND_URL || "http://localhost:5000").replace(/\/+$/, "");
+  return `${backendBase}${cleanPath}`;
+};
+
 export default function FarmerDashboard() {
   const navigate = useNavigate();
   const [animals, setAnimals] = useState([]);
@@ -651,9 +664,7 @@ export default function FarmerDashboard() {
                       src={
                         formImageFile
                           ? URL.createObjectURL(formImageFile)
-                          : (formImage && (formImage.startsWith('http') || formImage.startsWith('/uploads'))
-                            ? (formImage.startsWith('/uploads') ? `${import.meta.env.VITE_BACKEND_URL}${formImage}` : formImage)
-                            : (SPECIES_IMAGES[formSpecies] || SPECIES_IMAGES.Other))
+                          : (getMediaUrl(formImage) || (SPECIES_IMAGES[formSpecies] || SPECIES_IMAGES.Other))
                       }
                       alt="Preview"
                       className="w-16 h-16 rounded-xl object-cover border border-slate-200 bg-white"

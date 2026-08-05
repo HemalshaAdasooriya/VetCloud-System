@@ -1,4 +1,5 @@
 // controllers/animalController.js
+import db from "../config/db.js";
 import {
     getAnimalsByOwner,
     getAnimalById,
@@ -40,12 +41,58 @@ export const getAnimalHistory = (req, res) => {
         return res.status(400).json({ message: "Animal ID is required." });
     }
 
-    getMedicalHistoryByAnimal(id, (err, results) => {
+    getMedicalHistoryByAnimal(id, (err, historyResults) => {
         if (err) {
             console.error("Error fetching medical histories:", err);
             return res.status(500).json({ message: "Failed to fetch medical history.", error: err });
         }
-        return res.status(200).json(results);
+
+        // Fetch past appointment consultations for this animal
+        const appointmentSql = `
+            SELECT 
+                a.id,
+                a.status,
+                a.reason,
+                a.notes AS appt_notes,
+                a.created_at,
+                v.fullName AS vet_name,
+                s.slot_date,
+                s.slot_time
+            FROM appointments a
+            LEFT JOIN veterinarians v ON a.veterinarian_id = v.id
+            LEFT JOIN appointment_slots s ON a.selected_slot_id = s.id
+            WHERE a.animal_id = ?
+            ORDER BY a.created_at DESC
+        `;
+
+        db.query(appointmentSql, [id], (apptErr, apptResults) => {
+            if (apptErr) {
+                console.error("Error fetching animal appointment history:", apptErr);
+                return res.status(200).json(historyResults || []);
+            }
+
+            const formattedAppts = (apptResults || []).map(apt => {
+                const formattedDate = apt.slot_date || new Date(apt.created_at).toLocaleDateString("en-GB", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric"
+                });
+
+                return {
+                    id: `appt_${apt.id}`,
+                    date: formattedDate,
+                    type: "Consultation",
+                    title: apt.reason ? `Consultation: ${apt.reason}` : "Veterinary Consultation",
+                    vet: apt.vet_name ? (apt.vet_name.startsWith("Dr.") ? apt.vet_name : `Dr. ${apt.vet_name}`) : "Veterinary Specialist",
+                    notes: apt.appt_notes ? apt.appt_notes : `Status: ${apt.status || 'Completed'}${apt.slot_time ? ` (${apt.slot_time})` : ''}`,
+                    isAppointment: true,
+                    appointmentStatus: apt.status
+                };
+            });
+
+            const combinedHistory = [...(historyResults || []), ...formattedAppts];
+            return res.status(200).json(combinedHistory);
+        });
     });
 };
 
