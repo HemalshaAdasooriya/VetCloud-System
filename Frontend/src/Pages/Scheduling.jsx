@@ -56,13 +56,28 @@ export default function Scheduling() {
     name: '',
     species: 'Cattle',
     breed: '',
-    age: '',
+    ageYears: 0,
+    ageMonths: 0,
+    ageDays: 0,
     weight: '',
     status: 'Healthy',
     image: ''
   });
   const [formImageFile, setFormImageFile] = useState(null);
+  const [formHealthReportFile, setFormHealthReportFile] = useState(null);
   const [addingAnimal, setAddingAnimal] = useState(false);
+
+  const formatAge = (years, months, days) => {
+    const parts = [];
+    const y = parseInt(years, 10) || 0;
+    const m = parseInt(months, 10) || 0;
+    const d = parseInt(days, 10) || 0;
+    if (y > 0) parts.push(`${y} ${y === 1 ? 'Year' : 'Years'}`);
+    if (m > 0) parts.push(`${m} ${m === 1 ? 'Month' : 'Months'}`);
+    if (d > 0) parts.push(`${d} ${d === 1 ? 'Day' : 'Days'}`);
+    if (parts.length === 0) return "0 Days";
+    return parts.join(", ");
+  };
 
   // Restored states for symptoms/appointment upload images
   const [uploadedImages, setUploadedImages] = useState([]);
@@ -281,23 +296,61 @@ export default function Scheduling() {
 
   const handleAddAnimalSubmit = async (e) => {
     e.preventDefault();
+
+    const y = parseInt(addAnimalForm.ageYears, 10) || 0;
+    const m = parseInt(addAnimalForm.ageMonths, 10) || 0;
+    const d = parseInt(addAnimalForm.ageDays, 10) || 0;
+
+    if (y < 0 || y > 100) {
+      toast.error("Age in years must be between 0 and 100");
+      return;
+    }
+    if (m < 0 || m > 11) {
+      toast.error("Months must be between 0 and 11");
+      return;
+    }
+    if (d < 0 || d > 31) {
+      toast.error("Days must be between 0 and 31");
+      return;
+    }
+    if (y === 100 && (m > 0 || d > 0)) {
+      toast.error("Maximum allowed age is 100 years");
+      return;
+    }
+    if (y === 0 && m === 0 && d === 0) {
+      toast.error("Please enter a valid age");
+      return;
+    }
+
+    const wFloat = parseFloat(addAnimalForm.weight);
+    if (isNaN(wFloat) || wFloat <= 0 || wFloat > 150) {
+      toast.error("Maximum weight allowed is 150 kg (must be greater than 0)");
+      return;
+    }
+
     setAddingAnimal(true);
 
     try {
       const ownerId = localStorage.getItem('userId');
+      const ageString = formatAge(y, m, d);
+
       const formData = new FormData();
       formData.append('owner_id', ownerId);
       formData.append('name', addAnimalForm.name);
       formData.append('species', addAnimalForm.species);
       formData.append('breed', addAnimalForm.breed);
-      formData.append('age', addAnimalForm.age);
-      formData.append('weight', addAnimalForm.weight);
+      formData.append('age', ageString);
+      formData.append('weight', wFloat.toString());
       formData.append('status', addAnimalForm.status);
 
       if (formImageFile) {
         formData.append('image', formImageFile);
       } else {
          formData.append('image', addAnimalForm.image || SPECIES_IMAGES[addAnimalForm.species] || SPECIES_IMAGES.Other);
+      }
+
+      if (formHealthReportFile) {
+        formData.append('healthReport', formHealthReportFile);
       }
 
       await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/animals`, formData, {
@@ -313,12 +366,15 @@ export default function Scheduling() {
         name: '',
         species: 'Cattle',
         breed: '',
-        age: '',
+        ageYears: 0,
+        ageMonths: 0,
+        ageDays: 0,
         weight: '',
         status: 'Healthy',
         image: ''
       });
       setFormImageFile(null);
+      setFormHealthReportFile(null);
       setShowAddAnimalModal(false);
     } catch (err) {
       console.error('Failed to add animal:', err);
@@ -1197,46 +1253,108 @@ export default function Scheduling() {
                 </div>
               </div>
 
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">Age *</label>
-                  <Input
-                    type="text"
-                    name="age"
-                    value={addAnimalForm.age}
-                    onChange={handleAddAnimalChange}
-                    placeholder="e.g., 3 years"
-                    required
-                    className="w-full"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">Weight *</label>
-                  <Input
-                    type="text"
-                    name="weight"
-                    value={addAnimalForm.weight}
-                    onChange={handleAddAnimalChange}
-                    placeholder="e.g., 450 kg"
-                    required
-                    className="w-full"
-                  />
+              {/* Age Fields */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Age *</label>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <span className="text-xs text-slate-500 block mb-1">Years</span>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={addAnimalForm.ageYears}
+                      onChange={(e) => setAddAnimalForm(prev => ({ ...prev, ageYears: Math.min(100, Math.max(0, parseInt(e.target.value, 10) || 0)) }))}
+                      required
+                      className="w-full"
+                    />
+                  </div>
+                  <div>
+                    <span className="text-xs text-slate-500 block mb-1">Months</span>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="11"
+                      value={addAnimalForm.ageMonths}
+                      onChange={(e) => setAddAnimalForm(prev => ({ ...prev, ageMonths: Math.min(11, Math.max(0, parseInt(e.target.value, 10) || 0)) }))}
+                      required
+                      className="w-full"
+                    />
+                  </div>
+                  <div>
+                    <span className="text-xs text-slate-500 block mb-1">Days</span>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="31"
+                      value={addAnimalForm.ageDays}
+                      onChange={(e) => setAddAnimalForm(prev => ({ ...prev, ageDays: Math.min(31, Math.max(0, parseInt(e.target.value, 10) || 0)) }))}
+                      required
+                      className="w-full"
+                    />
+                  </div>
                 </div>
               </div>
 
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Weight *</label>
+                  <Input
+                    type="number"
+                    step="0.1"
+                    min="0.1"
+                    max="150"
+                    name="weight"
+                    value={addAnimalForm.weight}
+                    onChange={handleAddAnimalChange}
+                    placeholder="e.g., 45.5"
+                    required
+                    className="w-full"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Status</label>
+                  <select
+                    name="status"
+                    value={addAnimalForm.status}
+                    onChange={handleAddAnimalChange}
+                    className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                  >
+                    <option value="Healthy">Healthy</option>
+                    <option value="Under Treatment">Under Treatment</option>
+                    <option value="Needs Attention">Needs Attention</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Health Report / Vaccination Card Upload */}
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Status</label>
-                <select
-                  name="status"
-                  value={addAnimalForm.status}
-                  onChange={handleAddAnimalChange}
-                  className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-                >
-                  <option value="Healthy">Healthy</option>
-                  <option value="Under Treatment">Under Treatment</option>
-                  <option value="Needs Attention">Needs Attention</option>
-                </select>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Health Report / Vaccination Card</label>
+                <div className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg bg-slate-50">
+                  <input
+                    type="file"
+                    accept=".pdf,image/*,.doc,.docx"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        setFormHealthReportFile(e.target.files[0]);
+                      }
+                    }}
+                    id="schedulingHealthReport"
+                    className="hidden"
+                  />
+                  <label
+                    htmlFor="schedulingHealthReport"
+                    className="px-3 py-1.5 bg-white border border-slate-300 rounded text-xs font-semibold text-slate-700 cursor-pointer hover:bg-slate-100"
+                  >
+                    Upload File
+                  </label>
+                  {formHealthReportFile ? (
+                    <span className="text-xs text-slate-600 font-medium truncate">{formHealthReportFile.name}</span>
+                  ) : (
+                    <span className="text-xs text-slate-400">PDF, JPG, PNG, DOC (Optional)</span>
+                  )}
+                </div>
               </div>
 
               <div>
