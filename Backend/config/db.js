@@ -1,11 +1,13 @@
 import mysql from "mysql2";
+import dotenv from "dotenv";
+dotenv.config();
 
 const dbConfig = {
-    host: process.env.DB_HOST,
-    port: process.env.DB_PORT,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME
+    host: process.env.MYSQLHOST,
+    user: process.env.MYSQLUSER,
+    password: process.env.MYSQLPASSWORD,
+    database: process.env.MYSQLDATABASE,
+    port: process.env.MYSQLPORT
 };
 
 let connection;
@@ -44,7 +46,7 @@ function reconnect() {
         connection.removeAllListeners();
         try {
             connection.end();
-        } catch (e) {}
+        } catch (e) { }
     }
 
     console.log("🔄 Reconnecting database in 2 seconds...");
@@ -66,5 +68,3 @@ const dbWrapper = {
 
 export default dbWrapper;
 
-console.log("Scheduler DB User:", process.env.DB_USER);
-console.log("Scheduler DB Host:", process.env.DB_HOST);

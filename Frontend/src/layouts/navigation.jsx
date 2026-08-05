@@ -32,7 +32,7 @@ export default function Navigation() {
             <div className="container mx-auto px-4 h-16 flex items-center justify-between">
                 <Link to="/" className="flex items-center gap-2 group">
                     <div className=" text-white p-2 rounded-lg">
-                        <img src="/public/Logo.png" className="w-[50px] h-[35px] mr-1 object-fill" alt="Logo" />
+                        <img src="https://fmuznyrfnjdwxbqsdijw.supabase.co/storage/v1/object/public/uploads/Logo.png" className="w-[50px] h-[35px] mr-1 object-fill" alt="Logo" />
                     </div>
                     <span className="text-xl font-bold text-slate-800 tracking-tight">VetCloud</span>
                 </Link>

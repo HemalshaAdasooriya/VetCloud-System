@@ -9,7 +9,8 @@ import {
     removePaymentMethod,
     getCommissionRate,
     testPayment,
-    handlePaymentFailure
+    handlePaymentFailure,
+    handleStripeWebhook
 } from "../controllers/paymentController.js";
 
 const paymentRouter = express.Router();
@@ -17,9 +18,10 @@ const paymentRouter = express.Router();
 // Route for getting payment information
 paymentRouter.post("/info", getPaymentInfo);
 
-// Route for Stripe checkout
+// Route for Stripe checkout & webhook
 paymentRouter.post("/create-checkout-session", createStripeCheckoutSession);
 paymentRouter.post("/verify-session", verifyStripeSession);
+paymentRouter.post("/webhook", handleStripeWebhook);
 paymentRouter.post("/failure", handlePaymentFailure);
 
 // Route for saving the veterinarian bank details

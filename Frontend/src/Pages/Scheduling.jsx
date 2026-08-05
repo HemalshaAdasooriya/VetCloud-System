@@ -20,13 +20,18 @@ import {
 import { Button, Card, Input, Badge } from '../components/Ui/ui';
 
 // Default high-quality images based on species
+const SPECIES_WEIGHT_LIMITS = {
+  Cattle: 3000,
+  Dog: 200,
+  Cat: 30,
+  Poultry: 10
+};
+
 const SPECIES_IMAGES = {
   Cattle: "https://images.unsplash.com/photo-1570042225831-d98fa7577f1e?auto=format&fit=crop&q=80&w=600",
   Dog: "https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&q=80&w=600",
   Poultry: "https://images.unsplash.com/photo-1548550023-2bdb3c5beed7?auto=format&fit=crop&q=80&w=600",
   Cat: "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?auto=format&fit=crop&q=80&w=600",
-  Horse: "https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&q=80&w=600",
-  Sheep: "https://images.unsplash.com/photo-1484557985045-edf25e08da73?auto=format&fit=crop&q=80&w=600",
   Other: "https://images.unsplash.com/photo-1535268647977-a403b69fc756?auto=format&fit=crop&q=80&w=600"
 };
 
@@ -37,13 +42,14 @@ export default function Scheduling() {
   const [selectedVet, setSelectedVet] = useState(null);
   const [selectedDates, setSelectedDates] = useState([]);
   const [calendarViewDate, setCalendarViewDate] = useState(new Date());
-  const [selectedTimes, setSelectedTimes] = useState([]);
+  const [selectedSlots, setSelectedSlots] = useState([]);
   const [symptoms, setSymptoms] = useState("");
   const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
   const [requestSubmitted, setRequestSubmitted] = useState(false);
   const [requestError, setRequestError] = useState("");
   const [submissionMessage, setSubmissionMessage] = useState("");
   const [resubmitAppointmentId, setResubmitAppointmentId] = useState(null);
+  const [submittedSummary, setSubmittedSummary] = useState(null);
 
   const [animals, setAnimals] = useState([]);
   const [loadingAnimals, setLoadingAnimals] = useState(true);
@@ -56,13 +62,28 @@ export default function Scheduling() {
     name: '',
     species: 'Cattle',
     breed: '',
-    age: '',
+    ageYears: 0,
+    ageMonths: 0,
+    ageDays: 0,
     weight: '',
     status: 'Healthy',
     image: ''
   });
   const [formImageFile, setFormImageFile] = useState(null);
+  const [formHealthReportFile, setFormHealthReportFile] = useState(null);
   const [addingAnimal, setAddingAnimal] = useState(false);
+
+  const formatAge = (years, months, days) => {
+    const parts = [];
+    const y = parseInt(years, 10) || 0;
+    const m = parseInt(months, 10) || 0;
+    const d = parseInt(days, 10) || 0;
+    if (y > 0) parts.push(`${y} ${y === 1 ? 'Year' : 'Years'}`);
+    if (m > 0) parts.push(`${m} ${m === 1 ? 'Month' : 'Months'}`);
+    if (d > 0) parts.push(`${d} ${d === 1 ? 'Day' : 'Days'}`);
+    if (parts.length === 0) return "0 Days";
+    return parts.join(", ");
+  };
 
   // Restored states for symptoms/appointment upload images
   const [uploadedImages, setUploadedImages] = useState([]);
@@ -140,29 +161,41 @@ export default function Scheduling() {
     fetchVets();
   }, []);
 
-  // Fetch available slots for all selected dates
+  // Fetch all available slots for selected vet
   useEffect(() => {
-    if (selectedVet && selectedDates.length > 0) {
-      const loadAllSlots = async () => {
+    if (selectedVet) {
+      const fetchVetSlots = async () => {
         setLoadingSlots(true);
         try {
-          const allSlots = [];
-          for (const date of selectedDates) {
-            const slots = await fetchAvailableSlotsForVet(selectedVet, date);
-            allSlots.push(...slots);
-          }
-          setAvailableTimeSlots(allSlots);
+          const res = await axios.get(
+            `${import.meta.env.VITE_BACKEND_URL}/api/schedule/vet/${selectedVet}`
+          );
+          const available = (res.data || []).filter((slot) => Number(slot.is_booked) === 0);
+          setAvailableTimeSlots(available);
         } catch (err) {
-          console.error('Error loading slots:', err);
+          console.error('Error fetching vet schedule:', err);
+          setAvailableTimeSlots([]);
         } finally {
           setLoadingSlots(false);
         }
       };
-      loadAllSlots();
+      fetchVetSlots();
     } else {
       setAvailableTimeSlots([]);
+      setSelectedSlots([]);
+      setSelectedDates([]);
     }
-  }, [selectedVet, selectedDates]);
+  }, [selectedVet]);
+
+  // Clean up selected slots when consultation type changes
+  useEffect(() => {
+    setSelectedSlots((prev) =>
+      prev.filter((slot) => {
+        const slotType = slot.consultation_type || slot.type || 'video';
+        return slotType === consultType;
+      })
+    );
+  }, [consultType]);
 
   const getSelectedAnimal = () =>
     animals.find(a => a.id === selectedAnimal);
@@ -190,26 +223,6 @@ export default function Scheduling() {
     }
   }, [location?.state]);
 
-  // Fetch available slots from vet_schedule
-  const fetchAvailableSlotsForVet = async (vetId, date) => {
-    if (!vetId || !date) return [];
-    try {
-      const formattedDate = formatDateKey(date);
-      
-      const response = await axios.get(
-        `${import.meta.env.VITE_BACKEND_URL}/api/schedule/vet/${vetId}/date/${formattedDate}`
-      );
-      
-      // Filter only available slots (not booked)
-      const available = response.data.filter(slot => slot.is_booked === 0);
-      
-      return available;
-    } catch (err) {
-      console.error('Error fetching available slots:', err);
-      return [];
-    }
-  };
-
   // Resubmit appointment logic
   useEffect(() => {
     if (!resubmitAppointmentId) return;
@@ -220,11 +233,11 @@ export default function Scheduling() {
         const appointment = res.data;
         setSelectedAnimal(appointment.animal_id);
         setSelectedVet(appointment.veterinarian_id);
-        
+
         if (appointment.consultation_type) {
           setConsultType(appointment.consultation_type);
         }
-        
+
         setSymptoms(() => {
           try {
             const parsed = JSON.parse(appointment.reason);
@@ -252,17 +265,22 @@ export default function Scheduling() {
           }
 
           return [];
-          
         })();
 
-        setSelectedDates(
-          Array.from(new Set(availability.map((slot) => slot.date)))
-            .map((dateString) => new Date(dateString))
-        );
+        if (availability.length > 0) {
+          const datesArr = Array.from(new Set(availability.map((s) => s.date))).map((dStr) => {
+            const [y, m, d] = dStr.split('-').map(Number);
+            return new Date(y, m - 1, d);
+          });
+          setSelectedDates(datesArr);
 
-        setSelectedTimes(
-          Array.from(new Set(availability.map((slot) => normalizeTimeToLabel(slot.time)))).filter(Boolean)
-        );
+          const slotsArr = availability.map((s) => ({
+            slot_date: s.date,
+            slot_time: s.time,
+            consultation_type: appointment.consultation_type || 'video'
+          }));
+          setSelectedSlots(slotsArr);
+        }
 
         setStep(3);
       } catch (err) {
@@ -284,23 +302,66 @@ export default function Scheduling() {
 
   const handleAddAnimalSubmit = async (e) => {
     e.preventDefault();
+
+    const y = parseInt(addAnimalForm.ageYears, 10) || 0;
+    const m = parseInt(addAnimalForm.ageMonths, 10) || 0;
+    const d = parseInt(addAnimalForm.ageDays, 10) || 0;
+
+    if (y < 0 || y > 100) {
+      toast.error("Age in years must be between 0 and 100");
+      return;
+    }
+    if (m < 0 || m > 11) {
+      toast.error("Months must be between 0 and 11");
+      return;
+    }
+    if (d < 0 || d > 31) {
+      toast.error("Days must be between 0 and 31");
+      return;
+    }
+    if (y === 100 && (m > 0 || d > 0)) {
+      toast.error("Maximum allowed age is 100 years");
+      return;
+    }
+    if (y === 0 && m === 0 && d === 0) {
+      toast.error("Please enter a valid age");
+      return;
+    }
+
+    const wFloat = parseFloat(addAnimalForm.weight);
+    const maxLimit = SPECIES_WEIGHT_LIMITS[addAnimalForm.species] || null;
+    if (isNaN(wFloat) || wFloat <= 0 || (maxLimit !== null && wFloat > maxLimit)) {
+      if (maxLimit !== null) {
+        toast.error(`Maximum weight allowed for ${addAnimalForm.species} is ${maxLimit} kg (must be greater than 0)`);
+      } else {
+        toast.error("Weight must be a valid number greater than 0");
+      }
+      return;
+    }
+
     setAddingAnimal(true);
 
     try {
       const ownerId = localStorage.getItem('userId');
+      const ageString = formatAge(y, m, d);
+
       const formData = new FormData();
       formData.append('owner_id', ownerId);
       formData.append('name', addAnimalForm.name);
       formData.append('species', addAnimalForm.species);
       formData.append('breed', addAnimalForm.breed);
-      formData.append('age', addAnimalForm.age);
-      formData.append('weight', addAnimalForm.weight);
+      formData.append('age', ageString);
+      formData.append('weight', wFloat.toString());
       formData.append('status', addAnimalForm.status);
 
       if (formImageFile) {
         formData.append('image', formImageFile);
       } else {
-         formData.append('image', addAnimalForm.image || SPECIES_IMAGES[addAnimalForm.species] || SPECIES_IMAGES.Other);
+        formData.append('image', addAnimalForm.image || SPECIES_IMAGES[addAnimalForm.species] || SPECIES_IMAGES.Other);
+      }
+
+      if (formHealthReportFile) {
+        formData.append('healthReport', formHealthReportFile);
       }
 
       await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/animals`, formData, {
@@ -316,12 +377,15 @@ export default function Scheduling() {
         name: '',
         species: 'Cattle',
         breed: '',
-        age: '',
+        ageYears: 0,
+        ageMonths: 0,
+        ageDays: 0,
         weight: '',
         status: 'Healthy',
         image: ''
       });
       setFormImageFile(null);
+      setFormHealthReportFile(null);
       setShowAddAnimalModal(false);
     } catch (err) {
       console.error('Failed to add animal:', err);
@@ -334,24 +398,8 @@ export default function Scheduling() {
   const areSameDate = (dateA, dateB) => {
     if (!dateA || !dateB) return false;
     return dateA.getFullYear() === dateB.getFullYear() &&
-           dateA.getMonth() === dateB.getMonth() &&
-           dateA.getDate() === dateB.getDate();
-  };
-
-  const toggleDateSelection = (date) => {
-    setSelectedDates((prev) => {
-      const alreadySelected = prev.some((selectedDate) => areSameDate(selectedDate, date));
-      if (alreadySelected) {
-        return prev.filter((selectedDate) => !areSameDate(selectedDate, date));
-      }
-      return [...prev, date];
-    });
-  };
-
-  const toggleTimeSelection = (time) => {
-    setSelectedTimes((prev) =>
-      prev.includes(time) ? prev.filter((item) => item !== time) : [...prev, time]
-    );
+      dateA.getMonth() === dateB.getMonth() &&
+      dateA.getDate() === dateB.getDate();
   };
 
   // Format date using local date values (no timezone issues)
@@ -391,17 +439,109 @@ export default function Scheduling() {
     return `${String(hour12).padStart(2, '0')}:${String(minutes).padStart(2, '0')} ${meridiem}`;
   };
 
-  const buildAvailabilityPayload = () => {
-    return selectedDates.flatMap((date) =>
-      selectedTimes.map((time) => ({
-        date: formatDateKey(date),
-        time: normalizeTimeTo24(time)
-      }))
+  // Slot Helper Functions
+  const getSlotDateKey = (slot) => {
+    if (!slot) return '';
+    const d = slot.slot_date || slot.date;
+    if (!d) return '';
+    if (typeof d === 'string') {
+      return d.split('T')[0];
+    }
+    if (d instanceof Date) {
+      return formatDateKey(d);
+    }
+    return String(d);
+  };
+
+  const getSlotTime24 = (slot) => {
+    if (!slot) return '';
+    const t = slot.slot_time || slot.time;
+    if (!t) return '';
+    if (t.includes('AM') || t.includes('PM')) {
+      return normalizeTimeTo24(t);
+    }
+    const parts = t.split(':');
+    if (parts.length >= 2) {
+      return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}`;
+    }
+    return t;
+  };
+
+  const getSlotTimeLabel = (slot) => {
+    if (!slot) return '';
+    const t = slot.slot_time || slot.time;
+    if (!t) return '';
+    if (t.includes('AM') || t.includes('PM')) return t;
+    return normalizeTimeToLabel(t);
+  };
+
+  const isSlotSelected = (slot) => {
+    const dateKey = getSlotDateKey(slot);
+    const time24 = getSlotTime24(slot);
+    return selectedSlots.some(
+      (s) => getSlotDateKey(s) === dateKey && getSlotTime24(s) === time24
     );
   };
 
+  const toggleSlotSelection = (slot) => {
+    const dateKey = getSlotDateKey(slot);
+    const time24 = getSlotTime24(slot);
+
+    setSelectedSlots((prev) => {
+      const exists = prev.some(
+        (s) => getSlotDateKey(s) === dateKey && getSlotTime24(s) === time24
+      );
+      if (exists) {
+        return prev.filter(
+          (s) => !(getSlotDateKey(s) === dateKey && getSlotTime24(s) === time24)
+        );
+      } else {
+        return [...prev, slot];
+      }
+    });
+  };
+
+  const toggleDateSelection = (date) => {
+    const dateKey = formatDateKey(date);
+    setSelectedDates((prev) => {
+      const alreadySelected = prev.some((selectedDate) => areSameDate(selectedDate, date));
+      if (alreadySelected) {
+        // Deselect date and clear any selected slots on this date
+        setSelectedSlots((slots) => slots.filter((s) => getSlotDateKey(s) !== dateKey));
+        return prev.filter((selectedDate) => !areSameDate(selectedDate, date));
+      }
+      return [...prev, date];
+    });
+  };
+
+  const handleProceedToReview = () => {
+    setRequestError('');
+    if (!selectedAnimal) {
+      setRequestError('Please select an animal first.');
+      setStep(1);
+      return;
+    }
+    if (!selectedVet) {
+      setRequestError('Please select a veterinarian first.');
+      setStep(2);
+      return;
+    }
+    if (selectedSlots.length === 0) {
+      setRequestError('Please select at least one available time slot provided by the doctor.');
+      return;
+    }
+    setStep(4);
+  };
+
+  const buildAvailabilityPayload = () => {
+    return selectedSlots.map((slot) => ({
+      date: getSlotDateKey(slot),
+      time: getSlotTime24(slot)
+    }));
+  };
+
   const handleSubmitAppointmentRequest = async () => {
-    if (!selectedAnimal || !selectedVet || selectedDates.length === 0 || selectedTimes.length === 0) {
+    if (!selectedAnimal || !selectedVet || selectedSlots.length === 0) {
       return;
     }
 
@@ -412,6 +552,18 @@ export default function Scheduling() {
     try {
       const ownerId = localStorage.getItem('userId');
       const availability = buildAvailabilityPayload();
+      const currentVet = getSelectedVet();
+      const currentAnimal = getSelectedAnimal();
+
+      const summarySnapshot = {
+        vetName: currentVet?.name || (currentVet?.fullName ? `Dr. ${currentVet.fullName}` : 'Doctor'),
+        vetSpec: currentVet?.spec || currentVet?.specialization || 'General Veterinary Care',
+        animalName: currentAnimal?.name || 'Animal',
+        animalSpecies: currentAnimal?.species || currentAnimal?.breed || 'Pet/Livestock',
+        consultType: consultType,
+        symptoms: symptoms,
+        slots: [...selectedSlots]
+      };
 
       if (resubmitAppointmentId) {
         await axios.patch(`${import.meta.env.VITE_BACKEND_URL}/api/appointments/${resubmitAppointmentId}/resubmit`, {
@@ -434,9 +586,10 @@ export default function Scheduling() {
         setSubmissionMessage('Request submitted. Your doctor will review and approve one of your requested slots.');
       }
 
+      setSubmittedSummary(summarySnapshot);
       setRequestSubmitted(true);
       setSelectedDates([]);
-      setSelectedTimes([]);
+      setSelectedSlots([]);
       setSymptoms('');
       setSelectedAnimal(null);
       setSelectedVet(null);
@@ -497,14 +650,14 @@ export default function Scheduling() {
                       onClick={() => setSelectedAnimal(animal.id)}
                     >
                       <div className="flex gap-4">
-                        <img 
+                        <img
                           src={
-                            animal.image && animal.image.startsWith('/uploads/') 
-                              ? `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}${animal.image}` 
+                            animal.image && animal.image.startsWith('/uploads/')
+                              ? `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}${animal.image}`
                               : (animal.image || SPECIES_IMAGES[animal.species] || SPECIES_IMAGES.Other)
-                          } 
-                          alt={animal.name} 
-                          className="w-20 h-20 rounded-lg object-cover" 
+                          }
+                          alt={animal.name}
+                          className="w-20 h-20 rounded-lg object-cover"
                         />
                         <div className="flex-1">
                           <div className="flex justify-between items-start mb-1">
@@ -619,14 +772,14 @@ export default function Scheduling() {
                     </h3>
                     <div className="flex flex-col sm:flex-row gap-4">
                       <img
-                          src={
-                            getSelectedAnimal().image && getSelectedAnimal().image.startsWith('/uploads/') 
-                              ? `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}${getSelectedAnimal().image}` 
-                              : (getSelectedAnimal().image || SPECIES_IMAGES[getSelectedAnimal().species] || SPECIES_IMAGES.Other)
-                          }
-                          alt={getSelectedAnimal().name}
-                          className="w-24 h-24 rounded-xl object-cover border-2 border-white shadow-sm"
-                        />
+                        src={
+                          getSelectedAnimal().image && getSelectedAnimal().image.startsWith('/uploads/')
+                            ? `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}${getSelectedAnimal().image}`
+                            : (getSelectedAnimal().image || SPECIES_IMAGES[getSelectedAnimal().species] || SPECIES_IMAGES.Other)
+                        }
+                        alt={getSelectedAnimal().name}
+                        className="w-24 h-24 rounded-xl object-cover border-2 border-white shadow-sm"
+                      />
                       <div className="flex-1">
                         <h4 className="font-bold text-xl text-slate-900 mb-1">{getSelectedAnimal().name}</h4>
                         <p className="text-sm font-medium text-green-700 mb-3">{getSelectedAnimal().species || getSelectedAnimal().breed || 'Animal'}</p>
@@ -777,23 +930,38 @@ export default function Scheduling() {
                                     today.getDate() === date.getDate();
                                   const isPast = date < new Date(today.getFullYear(), today.getMonth(), today.getDate());
                                   const isSelected = selectedDates.some((selectedDate) => areSameDate(selectedDate, date));
+
+                                  const dateKey = formatDateKey(date);
+                                  const doctorSlotsForDate = availableTimeSlots.filter(s => {
+                                    const sDate = getSlotDateKey(s);
+                                    const sType = s.consultation_type || s.type || 'video';
+                                    return sDate === dateKey && sType === consultType;
+                                  });
+                                  const hasAvailableSlots = doctorSlotsForDate.length > 0;
+
                                   return (
                                     <button
                                       key={day}
                                       type="button"
                                       disabled={isPast}
                                       onClick={() => !isPast && toggleDateSelection(date)}
-                                      className={`aspect-square rounded-lg text-xs font-medium transition-all ${
-                                        isPast
-                                          ? 'text-slate-300 cursor-not-allowed'
-                                          : isSelected
+                                      className={`aspect-square rounded-lg text-xs font-medium transition-all relative flex flex-col items-center justify-center ${isPast
+                                        ? 'text-slate-300 cursor-not-allowed'
+                                        : isSelected
                                           ? 'bg-green-600 text-white shadow-inner'
                                           : isToday
-                                          ? 'border border-green-500 text-slate-700 hover:bg-green-50'
-                                          : 'text-slate-700 hover:bg-green-50'
-                                      }`}
+                                            ? 'border border-green-500 text-slate-700 hover:bg-green-50'
+                                            : 'text-slate-700 hover:bg-green-50'
+                                        }`}
                                     >
-                                      {day}
+                                      <span>{day}</span>
+                                      {!isPast && hasAvailableSlots && (
+                                        <span
+                                          className={`w-1.5 h-1.5 rounded-full absolute bottom-1 ${isSelected ? 'bg-white' : 'bg-green-500'
+                                            }`}
+                                          title={`${doctorSlotsForDate.length} slot(s) available from doctor`}
+                                        />
+                                      )}
                                     </button>
                                   );
                                 })}
@@ -806,11 +974,20 @@ export default function Scheduling() {
                           {selectedDates.length === 0 ? (
                             <span className="text-slate-400">Select one or more dates from the calendar.</span>
                           ) : (
-                            selectedDates.map((date) => (
-                              <span key={formatDateKey(date)} className="inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-50 px-3 py-1 text-[11px] text-slate-700">
-                                <CalendarIcon size={12} /> {formatDateLabel(date)}
-                              </span>
-                            ))
+                            selectedDates.map((date) => {
+                              const dateKey = formatDateKey(date);
+                              const slotsOnDate = selectedSlots.filter(s => getSlotDateKey(s) === dateKey);
+                              return (
+                                <span key={dateKey} className="inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-50 px-3 py-1 text-[11px] text-slate-700">
+                                  <CalendarIcon size={12} /> {formatDateLabel(date)}
+                                  {slotsOnDate.length > 0 && (
+                                    <span className="bg-green-600 text-white text-[9px] px-1.5 py-0.5 rounded-full font-bold">
+                                      {slotsOnDate.length}
+                                    </span>
+                                  )}
+                                </span>
+                              );
+                            })
                           )}
                         </div>
                       </div>
@@ -842,40 +1019,19 @@ export default function Scheduling() {
                           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-2"></div>
                           <p className="text-sm">Loading available slots...</p>
                         </div>
-                      ) : availableTimeSlots.length === 0 ? (
-                        <div className="text-center py-8 text-amber-600 bg-amber-50 rounded-xl border border-amber-200">
-                          <AlertCircle size={24} className="mx-auto mb-2" />
-                          <p className="text-sm font-medium">No available slots found</p>
-                          <p className="text-xs mt-1 text-amber-500">The doctor has no available slots for the selected dates.</p>
-                        </div>
                       ) : (
                         <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
                           {selectedDates.map((date) => {
                             const formattedDate = formatDateKey(date);
                             const dateLabel = formatDateLabel(date);
-                            
+
                             // Filter slots by date AND consultation type
                             const slotsForDate = availableTimeSlots.filter(slot => {
-                              // Check date match
-                              const slotDate = slot.slot_date || slot.date;
-                              let slotDateStr = '';
-                              
-                              if (slotDate) {
-                                if (typeof slotDate === 'string') {
-                                  slotDateStr = slotDate.split('T')[0];
-                                } else {
-                                  const d = new Date(slotDate);
-                                  slotDateStr = formatDateKey(d);
-                                }
-                              }
-                              
-                              // Check consultation type match
+                              const slotDateStr = getSlotDateKey(slot);
                               const slotType = slot.consultation_type || slot.type || 'video';
-                              const matchesType = slotType === consultType;
-                              
-                              return slotDateStr === formattedDate && matchesType;
+                              return slotDateStr === formattedDate && slotType === consultType;
                             });
-                            
+
                             return (
                               <div key={formattedDate} className="border border-slate-200 rounded-lg overflow-hidden">
                                 <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 flex items-center justify-between">
@@ -883,27 +1039,26 @@ export default function Scheduling() {
                                     <CalendarIcon size={14} className="inline mr-2 text-green-600" />
                                     {dateLabel}
                                   </span>
-                                  <Badge className="bg-green-100 text-green-700 text-[10px]">
-                                    {slotsForDate.length} slot{slotsForDate.length !== 1 ? 's' : ''}
+                                  <Badge className={slotsForDate.length > 0 ? "bg-green-100 text-green-700 text-[10px]" : "bg-amber-100 text-amber-700 text-[10px]"}>
+                                    {slotsForDate.length} slot{slotsForDate.length !== 1 ? 's' : ''} available
                                   </Badge>
                                 </div>
                                 <div className="p-3">
                                   {slotsForDate.length > 0 ? (
                                     <div className="grid grid-cols-2 gap-2">
                                       {slotsForDate.map((slot) => {
-                                        const timeLabel = normalizeTimeToLabel(slot.slot_time || slot.time);
-                                        const isSelected = selectedTimes.includes(timeLabel);
-                                        
+                                        const timeLabel = getSlotTimeLabel(slot);
+                                        const isSelected = isSlotSelected(slot);
+
                                         return (
                                           <button
-                                            key={slot.id}
+                                            key={slot.id || `${formattedDate}_${getSlotTime24(slot)}`}
                                             type="button"
-                                            onClick={() => toggleTimeSelection(timeLabel)}
-                                            className={`p-2.5 rounded-lg border text-xs font-medium transition-colors ${
-                                              isSelected
-                                                ? 'bg-green-600 border-green-600 text-white'
-                                                : 'border-slate-200 text-slate-700 hover:border-green-300 hover:bg-slate-50'
-                                            }`}
+                                            onClick={() => toggleSlotSelection(slot)}
+                                            className={`p-2.5 rounded-lg border text-xs font-medium transition-colors ${isSelected
+                                              ? 'bg-green-600 border-green-600 text-white shadow-sm'
+                                              : 'border-slate-200 text-slate-700 hover:border-green-300 hover:bg-slate-50'
+                                              }`}
                                           >
                                             <span className="flex items-center gap-2 justify-center">
                                               <Clock size={12} /> {timeLabel}
@@ -913,19 +1068,19 @@ export default function Scheduling() {
                                       })}
                                     </div>
                                   ) : (
-                                    <p className="text-xs text-slate-400 text-center py-2">
-                                      No {consultType === 'video' ? 'Video Call' : 'Chat'} slots available for this date
+                                    <p className="text-xs text-amber-600 bg-amber-50 p-2.5 rounded-md text-center">
+                                      The doctor has not added any available {consultType === 'video' ? 'Video Call' : 'Chat'} slots for this date.
                                     </p>
                                   )}
                                 </div>
                               </div>
                             );
                           })}
-                          
+
                           <div className="mt-3 text-sm text-slate-500 text-center">
-                            {selectedTimes.length === 0 
-                              ? `Select ${consultType === 'video' ? 'Video Call' : 'Chat'} time slots from the dates above` 
-                              : `${selectedTimes.length} time slot${selectedTimes.length > 1 ? 's' : ''} selected across ${selectedDates.length} date${selectedDates.length > 1 ? 's' : ''}`}
+                            {selectedSlots.length === 0
+                              ? `Select ${consultType === 'video' ? 'Video Call' : 'Chat'} time slots provided by the doctor above`
+                              : `${selectedSlots.length} doctor time slot${selectedSlots.length > 1 ? 's' : ''} selected`}
                           </div>
                         </div>
                       )}
@@ -933,12 +1088,18 @@ export default function Scheduling() {
                   </div>
                 </div>
 
-                <div className="flex justify-between pt-6 border-t border-slate-100">
-                  <Button variant="outline" onClick={() => setStep(2)}>Back</Button>
-                  <Button
-                    onClick={() => setStep(4)}
-                    disabled={selectedDates.length === 0 || selectedTimes.length === 0}
-                  >Review & Request <ChevronRight size={16} className="ml-2" /></Button>
+                {requestError && (
+                  <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600 flex items-center gap-2">
+                    <AlertCircle size={16} className="shrink-0" />
+                    <span>{requestError}</span>
+                  </div>
+                )}
+
+                <div className="flex justify-between pt-6 border-t border-slate-100 mt-4">
+                  <Button variant="outline" onClick={() => { setRequestError(''); setStep(2); }}>Back</Button>
+                  <Button onClick={handleProceedToReview}>
+                    Review & Request <ChevronRight size={16} className="ml-2" />
+                  </Button>
                 </div>
               </div>
             </div>
@@ -952,54 +1113,90 @@ export default function Scheduling() {
               <div className="grid md:grid-cols-2 gap-6 mb-6">
                 <Card className="p-6 bg-slate-50 border-slate-100">
                   <h3 className="font-semibold text-slate-700 mb-4 border-b pb-2">Consultation Summary</h3>
-                  <div className="space-y-4 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Doctor</span>
-                      <span className="font-medium text-slate-900">{getSelectedVet()?.name || 'Dr. Sarah Smith'}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Specialty</span>
-                      <span className="font-medium text-slate-900">{getSelectedVet()?.spec || 'Livestock & Large Animals'}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Patient</span>
-                      <span className="font-medium text-slate-900">{getSelectedAnimal()?.name || 'Bessie'} ({getSelectedAnimal()?.species || 'Animal'})</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Consultation Type</span>
-                      <span className="font-medium text-slate-900 flex items-center gap-1">
-                        {consultType === 'video' ? (
-                          <>
-                            <Video size={14} className="text-green-600" /> 
-                            Video Call
-                          </>
-                        ) : (
-                          <>
-                            <MessageCircle size={14} className="text-green-600" /> 
-                            Chat / Messages
-                          </>
-                        )}
-                      </span>
-                    </div>
-                    <div className="space-y-2">
-                      <span className="text-slate-500">Requested Availability</span>
-                      <div className="grid gap-2">
-                        {selectedDates.map((date) => (
-                          <div key={formatDateKey(date)} className="flex flex-wrap gap-2 items-center rounded-lg border border-slate-200 bg-white p-3">
-                            <span className="text-slate-700 font-semibold">{formatDateLabel(date)}</span>
-                            <span className="text-slate-500">•</span>
-                            <span className="text-slate-700">{selectedTimes.join(', ')}</span>
+                  {(() => {
+                    const currentVet = getSelectedVet();
+                    const currentAnimal = getSelectedAnimal();
+                    const activeConsultType = submittedSummary?.consultType || consultType;
+                    const activeSymptoms = submittedSummary?.symptoms || symptoms;
+                    const activeSlots = (submittedSummary?.slots && submittedSummary.slots.length > 0) ? submittedSummary.slots : selectedSlots;
+                    const doctorName = submittedSummary?.vetName || currentVet?.name || (currentVet?.fullName ? `Dr. ${currentVet.fullName}` : 'Selected Doctor');
+                    const doctorSpec = submittedSummary?.vetSpec || currentVet?.spec || currentVet?.specialization || 'Veterinary Care';
+                    const patientName = submittedSummary?.animalName || currentAnimal?.name || 'Selected Patient';
+                    const patientSpecies = submittedSummary?.animalSpecies || currentAnimal?.species || currentAnimal?.breed || 'Animal';
+
+                    return (
+                      <div className="space-y-4 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Doctor</span>
+                          <span className="font-medium text-slate-900">{doctorName}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Specialty</span>
+                          <span className="font-medium text-slate-900">{doctorSpec}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Patient</span>
+                          <span className="font-medium text-slate-900">{patientName} ({patientSpecies})</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Consultation Type</span>
+                          <span className="font-medium text-slate-900 flex items-center gap-1">
+                            {activeConsultType === 'video' ? (
+                              <>
+                                <Video size={14} className="text-green-600" />
+                                Video Call
+                              </>
+                            ) : (
+                              <>
+                                <MessageCircle size={14} className="text-green-600" />
+                                Chat / Messages
+                              </>
+                            )}
+                          </span>
+                        </div>
+                        <div className="space-y-2">
+                          <span className="text-slate-500">Requested Availability</span>
+                          <div className="grid gap-2">
+                            {(() => {
+                              const grouped = activeSlots.reduce((acc, slot) => {
+                                const dateKey = getSlotDateKey(slot);
+                                if (!acc[dateKey]) acc[dateKey] = [];
+                                acc[dateKey].push(slot);
+                                return acc;
+                              }, {});
+
+                              const dateKeys = Object.keys(grouped).sort();
+
+                              if (dateKeys.length === 0) {
+                                return <p className="text-slate-400 text-xs italic">No time slots selected.</p>;
+                              }
+
+                              return dateKeys.map((dateKey) => {
+                                const slotsForThisDate = grouped[dateKey];
+                                const timeLabels = slotsForThisDate.map((s) => getSlotTimeLabel(s)).join(', ');
+                                const [y, m, d] = dateKey.split('-').map(Number);
+                                const dateObj = new Date(y, m - 1, d);
+
+                                return (
+                                  <div key={dateKey} className="flex flex-wrap gap-2 items-center rounded-lg border border-slate-200 bg-white p-3">
+                                    <span className="text-slate-700 font-semibold">{formatDateLabel(dateObj)}</span>
+                                    <span className="text-slate-500">•</span>
+                                    <span className="text-slate-700">{timeLabels}</span>
+                                  </div>
+                                );
+                              });
+                            })()}
                           </div>
-                        ))}
+                        </div>
+                        {activeSymptoms && (
+                          <div>
+                            <span className="text-slate-500">Symptoms / Notes</span>
+                            <p className="mt-1 text-slate-800">{activeSymptoms}</p>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                    {symptoms && (
-                      <div>
-                        <span className="text-slate-500">Symptoms / Notes</span>
-                        <p className="mt-1 text-slate-800">{symptoms}</p>
-                      </div>
-                    )}
-                  </div>
+                    );
+                  })()}
                 </Card>
 
                 <Card className="p-6 bg-slate-50 border-slate-100">
@@ -1021,7 +1218,7 @@ export default function Scheduling() {
                 <Button
                   size="lg"
                   className="w-48"
-                  disabled={selectedDates.length === 0 || selectedTimes.length === 0 || isSubmittingRequest}
+                  disabled={selectedSlots.length === 0 || isSubmittingRequest}
                   onClick={handleSubmitAppointmentRequest}
                 >
                   {isSubmittingRequest ? 'Submitting...' : resubmitAppointmentId ? 'Resubmit Request' : 'Submit Request'}
@@ -1076,8 +1273,6 @@ export default function Scheduling() {
                     <option value="Cattle">Cattle</option>
                     <option value="Dog">Dog</option>
                     <option value="Cat">Cat</option>
-                    <option value="Horse">Horse</option>
-                    <option value="Sheep">Sheep</option>
                     <option value="Poultry">Poultry</option>
                     <option value="Other">Other</option>
                   </select>
@@ -1097,63 +1292,125 @@ export default function Scheduling() {
                 </div>
               </div>
 
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">Age *</label>
-                  <Input
-                    type="text"
-                    name="age"
-                    value={addAnimalForm.age}
-                    onChange={handleAddAnimalChange}
-                    placeholder="e.g., 3 years"
-                    required
-                    className="w-full"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">Weight *</label>
-                  <Input
-                    type="text"
-                    name="weight"
-                    value={addAnimalForm.weight}
-                    onChange={handleAddAnimalChange}
-                    placeholder="e.g., 450 kg"
-                    required
-                    className="w-full"
-                  />
+              {/* Age Fields */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Age *</label>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <span className="text-xs text-slate-500 block mb-1">Years</span>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={addAnimalForm.ageYears}
+                      onChange={(e) => setAddAnimalForm(prev => ({ ...prev, ageYears: Math.min(100, Math.max(0, parseInt(e.target.value, 10) || 0)) }))}
+                      required
+                      className="w-full"
+                    />
+                  </div>
+                  <div>
+                    <span className="text-xs text-slate-500 block mb-1">Months</span>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="11"
+                      value={addAnimalForm.ageMonths}
+                      onChange={(e) => setAddAnimalForm(prev => ({ ...prev, ageMonths: Math.min(11, Math.max(0, parseInt(e.target.value, 10) || 0)) }))}
+                      required
+                      className="w-full"
+                    />
+                  </div>
+                  <div>
+                    <span className="text-xs text-slate-500 block mb-1">Days</span>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="31"
+                      value={addAnimalForm.ageDays}
+                      onChange={(e) => setAddAnimalForm(prev => ({ ...prev, ageDays: Math.min(31, Math.max(0, parseInt(e.target.value, 10) || 0)) }))}
+                      required
+                      className="w-full"
+                    />
+                  </div>
                 </div>
               </div>
 
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Weight *</label>
+                  <Input
+                    type="number"
+                    step="0.1"
+                    min="0.1"
+                    max={SPECIES_WEIGHT_LIMITS[addAnimalForm.species] || undefined}
+                    name="weight"
+                    value={addAnimalForm.weight}
+                    onChange={handleAddAnimalChange}
+                    placeholder="e.g., 45.5"
+                    required
+                    className="w-full"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Status</label>
+                  <select
+                    name="status"
+                    value={addAnimalForm.status}
+                    onChange={handleAddAnimalChange}
+                    className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                  >
+                    <option value="Healthy">Healthy</option>
+                    <option value="Under Treatment">Under Treatment</option>
+                    <option value="Needs Attention">Needs Attention</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Health Report / Vaccination Card Upload */}
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Status</label>
-                <select
-                  name="status"
-                  value={addAnimalForm.status}
-                  onChange={handleAddAnimalChange}
-                  className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-                >
-                  <option value="Healthy">Healthy</option>
-                  <option value="Under Treatment">Under Treatment</option>
-                  <option value="Needs Attention">Needs Attention</option>
-                </select>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Health Report / Vaccination Card</label>
+                <div className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg bg-slate-50">
+                  <input
+                    type="file"
+                    accept=".pdf,image/*,.doc,.docx"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        setFormHealthReportFile(e.target.files[0]);
+                      }
+                    }}
+                    id="schedulingHealthReport"
+                    className="hidden"
+                  />
+                  <label
+                    htmlFor="schedulingHealthReport"
+                    className="px-3 py-1.5 bg-white border border-slate-300 rounded text-xs font-semibold text-slate-700 cursor-pointer hover:bg-slate-100"
+                  >
+                    Upload File
+                  </label>
+                  {formHealthReportFile ? (
+                    <span className="text-xs text-slate-600 font-medium truncate">{formHealthReportFile.name}</span>
+                  ) : (
+                    <span className="text-xs text-slate-400">PDF, JPG, PNG, DOC (Optional)</span>
+                  )}
+                </div>
               </div>
 
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">Profile Picture (Optional)</label>
                 <div className="flex items-center gap-4 p-3 bg-slate-50 rounded-xl border border-slate-200">
-                  <img 
+                  <img
                     src={
-                      formImageFile 
-                        ? URL.createObjectURL(formImageFile) 
+                      formImageFile
+                        ? URL.createObjectURL(formImageFile)
                         : (SPECIES_IMAGES[addAnimalForm.species] || SPECIES_IMAGES.Other)
                     }
-                    alt="Preview" 
+                    alt="Preview"
                     className="w-16 h-16 rounded-xl object-cover border border-slate-200 bg-white"
                   />
                   <div className="flex-1 space-y-1">
-                    <input 
-                      type="file" 
+                    <input
+                      type="file"
                       accept="image/*"
                       onChange={(e) => {
                         if (e.target.files && e.target.files[0]) {
@@ -1163,7 +1420,7 @@ export default function Scheduling() {
                       id="animalImageUploadScheduling"
                       className="hidden"
                     />
-                    <label 
+                    <label
                       htmlFor="animalImageUploadScheduling"
                       className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 rounded-lg text-xs font-bold shadow-xs cursor-pointer active:scale-95 transition-all"
                     >

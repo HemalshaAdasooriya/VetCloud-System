@@ -19,9 +19,9 @@ export default function RegisterPage() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
-    
-    const [numberOfAnimals, setNumberOfAnimals] = useState(""); 
-    
+
+    const [numberOfAnimals, setNumberOfAnimals] = useState("");
+
     const [license, setLicense] = useState("");
     const [specialization, setSpecialization] = useState("");
     const [experience, setExperience] = useState("");
@@ -41,6 +41,9 @@ export default function RegisterPage() {
     const [profileImage, setProfileImage] = useState(null);
     const [previewUrl, setPreviewUrl] = useState(null);
     const fileInputRef = useRef(null);
+
+    // Doctor approval popup modal state
+    const [showApprovalModal, setShowApprovalModal] = useState(false);
 
     // Password validation states
     const [passwordTouched, setPasswordTouched] = useState(false);
@@ -65,7 +68,7 @@ export default function RegisterPage() {
         if (/[0-9]/.test(password) && /[^A-Za-z0-9]/.test(password)) strength += 1;
         return strength;
     };
-    
+
     const strength = getPasswordStrength();
     const passwordErrors = validatePassword(password);
     const isPasswordValid = passwordErrors.length === 0 && password.length > 0;
@@ -74,30 +77,59 @@ export default function RegisterPage() {
     // GOOGLE HANDLER
     const handleGoogleSuccess = async (credentialResponse) => {
         console.log("handleGoogleSuccess (register) triggered. credentialResponse:", credentialResponse);
+
+        // Validation for Veterinary Doctors: Contact Number and Professional Details are required for admin approval
+        if (role === 'vet') {
+            if (!phone || !/^[0-9]{10}$/.test(phone)) {
+                setSubmitMessage({ text: "Please enter a valid 10-digit Contact Number before registering with Google.", isError: true });
+                toast.error("Contact Number must contain exactly 10 digits.");
+                return;
+            }
+            if (!license || !specialization || !experience || !fee) {
+                setSubmitMessage({ text: "Please fill in all Professional Details (License Number, Specialization, Experience, Consultation Fee) before registering with Google.", isError: true });
+                toast.error("Professional details are required for administrator approval.");
+                return;
+            }
+        }
+
         setIsLoading(true);
         const backendRole = role === 'user' ? "Farmer/PetOwner" : "Veterinary Doctor";
-        
+
         try {
             console.log("Sending token to backend at:", `${import.meta.env.VITE_BACKEND_URL}/api/users/google-login`);
+            const payload = {
+                token: credentialResponse.access_token,
+                role: backendRole,
+                contact_No: phone,
+                license_number: license,
+                specialization: specialization,
+                years_of_experience: experience,
+                consultation_fee: fee
+            };
+
             const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/google-login`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ token: credentialResponse.access_token, role: backendRole })
+                body: JSON.stringify(payload)
             });
             const data = await response.json();
             console.log("Backend response status:", response.status, "data:", data);
-            
-            if (response.ok) {
-                toast.success("Google Authentication Successful!");
-                if (data.token) localStorage.setItem("token", data.token);
-                if (data.user) localStorage.setItem("user", JSON.stringify(data.user));
 
-                const finalRole = data.user?.role || (role === 'user' ? 'farmer' : 'doctor');
-                if (finalRole === 'farmer') {
-                    navigate("/dashboard/user");
-                } else if (finalRole === 'doctor') {
-                    navigate("/dashboard/doctor");
-                } 
+            if (response.ok || data.isPendingApproval) {
+                if (data.isPendingApproval || role === 'vet' || (data.message && data.message.includes("administrator approval"))) {
+                    setShowApprovalModal(true);
+                } else {
+                    toast.success("Google Authentication Successful!");
+                    if (data.token) localStorage.setItem("token", data.token);
+                    if (data.user) localStorage.setItem("user", JSON.stringify(data.user));
+
+                    const finalRole = data.user?.role || (role === 'user' ? 'farmer' : 'doctor');
+                    if (finalRole === 'farmer') {
+                        navigate("/dashboard/user");
+                    } else if (finalRole === 'doctor') {
+                        navigate("/dashboard/doctor");
+                    }
+                }
             } else {
                 setSubmitMessage({ text: data.message || "Google registration failed", isError: true });
             }
@@ -111,13 +143,13 @@ export default function RegisterPage() {
 
     // STANDARD REGISTRATION HANDLER
     const handleSubmit = async (e) => {
-        e.preventDefault(); 
+        e.preventDefault();
 
         // Validate password before submission
         if (!isPasswordValid) {
-            setSubmitMessage({ 
-                text: "Please ensure your password meets all requirements.", 
-                isError: true 
+            setSubmitMessage({
+                text: "Please ensure your password meets all requirements.",
+                isError: true
             });
             setPasswordTouched(true);
             return;
@@ -129,8 +161,33 @@ export default function RegisterPage() {
             return;
         }
 
-        setIsLoading(true); 
-        setSubmitMessage({ text: "", isError: false }); 
+        // Email structure validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            setSubmitMessage({ text: "Please enter a valid email address (e.g., user@example.com).", isError: true });
+            toast.error("Please enter a valid email address.");
+            return;
+        }
+
+        // Contact Number structure validation (must be exactly 10 digits)
+        const phoneRegex = /^[0-9]{10}$/;
+        if (!phone || !phoneRegex.test(phone)) {
+            setSubmitMessage({ text: "Contact Number must contain exactly 10 numeric digits.", isError: true });
+            toast.error("Contact Number must contain exactly 10 digits.");
+            return;
+        }
+
+        // Additional mandatory validation for Veterinary Doctors
+        if (role === 'vet') {
+            if (!license || license.trim() === '' || !specialization || specialization.trim() === '' || experience === '' || fee === '') {
+                setSubmitMessage({ text: "All Professional Details (License Number, Specialization, Years of Experience, Consultation Fee) are required for Veterinary Doctor registration.", isError: true });
+                toast.error("All Professional Details are required for Veterinary Doctor registration.");
+                return;
+            }
+        }
+
+        setIsLoading(true);
+        setSubmitMessage({ text: "", isError: false });
 
         const backendRole = role === 'user' ? "Farmer/PetOwner" : "Veterinary Doctor";
         const formData = new FormData();
@@ -167,15 +224,17 @@ export default function RegisterPage() {
 
             const result = await response.json();
             if (response.status === 201 || response.status === 200) {
-                toast.success("Account created successfully!");
-                if (result.token) localStorage.setItem("token", result.token);
-                if (result.user) localStorage.setItem("user", JSON.stringify(result.user));
-                if (result.user && result.user.id) localStorage.setItem("userId", result.user.id);
+                if (role === 'vet' || result.isPendingApproval || (result.message && result.message.includes("administrator approval"))) {
+                    setShowApprovalModal(true);
+                } else {
+                    toast.success("Account created successfully!");
+                    if (result.token) localStorage.setItem("token", result.token);
+                    if (result.user) localStorage.setItem("user", JSON.stringify(result.user));
+                    if (result.user && result.user.id) localStorage.setItem("userId", result.user.id);
 
-                if (role === 'user') {
-                    navigate("/dashboard/user");
-                } else if (role === 'vet') {
-                    navigate("/dashboard/doctor");
+                    if (role === 'user') {
+                        navigate("/dashboard/user");
+                    }
                 }
             } else {
                 setSubmitMessage({ text: result.message || "Registration failed", isError: true });
@@ -183,7 +242,7 @@ export default function RegisterPage() {
         } catch {
             setSubmitMessage({ text: "Server connection failed.", isError: true });
         } finally {
-            setIsLoading(false); 
+            setIsLoading(false);
         }
     };
 
@@ -195,18 +254,18 @@ export default function RegisterPage() {
                     {/* logo */}
                     <Link to="/" className="flex items-center gap-2 group mb-10 w-fit">
                         <div>
-                            <img src="/public/Logo.png" alt="Logo" className="w-[50px] h-[35px] mr-1 object-fill" />
+                            <img src="https://fmuznyrfnjdwxbqsdijw.supabase.co/storage/v1/object/public/uploads/Logo.png" alt="Logo" className="w-[50px] h-[35px] mr-1 object-fill" />
                         </div>
                         <span className="text-2xl font-bold text-slate-800 tracking-tight">VetCloud</span>
                     </Link>
-                    
+
                     <div>
                         <h1 className="text-3xl font-bold text-slate-900 mb-2">Create an Account</h1>
                         <p className="text-slate-500 mb-8">Join VetCloud to access professional veterinary care.</p>
                     </div>
 
                     <form className="space-y-8" onSubmit={handleSubmit}>
-                        
+
                         {submitMessage.text && (
                             <div className={`p-4 rounded-xl text-sm font-bold ${submitMessage.isError ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
                                 {submitMessage.text}
@@ -222,7 +281,7 @@ export default function RegisterPage() {
                                     <User size={32} className={`mb-2 ${role === 'user' ? 'text-green-600' : 'text-slate-400'}`} />
                                     <span className={`font-semibold ${role === 'user' ? 'text-green-800' : 'text-slate-600'}`}>Pet Owner / Farmer</span>
                                 </label>
-                                
+
                                 <label className={`cursor-pointer flex flex-col items-center p-4 border-2 rounded-2xl transition-all duration-300 active:scale-95 ${role === 'vet' ? 'border-blue-600 bg-blue-50' : 'border-slate-200 hover:border-blue-200 bg-white'}`}>
                                     <input type="radio" name="role" value="vet" checked={role === 'vet'} onChange={() => setRole('vet')} className="sr-only" />
                                     <Stethoscope size={32} className={`mb-2 ${role === 'vet' ? 'text-blue-600' : 'text-slate-400'}`} />
@@ -231,28 +290,8 @@ export default function RegisterPage() {
                             </div>
                         </div>
 
-                        <div className="h-px w-full bg-slate-100" />
 
-                        {/* SOCIAL OAUTH BUTTONS AREA */}
-                        <div className="space-y-4">
-                            <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
-                                <CustomGoogleButton 
-                                    onSuccess={handleGoogleSuccess}
-                                    onError={() => setSubmitMessage({ text: "Google Authentication failed.", isError: true })}
-                                    isLoading={isLoading}
-                                />
-                            </GoogleOAuthProvider>
-                        </div>
 
-                        <div className="relative">
-                            <div className="absolute inset-0 flex items-center">
-                                <div className="w-full border-t border-slate-200"></div>
-                            </div>
-                            <div className="relative flex justify-center text-sm">
-                                <span className="px-4 bg-white text-slate-500 font-medium">Or continue with email</span>
-                            </div>
-                        </div>
-                        
                         {/* 2. Basic Information */}
                         <div className="space-y-5">
                             <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
@@ -265,23 +304,23 @@ export default function RegisterPage() {
                                     <label className="block text-sm font-medium text-slate-700 mb-1.5">First Name</label>
                                     <div className="relative">
                                         <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                                        <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="John" required className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" />
+                                        <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="John" required className={`w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 ${role === 'vet' ? 'focus:ring-blue-500' : 'focus:ring-green-500'}`} />
                                     </div>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1.5">Last Name</label>
                                     <div className="relative">
                                         <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                                        <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Doe" required className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" />
+                                        <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Doe" required className={`w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 ${role === 'vet' ? 'focus:ring-blue-500' : 'focus:ring-green-500'}`} />
                                     </div>
                                 </div>
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1.5">Contact Number</label>
+                                <label className="block text-sm font-medium text-slate-700 mb-1.5">Contact Number (10 digits)</label>
                                 <div className="relative">
                                     <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                                    <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))} placeholder="0712345678" pattern="[0-9]{10}" required className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" />
+                                    <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))} maxLength={10} placeholder="0712345678" pattern="[0-9]{10}" required className={`w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 ${role === 'vet' ? 'focus:ring-blue-500' : 'focus:ring-green-500'}`} />
                                 </div>
                             </div>
 
@@ -289,7 +328,7 @@ export default function RegisterPage() {
                                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Email Address</label>
                                 <div className="relative">
                                     <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                                    <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="john@example.com" required className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" />
+                                    <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="john@example.com" required className={`w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 ${role === 'vet' ? 'focus:ring-blue-500' : 'focus:ring-green-500'}`} />
                                 </div>
                             </div>
 
@@ -299,30 +338,29 @@ export default function RegisterPage() {
                                     <label className="block text-sm font-medium text-slate-700 mb-1.5">Password</label>
                                     <div className="relative">
                                         <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                                        <input 
-                                            type={showPassword ? "text" : "password"} 
-                                            value={password} 
-                                            onChange={(e) => setPassword(e.target.value)} 
+                                        <input
+                                            type={showPassword ? "text" : "password"}
+                                            value={password}
+                                            onChange={(e) => setPassword(e.target.value)}
                                             onBlur={() => setPasswordTouched(true)}
-                                            placeholder="••••••••" 
-                                            required 
-                                            className={`w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] pr-[40px] p-[10px] text-[14px] focus:outline-none focus:ring-2 ${
-                                                passwordTouched && !isPasswordValid 
-                                                    ? 'border-red-500 focus:ring-red-500' 
-                                                    : passwordTouched && isPasswordValid
+                                            placeholder="••••••••"
+                                            required
+                                            className={`w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] pr-[40px] p-[10px] text-[14px] focus:outline-none focus:ring-2 ${passwordTouched && !isPasswordValid
+                                                ? 'border-red-500 focus:ring-red-500'
+                                                : passwordTouched && isPasswordValid
                                                     ? 'border-green-500 focus:ring-green-500'
-                                                    : 'border-gray-300 focus:ring-green-500'
-                                            }`}
+                                                    : `border-gray-300 ${role === 'vet' ? 'focus:ring-blue-500' : 'focus:ring-green-500'}`
+                                                }`}
                                         />
-                                        <button 
-                                            type="button" 
-                                            onClick={() => setShowPassword(!showPassword)} 
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword(!showPassword)}
                                             className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none"
                                         >
                                             {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                                         </button>
                                     </div>
-                                    
+
                                     {/* Password Strength Bar */}
                                     {password && (
                                         <div className="mt-2 flex gap-1 h-1.5 w-full">
@@ -343,7 +381,7 @@ export default function RegisterPage() {
                                             ))}
                                         </div>
                                     )}
-                                    
+
                                     {passwordTouched && isPasswordValid && (
                                         <div className="mt-3 flex items-center gap-2 text-xs text-green-600">
                                             <CheckCircle2 className="h-3 w-3" />
@@ -357,30 +395,29 @@ export default function RegisterPage() {
                                     <label className="block text-sm font-medium text-slate-700 mb-1.5">Confirm Password</label>
                                     <div className="relative">
                                         <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                                        <input 
-                                            type={showConfirmPassword ? "text" : "password"} 
-                                            value={confirmPassword} 
+                                        <input
+                                            type={showConfirmPassword ? "text" : "password"}
+                                            value={confirmPassword}
                                             onChange={(e) => setConfirmPassword(e.target.value)}
-                                            onBlur={() => setConfirmPasswordTouched(true)} 
-                                            placeholder="••••••••" 
-                                            required 
-                                            className={`w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] pr-[40px] p-[10px] text-[14px] focus:outline-none focus:ring-2 ${
-                                                confirmPasswordTouched && confirmPassword.length > 0 && !doPasswordsMatch
-                                                    ? 'border-red-500 focus:ring-red-500'
-                                                    : confirmPasswordTouched && doPasswordsMatch
+                                            onBlur={() => setConfirmPasswordTouched(true)}
+                                            placeholder="••••••••"
+                                            required
+                                            className={`w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] pr-[40px] p-[10px] text-[14px] focus:outline-none focus:ring-2 ${confirmPasswordTouched && confirmPassword.length > 0 && !doPasswordsMatch
+                                                ? 'border-red-500 focus:ring-red-500'
+                                                : confirmPasswordTouched && doPasswordsMatch
                                                     ? 'border-green-500 focus:ring-green-500'
-                                                    : 'border-gray-300 focus:ring-green-500'
-                                            }`}
+                                                    : `border-gray-300 ${role === 'vet' ? 'focus:ring-blue-500' : 'focus:ring-green-500'}`
+                                                }`}
                                         />
-                                        <button 
-                                            type="button" 
-                                            onClick={() => setShowConfirmPassword(!showConfirmPassword)} 
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                                             className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none"
                                         >
                                             {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                                         </button>
                                     </div>
-                                    
+
                                     {/* Confirm Password Match Indicator */}
                                     {confirmPasswordTouched && confirmPassword.length > 0 && (
                                         <div className="mt-3 flex items-center gap-2 text-xs">
@@ -398,11 +435,11 @@ export default function RegisterPage() {
                                         </div>
                                     )}
                                 </div>
-                            </div>  
+                            </div>
                         </div>
 
                         <div className="h-px w-full bg-slate-100" />
-                        
+
                         {/* 3. Conditional Fields */}
                         <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
                             <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
@@ -412,35 +449,35 @@ export default function RegisterPage() {
 
                             {role === 'user' ? (
                                 <>
-                                <div className="space-y-4 mb-5">
-                                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Farm/Home Address</label>
-                                    
-                                    <div className="relative">
-                                        <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                                        <input type="text" value={street} onChange={(e) => setStreet(e.target.value)} placeholder="Street Address (e.g., 123 Farm Road)" required className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" />
-                                    </div>
+                                    <div className="space-y-4 mb-5">
+                                        <label className="block text-sm font-medium text-slate-700 mb-1.5">Farm/Home Address</label>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <input type="text" value={city} onChange={(e) => setCity(e.target.value)} placeholder="City" required className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm px-[15px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" />
-                                        <input type="text" value={state} onChange={(e) => setState(e.target.value)} placeholder="State / Province" required className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm px-[15px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" />
-                                    </div>
+                                        <div className="relative">
+                                            <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                                            <input type="text" value={street} onChange={(e) => setStreet(e.target.value)} placeholder="Street Address (e.g., 123 Farm Road)" required className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm pl-[40px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" />
+                                        </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <input type="text" value={zip} onChange={(e) => setZip(e.target.value)} placeholder="ZIP / Postal Code" required className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm px-[15px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" />
-                                        <input type="text" value={country} onChange={(e) => setCountry(e.target.value)} placeholder="Country" required className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm px-[15px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" />
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <input type="text" value={city} onChange={(e) => setCity(e.target.value)} placeholder="City" required className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm px-[15px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" />
+                                            <input type="text" value={state} onChange={(e) => setState(e.target.value)} placeholder="State / Province" required className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm px-[15px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" />
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <input type="text" value={zip} onChange={(e) => setZip(e.target.value)} placeholder="ZIP / Postal Code" required className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm px-[15px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" />
+                                            <input type="text" value={country} onChange={(e) => setCountry(e.target.value)} placeholder="Country" required className="w-full h-[50px] rounded-[14px] border-[1px] shadow-sm px-[15px] border-gray-300 p-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-green-500" />
+                                        </div>
                                     </div>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Approximate Number of Animals (Optional)</label>
-                                    <input 
-                                        type="number" 
-                                        value={numberOfAnimals} 
-                                        onChange={(e) => setNumberOfAnimals(e.target.value)} 
-                                        placeholder="e.g., 20" 
-                                        onWheel={(e) => e.target.blur()}
-                                        className="w-full h-12 rounded-xl border border-slate-300 bg-transparent pl-4 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" 
-                                    />
-                                </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-1.5">Approximate Number of Animals (Optional)</label>
+                                        <input
+                                            type="number"
+                                            value={numberOfAnimals}
+                                            onChange={(e) => setNumberOfAnimals(e.target.value)}
+                                            placeholder="e.g., 20"
+                                            onWheel={(e) => e.target.blur()}
+                                            className="w-full h-12 rounded-xl border border-slate-300 bg-transparent pl-4 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                                        />
+                                    </div>
                                 </>
                             ) : (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -488,15 +525,15 @@ export default function RegisterPage() {
                             {/* Profile Picture Upload */}
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Profile Picture (Optional)</label>
-                                <div 
+                                <div
                                     onClick={() => fileInputRef.current.click()}
                                     className="border-2 border-dashed border-slate-200 rounded-xl p-6 flex flex-col items-center justify-center text-center hover:border-slate-300 transition-colors cursor-pointer bg-slate-50 relative overflow-hidden"
                                 >
-                                    <input 
-                                        type="file" 
-                                        ref={fileInputRef} 
+                                    <input
+                                        type="file"
+                                        ref={fileInputRef}
                                         accept="image/*"
-                                        className="hidden" 
+                                        className="hidden"
                                         onChange={(e) => {
                                             const file = e.target.files[0];
                                             if (file) {
@@ -505,7 +542,7 @@ export default function RegisterPage() {
                                             }
                                         }}
                                     />
-                                    
+
                                     {previewUrl ? (
                                         <img src={previewUrl} alt="Preview" className="h-24 w-24 object-cover rounded-full shadow-sm mb-3 z-10" />
                                     ) : (
@@ -513,7 +550,7 @@ export default function RegisterPage() {
                                             <Camera className="h-6 w-6 text-slate-400" />
                                         </div>
                                     )}
-                                    
+
                                     <p className="text-sm font-medium text-slate-700">Click to upload photo</p>
                                 </div>
                             </div>
@@ -524,29 +561,54 @@ export default function RegisterPage() {
                             <label className="flex items-start gap-3 mb-6 cursor-pointer group">
                                 <div className="relative flex items-center justify-center mt-0.5">
                                     <input type="checkbox" required className="peer sr-only" />
-                                    <div className="w-5 h-5 border-2 border-slate-300 rounded peer-checked:bg-green-600 peer-checked:border-green-600 transition-colors"></div>
+                                    <div className={`w-5 h-5 border-2 border-slate-300 rounded transition-colors ${role === 'vet' ? 'peer-checked:bg-blue-600 peer-checked:border-blue-600' : 'peer-checked:bg-green-600 peer-checked:border-green-600'}`}></div>
                                     <CheckCircle2 className="absolute text-white w-3 h-3 opacity-0 peer-checked:opacity-100 transition-opacity" />
                                 </div>
                                 <span className="text-sm text-slate-600 leading-relaxed">
-                                    I agree to the <Link to="#" className="text-green-600 font-semibold hover:underline">Terms & Conditions</Link> and <Link to="#" className="text-green-600 font-semibold hover:underline">Privacy Policy</Link>, and consent to the processing of my data.
+                                    I agree to the <Link to="#" className={`font-semibold hover:underline ${role === 'vet' ? 'text-blue-600' : 'text-green-600'}`}>Terms & Conditions</Link> and <Link to="#" className={`font-semibold hover:underline ${role === 'vet' ? 'text-blue-600' : 'text-green-600'}`}>Privacy Policy</Link>, and consent to the processing of my data.
                                 </span>
                             </label>
 
-                            <button 
-                                type="submit" 
+                            <button
+                                type="submit"
                                 disabled={isLoading || !isPasswordValid || !doPasswordsMatch}
-                                className={`w-full h-14 rounded-xl text-lg text-white shadow-sm flex items-center justify-center gap-2 transition-all duration-200 active:scale-95 ${
-                                    role === 'vet' 
-                                    ? 'bg-blue-600 hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2' 
+                                className={`w-full h-14 rounded-xl text-lg text-white shadow-sm flex items-center justify-center gap-2 transition-all duration-200 active:scale-95 ${role === 'vet'
+                                    ? 'bg-blue-600 hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
                                     : 'bg-green-600 hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-offset-2'
-                                } ${(isLoading || !isPasswordValid || !doPasswordsMatch) ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                    } ${(isLoading || !isPasswordValid || !doPasswordsMatch) ? 'opacity-70 cursor-not-allowed' : ''}`}
                             >
                                 {isLoading ? (
                                     "Creating Account..."
                                 ) : (
                                     "Create Account"
                                 )}
-                            </button> 
+                            </button>
+                        </div>
+
+                        {/* SOCIAL OAUTH BUTTONS AREA */}
+                        <div className="pt-4 space-y-4">
+                            <div className="relative">
+                                <div className="absolute inset-0 flex items-center">
+                                    <div className="w-full border-t border-slate-200"></div>
+                                </div>
+                                <div className="relative flex justify-center text-sm">
+                                    <span className="px-4 bg-white text-slate-500 font-medium">Or continue with</span>
+                                </div>
+                            </div>
+
+                            {role === 'vet' && (
+                                <p className="text-xs text-blue-700 bg-blue-50 border border-blue-200 p-3 rounded-xl text-center">
+                                    <strong>Note for Doctors:</strong> Please complete your Contact Number and Professional Details above before continuing with Google for administrator verification.
+                                </p>
+                            )}
+
+                            <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
+                                <CustomGoogleButton
+                                    onSuccess={handleGoogleSuccess}
+                                    onError={() => setSubmitMessage({ text: "Google Authentication failed.", isError: true })}
+                                    isLoading={isLoading}
+                                />
+                            </GoogleOAuthProvider>
                         </div>
                     </form>
 
@@ -562,9 +624,9 @@ export default function RegisterPage() {
             {/* Right Side - Image / Illustration */}
             <div className="hidden xl:flex xl:w-5/12 relative bg-slate-900 overflow-hidden">
                 <div className={`absolute inset-0 bg-gradient-to-br mix-blend-multiply z-10 ${role === 'vet' ? 'from-blue-600/80 to-slate-900/90' : 'from-green-600/80 to-blue-900/90'}`} />
-                <img 
-                    src={role === 'vet' ? "/public/vetcat.jpg" : "https://images.unsplash.com/photo-1544568100-847a948585b9?q=80&w=1974&auto=format&fit=crop"} 
-                    alt="Veterinary Care" 
+                <img
+                    src={role === 'vet' ? "https://fmuznyrfnjdwxbqsdijw.supabase.co/storage/v1/object/public/uploads/vetcat.jpg" : "https://fmuznyrfnjdwxbqsdijw.supabase.co/storage/v1/object/public/uploads/vetdog.avif"}
+                    alt="Veterinary Care"
                     className="absolute inset-0 w-full h-full object-cover"
                 />
                 <div className="relative z-20 flex flex-col justify-center p-16 text-white h-full">
@@ -592,7 +654,29 @@ export default function RegisterPage() {
                         )}
                     </div>
                 </div>
-            </div>  
+            </div>
+
+            {/* Approval Success Modal Overlay */}
+            {showApprovalModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl text-center flex flex-col items-center animate-in zoom-in-95 duration-200">
+                        <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-5">
+                            <CheckCircle2 size={36} />
+                        </div>
+                        <h3 className="text-2xl font-bold text-slate-900 mb-3">Registration Submitted!</h3>
+                        <p className="text-slate-600 text-base leading-relaxed mb-8">
+                            Please wait for administrator approval. Thank you.
+                        </p>
+                        <button
+                            type="button"
+                            onClick={() => navigate('/login')}
+                            className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center cursor-pointer"
+                        >
+                            Go to Login Page
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

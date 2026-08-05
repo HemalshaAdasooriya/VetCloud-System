@@ -25,8 +25,9 @@ export default function UserAppoinment() {
 
   const fetchAppointments = async () => {
     try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
       const res = await axios.get(
-        `http://localhost:5000/api/appointments/owner/${user.id}`
+        `${backendUrl}/api/appointments/owner/${user.id}`
       );
       setAppointments(res.data);
     } catch (err) {

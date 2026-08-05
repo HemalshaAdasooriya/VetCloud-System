@@ -28,6 +28,10 @@ import DiseasesPage from './Pages/diseasesPage'
 import MyAnimalsPage from './Pages/myAnimalsPage'
 import UserClinics from './Pages/userClinics'
 import UserDiseases from './Pages/userDiseases'
+import HelpCenterPage from './Pages/HelpCenterPage'
+import ContactUsPage from './Pages/ContactUsPage'
+import PrivacyPolicyPage from './Pages/PrivacyPolicyPage'
+import TermsOfServicePage from './Pages/TermsOfServicePage'
 
 function App() {
   
@@ -45,6 +49,10 @@ function App() {
             <Route path= '/consultation' element={<ConsultationRequest />}/>
             <Route path= '/diseases' element={<DiseasesPage />}/>
             <Route path= '/clinics' element={<ClinicsPage />}/>
+            <Route path= '/help' element={<HelpCenterPage />}/>
+            <Route path= '/contact' element={<ContactUsPage />}/>
+            <Route path= '/privacy' element={<PrivacyPolicyPage />}/>
+            <Route path= '/terms' element={<TermsOfServicePage />}/>
 
             <Route path='/dashboard/*' element={<DashboardLayout />}>
               <Route path='user/*' element={<FarmerDashboard />} />

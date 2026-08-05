@@ -13,14 +13,18 @@ import paymentRouter from "./routes/paymentRouter.js";
 import vetAppointmentRouter from "./routes/vetAppointmentRouter.js";
 import { initializeNotificationTables } from "./models/Notification.js";
 import { initializePaymentSettingsTable } from "./models/Setting.js";
+import { initializeDiseasesTable } from "./models/Disease.js";
 import notificationRouter from "./routes/notificationRouter.js";
 import { startReminderScheduler } from "./config/scheduler.js";
 import adminRouter from "./routes/adminRouter.js";
 import scheduleRouter from "./routes/scheduleRouter.js";
+import { seedAdminAuto } from "./seedAdmin.js";
 
-// Create notifications table on startup
+// Create notifications table and seed admin on startup
 initializeNotificationTables();
 initializePaymentSettingsTable();
+initializeDiseasesTable();
+seedAdminAuto();
 
 const app = express();
 const server = http.createServer(app);
@@ -41,11 +45,18 @@ io.on("connection", (socket) => {
       // Socket room registration for real-time alerts
     socket.on("register", (data) => {
         if (data && data.userId && data.role) {
-            const roomName = `${data.role}_${data.userId}`;
-            socket.join(roomName);
-            console.log(`Socket client registered and joined room: ${roomName}`);
+            const userId = data.userId;
+            const r = String(data.role).toLowerCase();
+            let rooms = [`${data.role}_${userId}`];
+            if (r.includes('farmer') || r.includes('owner') || r.includes('pet')) {
+                rooms = [`farmer_${userId}`, `Farmer/PetOwner_${userId}`, `Farmer_${userId}`];
+            } else if (r.includes('doctor') || r.includes('vet')) {
+                rooms = [`doctor_${userId}`, `Veterinary Doctor_${userId}`, `Doctor_${userId}`];
+            }
+            rooms.forEach(roomName => socket.join(roomName));
+            console.log(`Socket client (${socket.id}) registered and joined rooms: ${rooms.join(', ')}`);
         }
-    });//isuri-notification
+    });
 
     // Chat Room Events
     socket.on("join-chat-room", ({ appointmentId }) => {
@@ -101,7 +112,28 @@ io.on("connection", (socket) => {
 // Start Background Reminder Checks
 startReminderScheduler(io);
 
-app.use(cors());
+const allowedOrigins = [
+    process.env.CLIENT_URL,
+    process.env.FRONTEND_URL,
+    "https://vet-cloud-system.vercel.app",
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://localhost:5000"
+].filter(Boolean);
+
+app.use(cors({
+    origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+            return callback(null, true);
+        }
+        return callback(null, true);
+    },
+    credentials: true
+}));
+
+// Stripe webhook requires raw body for signature verification
+app.use("/api/payments/webhook", express.raw({ type: 'application/json' }));
 app.use(express.json());
 
 app.use("/api/users", userRouter);

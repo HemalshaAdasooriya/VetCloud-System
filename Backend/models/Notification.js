@@ -174,35 +174,50 @@ export const createNotification = (data, callback) => {
     );
 };
 
+// Helper to get normalized role array for SQL query
+const getRoleVariants = (userRole) => {
+    const r = (userRole || '').toLowerCase();
+    if (r.includes('farmer') || r.includes('owner') || r.includes('pet')) {
+        return ['farmer', 'Farmer/PetOwner', 'pet_owner', 'Farmer'];
+    }
+    if (r.includes('doctor') || r.includes('vet')) {
+        return ['doctor', 'Veterinary Doctor', 'vet', 'Doctor'];
+    }
+    return [userRole];
+};
+
 // Get notifications for a user
 export const getNotificationsByUser = (userId, userRole, callback) => {
+    const roles = getRoleVariants(userRole);
     const sql = `
         SELECT * FROM notifications
-        WHERE user_id = ? AND user_role = ?
+        WHERE user_id = ? AND user_role IN (?)
         ORDER BY created_at DESC
         LIMIT 50
     `;
-    db.query(sql, [userId, userRole], callback);
+    db.query(sql, [userId, roles], callback);
 };
 
 // Mark notification as read
 export const markAsRead = (notificationId, userId, userRole, callback) => {
+    const roles = getRoleVariants(userRole);
     const sql = `
         UPDATE notifications
         SET is_read = 1
-        WHERE id = ? AND user_id = ? AND user_role = ?
+        WHERE id = ? AND user_id = ? AND user_role IN (?)
     `;
-    db.query(sql, [notificationId, userId, userRole], callback);
+    db.query(sql, [notificationId, userId, roles], callback);
 };
 
 // Mark all notifications as read
 export const markAllAsRead = (userId, userRole, callback) => {
+    const roles = getRoleVariants(userRole);
     const sql = `
         UPDATE notifications
         SET is_read = 1
-        WHERE user_id = ? AND user_role = ?
+        WHERE user_id = ? AND user_role IN (?)
     `;
-    db.query(sql, [userId, userRole], callback);
+    db.query(sql, [userId, roles], callback);
 };
 
 // Get vaccination schedules for an owner's animals

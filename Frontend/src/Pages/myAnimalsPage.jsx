@@ -17,13 +17,18 @@ import {
 import toast from "react-hot-toast";
 
 // Default high-quality images based on species
+const SPECIES_WEIGHT_LIMITS = {
+  Cattle: 3000,
+  Dog: 200,
+  Cat: 30,
+  Poultry: 10
+};
+
 const SPECIES_IMAGES = {
   Cattle: "https://images.unsplash.com/photo-1570042225831-d98fa7577f1e?auto=format&fit=crop&q=80&w=600",
   Dog: "https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&q=80&w=600",
   Poultry: "https://images.unsplash.com/photo-1548550023-2bdb3c5beed7?auto=format&fit=crop&q=80&w=600",
   Cat: "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?auto=format&fit=crop&q=80&w=600",
-  Horse: "https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&q=80&w=600",
-  Sheep: "https://images.unsplash.com/photo-1484557985045-edf25e08da73?auto=format&fit=crop&q=80&w=600",
   Other: "https://images.unsplash.com/photo-1535268647977-a403b69fc756?auto=format&fit=crop&q=80&w=600"
 };
 
@@ -39,17 +44,49 @@ export default function MyAnimalsPage() {
   const [sortBy, setSortBy] = useState("name-asc");
   const [showFilterPanel, setShowFilterPanel] = useState(false);
 
+  // Helper functions for Age parsing and formatting
+  const parseAge = (ageStr) => {
+    if (!ageStr) return { years: 0, months: 0, days: 0 };
+    let years = 0, months = 0, days = 0;
+    const yearsMatch = String(ageStr).match(/(\d+)\s*Years?/i);
+    const monthsMatch = String(ageStr).match(/(\d+)\s*Months?/i);
+    const daysMatch = String(ageStr).match(/(\d+)\s*Days?/i);
+    if (yearsMatch) years = parseInt(yearsMatch[1], 10);
+    if (monthsMatch) months = parseInt(monthsMatch[1], 10);
+    if (daysMatch) days = parseInt(daysMatch[1], 10);
+    if (!yearsMatch && !monthsMatch && !daysMatch && !isNaN(parseInt(ageStr, 10))) {
+      years = parseInt(ageStr, 10);
+    }
+    return { years, months, days };
+  };
+
+  const formatAge = (years, months, days) => {
+    const parts = [];
+    const y = parseInt(years, 10) || 0;
+    const m = parseInt(months, 10) || 0;
+    const d = parseInt(days, 10) || 0;
+    if (y > 0) parts.push(`${y} ${y === 1 ? 'Year' : 'Years'}`);
+    if (m > 0) parts.push(`${m} ${m === 1 ? 'Month' : 'Months'}`);
+    if (d > 0) parts.push(`${d} ${d === 1 ? 'Day' : 'Days'}`);
+    if (parts.length === 0) return "0 Days";
+    return parts.join(", ");
+  };
+
   // Form State
   const [showFormModal, setShowFormModal] = useState(false);
   const [editingAnimal, setEditingAnimal] = useState(null);
   const [formName, setFormName] = useState("");
   const [formSpecies, setFormSpecies] = useState("Cattle");
   const [formBreed, setFormBreed] = useState("");
-  const [formAge, setFormAge] = useState("");
+  const [formAgeYears, setFormAgeYears] = useState(0);
+  const [formAgeMonths, setFormAgeMonths] = useState(0);
+  const [formAgeDays, setFormAgeDays] = useState(0);
   const [formWeight, setFormWeight] = useState("");
   const [formStatus, setFormStatus] = useState("Healthy");
   const [formImage, setFormImage] = useState("");
   const [formImageFile, setFormImageFile] = useState(null);
+  const [formHealthReport, setFormHealthReport] = useState("");
+  const [formHealthReportFile, setFormHealthReportFile] = useState(null);
 
   // History State
   const [showHistoryModal, setShowHistoryModal] = useState(false);
@@ -96,17 +133,6 @@ export default function MyAnimalsPage() {
     fetchAnimals();
   }, [ownerId]);
 
-  useEffect(() => {
-    if (animals.length > 0 && location.state?.selectedAnimalId) {
-      const targetAnimalId = location.state.selectedAnimalId;
-      const animal = animals.find(a => a.id === targetAnimalId || String(a.id) === String(targetAnimalId));
-      if (animal) {
-        // Clear history state to prevent reopening on reload
-        window.history.replaceState({}, document.title);
-        handleOpenHistoryModal(animal);
-      }
-    }
-  }, [animals, location.state]);
 
   useEffect(() => {
     if (location.state?.openRegisterModal) {
@@ -122,11 +148,15 @@ export default function MyAnimalsPage() {
     setFormName("");
     setFormSpecies("Cattle");
     setFormBreed("");
-    setFormAge("");
+    setFormAgeYears(0);
+    setFormAgeMonths(0);
+    setFormAgeDays(0);
     setFormWeight("");
     setFormStatus("Healthy");
     setFormImage("");
     setFormImageFile(null);
+    setFormHealthReport("");
+    setFormHealthReportFile(null);
     setShowFormModal(true);
     setActiveMenuId(null);
   };
@@ -137,11 +167,16 @@ export default function MyAnimalsPage() {
     setFormName(animal.name);
     setFormSpecies(animal.species);
     setFormBreed(animal.breed);
-    setFormAge(animal.age);
-    setFormWeight(animal.weight);
+    const parsed = parseAge(animal.age);
+    setFormAgeYears(parsed.years);
+    setFormAgeMonths(parsed.months);
+    setFormAgeDays(parsed.days);
+    setFormWeight(animal.weight ? String(animal.weight) : "");
     setFormStatus(animal.status);
     setFormImage(animal.image || "");
     setFormImageFile(null);
+    setFormHealthReport(animal.health_report || "");
+    setFormHealthReportFile(null);
     setShowFormModal(true);
     setActiveMenuId(null);
   };
@@ -323,28 +358,73 @@ export default function MyAnimalsPage() {
   // Form Submission
   const handleSubmit = async(e) => {
     e.preventDefault();
-    if (!formName.trim() || !formBreed.trim() || !formAge.trim() || !formWeight.trim()) {
-      toast.error("Please fill in all standard fields");
+    if (!formName.trim() || !formBreed.trim() || formWeight === "") {
+      toast.error("Please fill in all required fields");
       return;
     }
+
+    const y = parseInt(formAgeYears, 10) || 0;
+    const m = parseInt(formAgeMonths, 10) || 0;
+    const d = parseInt(formAgeDays, 10) || 0;
+
+    if (y < 0 || y > 100) {
+      toast.error("Age in years must be between 0 and 100");
+      return;
+    }
+    if (m < 0 || m > 11) {
+      toast.error("Months must be between 0 and 11");
+      return;
+    }
+    if (d < 0 || d > 31) {
+      toast.error("Days must be between 0 and 31");
+      return;
+    }
+    if (y === 100 && (m > 0 || d > 0)) {
+      toast.error("Maximum allowed age is 100 years");
+      return;
+    }
+    if (y === 0 && m === 0 && d === 0) {
+      toast.error("Please enter a valid age");
+      return;
+    }
+
+    const wFloat = parseFloat(formWeight);
+    const maxLimit = SPECIES_WEIGHT_LIMITS[formSpecies] || null;
+    if (isNaN(wFloat) || wFloat <= 0 || (maxLimit !== null && wFloat > maxLimit)) {
+      if (maxLimit !== null) {
+        toast.error(`Maximum weight allowed for ${formSpecies} is ${maxLimit} kg (must be greater than 0)`);
+      } else {
+        toast.error("Weight must be a valid number greater than 0");
+      }
+      return;
+    }
+
     if (!ownerId) {
       toast.error("User session expired. Please log in again.");
       return;
     }
+
+    const ageString = formatAge(y, m, d);
 
     const formData = new FormData();
     formData.append("owner_id", ownerId);
     formData.append("name", formName.trim());
     formData.append("species", formSpecies);
     formData.append("breed", formBreed.trim());
-    formData.append("age", formAge.trim());
-    formData.append("weight", formWeight.trim());
+    formData.append("age", ageString);
+    formData.append("weight", wFloat.toString());
     formData.append("status", formStatus);
     
     if (formImageFile) {
       formData.append("image", formImageFile);
     } else {
       formData.append("image", formImage || SPECIES_IMAGES[formSpecies] || SPECIES_IMAGES.Other);
+    }
+
+    if (formHealthReportFile) {
+      formData.append("healthReport", formHealthReportFile);
+    } else if (formHealthReport) {
+      formData.append("health_report", formHealthReport);
     }
 
     try {
@@ -539,8 +619,6 @@ export default function MyAnimalsPage() {
                 <option value="Dog">Dog</option>
                 <option value="Poultry">Poultry</option>
                 <option value="Cat">Cat</option>
-                <option value="Horse">Horse</option>
-                <option value="Sheep">Sheep</option>
               </select>
             </div>
 
@@ -588,7 +666,9 @@ export default function MyAnimalsPage() {
           {filteredAnimals.map((animal) => (
             <div 
               key={animal.id} 
-              className="bg-white rounded-2xl border border-slate-200/60 overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-1.5 transition-all duration-300 flex flex-col group relative"
+              onClick={() => handleOpenHistoryModal(animal)}
+              className="bg-white rounded-2xl border border-slate-200/60 overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-1.5 transition-all duration-300 flex flex-col group relative cursor-pointer"
+              title="Click to view medical history"
             >
               {/* Card Image */}
               <div className="h-44 w-full bg-slate-100 overflow-hidden relative">
@@ -614,7 +694,10 @@ export default function MyAnimalsPage() {
                 </span>
 
                 {/* Options button with dropdown actions */}
-                <div className="absolute top-4 right-4">
+                <div 
+                  className="absolute top-4 right-4 z-20"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <button 
                     onClick={() => setActiveMenuId(activeMenuId === animal.id ? null : animal.id)}
                     className="p-1.5 bg-white/90 hover:bg-white text-slate-600 rounded-full border border-slate-200 shadow-sm focus:outline-none hover:scale-105 active:scale-95 transition-all cursor-pointer"
@@ -627,18 +710,27 @@ export default function MyAnimalsPage() {
                     <>
                       <div 
                         className="fixed inset-0 z-10" 
-                        onClick={() => setActiveMenuId(null)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveMenuId(null);
+                        }}
                       />
                       <div className="absolute right-0 mt-2 w-44 bg-white border border-slate-200 rounded-xl shadow-lg py-1.5 z-20 animate-in fade-in slide-in-from-top-2 duration-150">
                         <button 
-                          onClick={() => handleOpenHistoryModal(animal)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenHistoryModal(animal);
+                          }}
                           className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
                         >
                           <FileText size={15} className="text-slate-400" />
                           Medical History
                         </button>
                         <button 
-                          onClick={() => handleOpenEditModal(animal)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenEditModal(animal);
+                          }}
                           className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
                         >
                           <Pencil size={15} className="text-slate-400" />
@@ -646,7 +738,10 @@ export default function MyAnimalsPage() {
                         </button>
                         <div className="border-t border-slate-100 my-1" />
                         <button 
-                          onClick={() => handleOpenDeleteConfirm(animal.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenDeleteConfirm(animal.id);
+                          }}
                           className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 cursor-pointer"
                         >
                           <Trash2 size={15} className="text-red-400" />
@@ -676,9 +771,11 @@ export default function MyAnimalsPage() {
                   </div>
                   <div>
                     <span className="text-slate-400 block mb-0.5">Weight</span>
-                    <span className="font-semibold text-slate-700">{animal.weight}</span>
+                    <span className="font-semibold text-slate-700">{animal.weight} kg</span>
                   </div>
                 </div>
+
+
 
                 <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
                   <span>Last Visit</span>
@@ -758,8 +855,6 @@ export default function MyAnimalsPage() {
                     <option value="Dog">Dog</option>
                     <option value="Poultry">Poultry</option>
                     <option value="Cat">Cat</option>
-                    <option value="Horse">Horse</option>
-                    <option value="Sheep">Sheep</option>
                     <option value="Other">Other</option>
                   </select>
                 </div>
@@ -777,26 +872,59 @@ export default function MyAnimalsPage() {
                   />
                 </div>
 
-                {/* Age Field */}
-                <div className="space-y-1.5">
+                {/* Age Fields (Years, Months, Days) */}
+                <div className="col-span-2 space-y-1.5">
                   <label className="text-xs font-semibold text-slate-500">Age *</label>
-                  <input 
-                    type="text" 
-                    required 
-                    placeholder="e.g. 4 Years, 6 Months"
-                    value={formAge}
-                    onChange={(e) => setFormAge(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm text-slate-700 focus:ring-1 focus:ring-green-500 focus:border-green-500 focus:outline-none"
-                  />
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <span className="text-[11px] text-slate-400 font-medium block mb-1">Years</span>
+                      <input 
+                        type="number"
+                        min="0"
+                        max="100"
+                        required
+                        value={formAgeYears}
+                        onChange={(e) => setFormAgeYears(Math.min(100, Math.max(0, parseInt(e.target.value, 10) || 0)))}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm text-slate-700 focus:ring-1 focus:ring-green-500 focus:border-green-500 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[11px] text-slate-400 font-medium block mb-1">Months</span>
+                      <input 
+                        type="number"
+                        min="0"
+                        max="11"
+                        required
+                        value={formAgeMonths}
+                        onChange={(e) => setFormAgeMonths(Math.min(11, Math.max(0, parseInt(e.target.value, 10) || 0)))}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm text-slate-700 focus:ring-1 focus:ring-green-500 focus:border-green-500 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[11px] text-slate-400 font-medium block mb-1">Days</span>
+                      <input 
+                        type="number"
+                        min="0"
+                        max="31"
+                        required
+                        value={formAgeDays}
+                        onChange={(e) => setFormAgeDays(Math.min(31, Math.max(0, parseInt(e.target.value, 10) || 0)))}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm text-slate-700 focus:ring-1 focus:ring-green-500 focus:border-green-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 {/* Weight Field */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-slate-500">Weight *</label>
                   <input 
-                    type="text" 
+                    type="number" 
+                    step="0.1"
+                    min="0.1"
+                    max={SPECIES_WEIGHT_LIMITS[formSpecies] || undefined}
                     required 
-                    placeholder="e.g. 650 kg, 32 kg"
+                    placeholder="e.g. 45.5"
                     value={formWeight}
                     onChange={(e) => setFormWeight(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm text-slate-700 focus:ring-1 focus:ring-green-500 focus:border-green-500 focus:outline-none"
@@ -804,7 +932,7 @@ export default function MyAnimalsPage() {
                 </div>
 
                 {/* Health Status */}
-                <div className="col-span-2 space-y-1.5">
+                <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-slate-500">Health Status *</label>
                   <select 
                     value={formStatus}
@@ -815,6 +943,59 @@ export default function MyAnimalsPage() {
                     <option value="Under Treatment">Under Treatment</option>
                     <option value="Sick">Sick</option>
                   </select>
+                </div>
+
+                {/* Health Report / Vaccination Card Uploader */}
+                <div className="col-span-2 space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-500">Health Report / Vaccination Card</label>
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                    <input 
+                      type="file" 
+                      accept=".pdf,image/*,.doc,.docx"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          setFormHealthReportFile(e.target.files[0]);
+                        }
+                      }}
+                      id="healthReportUpload"
+                      className="hidden"
+                    />
+                    <div className="flex items-center gap-3">
+                      <label 
+                        htmlFor="healthReportUpload"
+                        className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 rounded-lg text-xs font-bold shadow-xs cursor-pointer active:scale-95 transition-all"
+                      >
+                        <FileText size={14} />
+                        Upload Health Report / Card
+                      </label>
+                      {formHealthReportFile ? (
+                        <div className="flex items-center gap-2 text-xs text-slate-600 font-medium truncate">
+                          <span>{formHealthReportFile.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => setFormHealthReportFile(null)}
+                            className="text-red-500 font-bold hover:underline"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ) : (formHealthReport ? (
+                        <div className="flex items-center gap-2 text-xs text-emerald-600 font-medium">
+                          <span>Report Uploaded</span>
+                          <a 
+                            href={formHealthReport.startsWith('/uploads') ? `${import.meta.env.VITE_BACKEND_URL}${formHealthReport}` : formHealthReport}
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="underline text-emerald-700 font-bold"
+                          >
+                            View
+                          </a>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-400">PDF, JPG, PNG, DOC (Optional)</span>
+                      ))}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Profile Picture Uploader */}
@@ -910,6 +1091,29 @@ export default function MyAnimalsPage() {
 
             {/* Timeline Record content */}
             <div className="p-6 max-h-[70vh] overflow-y-auto space-y-6">
+              {/* Health Report / Vaccination Card Section */}
+              {selectedHistoryAnimal.health_report && (
+                <div className="bg-emerald-50/80 border border-emerald-200 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-emerald-100 text-emerald-700 rounded-lg shrink-0">
+                      <FileText size={20} />
+                    </div>
+                    <div>
+                      <h4 className="font-extrabold text-slate-800 text-sm">Health Report / Vaccination Card</h4>
+                      <p className="text-xs text-slate-500 font-medium">Uploaded record for {selectedHistoryAnimal.name}</p>
+                    </div>
+                  </div>
+                  <a
+                    href={selectedHistoryAnimal.health_report.startsWith('/uploads') ? `${import.meta.env.VITE_BACKEND_URL}${selectedHistoryAnimal.health_report}` : selectedHistoryAnimal.health_report}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs hover:shadow-md transition-all shrink-0 active:scale-95 cursor-pointer"
+                  >
+                    <FileText size={14} />
+                    View Health Report / Card
+                  </a>
+                </div>
+              )}
              {isLoadingHistory ? (
                 <div className="flex flex-col items-center justify-center py-10 space-y-3">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>

@@ -1,9 +1,93 @@
 import nodemailer from "nodemailer";
+import dns from "dns";
 
-// Helper to send email with robust fallbacks
+// Force Node.js to resolve IPv4 first (fixes Railway IPv6 ENETUNREACH & Connection Timeout errors)
+try {
+    dns.setDefaultResultOrder("ipv4first");
+} catch {
+    // Ignore if not supported in older Node versions
+}
+
+const getFrontendUrl = () => {
+    const rawUrl = process.env.CLIENT_URL || process.env.FRONTEND_URL || process.env.VERCEL_URL || "http://localhost:5173";
+    let url = rawUrl.trim().replace(/\/+$/, '');
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        url = `https://${url}`;
+    }
+    return url;
+};
+
+// Helper to send email with robust fallbacks & HTTP API support for Railway/Cloud hosts
 export const sendEmail = async ({ to, subject, html, text }) => {
-    const emailUser = process.env.EMAIL_USER;
-    const emailPass = process.env.EMAIL_PASS;
+    // 1. HTTP API Provider Fallbacks (Port 443 HTTPS - Never blocked by Railway / cloud firewalls)
+    const resendApiKey = (process.env.RESEND_API_KEY || "").trim();
+    const brevoApiKey = (process.env.BREVO_API_KEY || process.env.SENDINBLUE_API_KEY || "").trim();
+    const senderEmail = (process.env.EMAIL_USER || process.env.SMTP_USER || process.env.GMAIL_USER || "notifications@vetcloud.com").trim();
+
+    // Provider A: Resend HTTP API (https://resend.com)
+    if (resendApiKey) {
+        try {
+            console.log(`[EMAIL DISPATCH] Sending via Resend HTTP API to ${to}...`);
+            const res = await fetch("https://api.resend.com/emails", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${resendApiKey}`
+                },
+                body: JSON.stringify({
+                    from: process.env.RESEND_FROM || "VetCloud <onboarding@resend.dev>",
+                    to: [to],
+                    subject,
+                    html,
+                    text: text || "New notification from VetCloud"
+                })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                console.log(`[EMAIL SUCCESS - RESEND] Sent to ${to}: ${data.id || "OK"}`);
+                return data;
+            }
+            console.error(`[EMAIL RESEND ERROR]`, data);
+        } catch (resendErr) {
+            console.error(`[EMAIL RESEND EXCEPTION]`, resendErr.message || resendErr);
+        }
+    }
+
+    // Provider B: Brevo (Sendinblue) HTTP API (https://brevo.com)
+    if (brevoApiKey) {
+        try {
+            console.log(`[EMAIL DISPATCH] Sending via Brevo HTTP API to ${to}...`);
+            const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "api-key": brevoApiKey
+                },
+                body: JSON.stringify({
+                    sender: { name: "VetCloud Notifications", email: senderEmail },
+                    to: [{ email: to }],
+                    subject,
+                    htmlContent: html,
+                    textContent: text || "New notification from VetCloud"
+                })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                console.log(`[EMAIL SUCCESS - BREVO] Sent to ${to}: ${data.messageId || "OK"}`);
+                return data;
+            }
+            console.error(`[EMAIL BREVO ERROR]`, data);
+        } catch (brevoErr) {
+            console.error(`[EMAIL BREVO EXCEPTION]`, brevoErr.message || brevoErr);
+        }
+    }
+
+    // 2. Standard SMTP Fallback (Nodemailer)
+    const rawUser = process.env.EMAIL_USER || process.env.SMTP_USER || process.env.GMAIL_USER || process.env.MAIL_USER || "";
+    const rawPass = process.env.EMAIL_PASS || process.env.SMTP_PASS || process.env.GMAIL_PASS || process.env.MAIL_PASS || "";
+
+    const emailUser = rawUser.trim().replace(/^["']|["']$/g, '');
+    const emailPass = rawPass.trim().replace(/\s+/g, '').replace(/^["']|["']$/g, '');
 
     if (!emailUser || !emailPass) {
         console.log("=========================================");
@@ -15,13 +99,49 @@ export const sendEmail = async ({ to, subject, html, text }) => {
     }
 
     try {
-        const transporter = nodemailer.createTransport({
-            service: "gmail",
+        const host = process.env.EMAIL_HOST || process.env.SMTP_HOST || "smtp.gmail.com";
+        const customPort = process.env.EMAIL_PORT || process.env.SMTP_PORT;
+        const port = customPort ? parseInt(customPort, 10) : 465;
+        const secure = process.env.EMAIL_SECURE !== undefined
+            ? process.env.EMAIL_SECURE === "true"
+            : (port === 465);
+
+
+        // ===== DEBUG LOGS =====
+        console.log("========== SMTP CONFIG ==========");
+        console.log({
+            host,
+            port,
+            secure,
+            emailUser,
+            hasPassword: !!emailPass
+        });
+        console.log("=================================");
+
+        // DO NOT set service: "gmail" as it overrides host and family: 4 settings, leading to IPv6 ENETUNREACH
+        const transporterConfig = {
+            name: "vetcloud.com",
+            host,
+            port,
+            secure,
+            // family: 4, // Explicitly force IPv4 to prevent Railway IPv6 ENETUNREACH errors
             auth: {
                 user: emailUser,
                 pass: emailPass
-            }
-        });
+            },
+            tls: {
+                // rejectUnauthorized: false,
+                // servername: host
+            },
+            connectionTimeout: 30000,
+            greetingTimeout: 30000,
+            socketTimeout: 30000,
+            logger: true,
+            debug: true
+        };
+
+        const transporter = nodemailer.createTransport(transporterConfig);
+
 
         const info = await transporter.sendMail({
             from: `"VetCloud Notifications" <${emailUser}>`,
@@ -30,11 +150,17 @@ export const sendEmail = async ({ to, subject, html, text }) => {
             text: text || "New notification from VetCloud",
             html
         });
-        console.log(`Email successfully sent to ${to}: ${info.messageId}`);
+        console.log(`[EMAIL SUCCESS] Email sent to ${to}: ${info.messageId}`);
         return info;
     } catch (error) {
-        console.error(`Failed to send email to ${to}:`, error);
-        throw error;
+        console.error(`[EMAIL SMTP ERROR] Failed to send email to ${to}:`, error.message || error);
+
+        console.log("=========================================");
+        console.log(`[EMAIL FALLBACK SIMULATION] TO: ${to}`);
+        console.log(`[EMAIL FALLBACK SIMULATION] SUBJECT: ${subject}`);
+        console.log(`[EMAIL FALLBACK SIMULATION] TEXT: ${text}`);
+        console.log("=========================================");
+        return { message: "Email fallback simulation completed", error: error.message };
     }
 };
 
@@ -76,21 +202,45 @@ const wrapTemplate = (title, content) => `
 </html>
 `;
 
+// Helper to safely extract plain text notes from reason field
+const parseReasonNotes = (reason) => {
+    if (!reason) return "";
+    if (typeof reason === "object") return reason.notes || "";
+    try {
+        const parsed = JSON.parse(reason);
+        if (parsed && typeof parsed === "object") {
+            return parsed.notes || "";
+        }
+    } catch {
+        // Plain string
+    }
+    return String(reason);
+};
+
 // 1. Appointment Confirmation Email Template
 export const getAppointmentConfirmationTemplate = (ownerName, animalName, vetName, date, time, type, reason) => {
-    const formattedDate = new Date(date).toLocaleDateString("en-US", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    let formattedDate = "";
+    try {
+        const dateObj = date ? new Date(date) : new Date();
+        formattedDate = isNaN(dateObj.getTime()) ? String(date || "") : dateObj.toLocaleDateString("en-US", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    } catch {
+        formattedDate = String(date || "");
+    }
+    const safeType = (type || 'General').toUpperCase();
+    const cleanReason = parseReasonNotes(reason);
+
     const content = `
-        <p>Dear ${ownerName},</p>
-        <p>Your appointment booking has been **successfully confirmed**! Here are the details of your upcoming consultation:</p>
+        <p>Dear ${ownerName || 'Valued Client'},</p>
+        <p>Your appointment booking has been <strong>successfully confirmed</strong>! Here are the details of your upcoming consultation:</p>
         
         <div class="details-box">
             <div class="details-item">
                 <span class="details-label">Patient:</span>
-                <span class="details-value">${animalName}</span>
+                <span class="details-value">${animalName || 'Patient'}</span>
             </div>
             <div class="details-item">
                 <span class="details-label">Veterinarian:</span>
-                <span class="details-value">${vetName}</span>
+                <span class="details-value">${vetName || 'Veterinarian'}</span>
             </div>
             <div class="details-item">
                 <span class="details-label">Date:</span>
@@ -98,16 +248,16 @@ export const getAppointmentConfirmationTemplate = (ownerName, animalName, vetNam
             </div>
             <div class="details-item">
                 <span class="details-label">Time:</span>
-                <span class="details-value">${time}</span>
+                <span class="details-value">${time || 'Scheduled Time'}</span>
             </div>
             <div class="details-item">
                 <span class="details-label">Consultation Type:</span>
-                <span class="details-value">${type.toUpperCase()}</span>
+                <span class="details-value">${safeType}</span>
             </div>
-            ${reason ? `
+            ${cleanReason ? `
             <div class="details-item">
                 <span class="details-label">Reason:</span>
-                <span class="details-value">${reason}</span>
+                <span class="details-value">${cleanReason}</span>
             </div>
             ` : ""}
         </div>
@@ -142,7 +292,7 @@ export const getVaccinationReminderTemplate = (ownerName, animalName, vaccineNam
 
         <p>Keeping up with vaccinations is vital to ensure long-term health and prevent contagious diseases in your household or flock.</p>
         <p>Please log in to your dashboard to request a consultation with a vet to administer this vaccine.</p>
-        <a href="http://localhost:5173/dashboard/user/appoinment" class="button">Schedule Consultation</a>
+        <a href="${getFrontendUrl()}/dashboard/user/appoinment" class="button">Schedule Consultation</a>
     `;
     return wrapTemplate("Vaccination Schedule Reminder", content);
 };
@@ -182,7 +332,7 @@ export const getMedicalReportTemplate = (ownerName, animalName, reportTitle, rep
         </div>
 
         <p>You can view the full record and details in the "My Animals" section of your dashboard.</p>
-        <a href="http://localhost:5173/dashboard/user/animals" class="button">View Medical Records</a>
+        <a href="${getFrontendUrl()}/dashboard/user/animals" class="button">View Medical Records</a>
     `;
     return wrapTemplate("Medical Report Delivered", content);
 };
@@ -224,7 +374,7 @@ export const getInvoiceTemplate = (ownerName, amount, orderId, date, animalName,
 
 // 5. Account Verification Email Template
 export const getAccountVerificationTemplate = (ownerName, email) => {
-    const verificationUrl = `http://localhost:5173/dashboard/user/settings?verifyEmail=${encodeURIComponent(email)}`;
+    const verificationUrl = `${getFrontendUrl()}/dashboard/user/settings?verifyEmail=${encodeURIComponent(email)}`;
     const content = `
         <p>Welcome to VetCloud, ${ownerName}!</p>
         <p>Thank you for registering on our platform. To finalize your account setup and enable all dashboard features, please verify your email address by clicking the button below:</p>
@@ -296,7 +446,7 @@ export const getDailyAppointmentScheduleTemplate = (vetName, appointments) => {
         </table>
 
         <p>Please log in to your VetCloud Dashboard to manage these appointments and start calls on time.</p>
-        <a href="http://localhost:5173/dashboard/doctor/schedule" class="button">View My Schedule</a>
+        <a href="${getFrontendUrl()}/dashboard/doctor/schedule" class="button">View My Schedule</a>
     `;
     return wrapTemplate("Daily Appointment Schedule", content);
 };
@@ -428,7 +578,58 @@ export const getNewConsultationAssignmentTemplate = (vetName, ownerName, animalN
         </div>
         
         <p>Please log in to your dashboard to accept/confirm or reschedule this consultation.</p>
-        <a href="http://localhost:5173/dashboard/doctor/requests" class="button">View Requests</a>
+        <a href="${getFrontendUrl()}/dashboard/doctor/requests" class="button">View Requests</a>
     `;
     return wrapTemplate("New Consultation Assignment", content);
+};
+
+// 14. Appointment Cancelled Email Template
+export const getAppointmentCancelledTemplate = (ownerName, animalName, vetName, date, time) => {
+    const formattedDate = date ? new Date(date).toLocaleDateString("en-US", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : "N/A";
+    const content = `
+        <p>Dear ${ownerName || "Client"},</p>
+        <p>Your scheduled consultation appointment has been <strong>cancelled</strong>.</p>
+        
+        <div class="details-box">
+            <div class="details-item">
+                <span class="details-label">Patient:</span>
+                <span class="details-value">${animalName || "Patient"}</span>
+            </div>
+            <div class="details-item">
+                <span class="details-label">Veterinarian:</span>
+                <span class="details-value">${vetName || "Veterinary Doctor"}</span>
+            </div>
+            <div class="details-item">
+                <span class="details-label">Scheduled Date:</span>
+                <span class="details-value">${formattedDate}</span>
+            </div>
+            <div class="details-item">
+                <span class="details-label">Scheduled Time:</span>
+                <span class="details-value">${time || "N/A"}</span>
+            </div>
+        </div>
+
+        <p>If you need to book a new appointment slot, please visit your VetCloud dashboard.</p>
+        <a href="${getFrontendUrl()}/dashboard/user/consultations" class="button">Book New Consultation</a>
+    `;
+    return wrapTemplate("Appointment Cancelled", content);
+};
+
+// 15. Doctor Feedback Request Email Template
+export const getFeedbackRequestTemplate = (ownerName, vetName, animalName, appointmentId) => {
+    const content = `
+        <p>Dear ${ownerName || "Valued Client"},</p>
+        <p>Your virtual consultation for <strong>${animalName || "your animal"}</strong> with <strong>Dr. ${vetName || "the doctor"}</strong> (Appointment #${appointmentId}) has been successfully completed!</p>
+        
+        <p>We would love to hear about your experience. Your feedback helps us maintain the highest quality of veterinary care on VetCloud.</p>
+
+        <div style="text-align: center; margin: 25px 0;">
+            <a href="${getFrontendUrl()}/dashboard/user/consultations" class="button" style="background-color: #059669; font-size: 16px; padding: 14px 28px;">
+                ⭐ Rate & Review Doctor
+            </a>
+        </div>
+
+        <p>Thank you for choosing VetCloud for your animal healthcare needs!</p>
+    `;
+    return wrapTemplate("Doctor Feedback Request", content);
 };

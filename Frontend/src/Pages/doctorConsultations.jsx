@@ -39,7 +39,18 @@ export default function DoctorConsultations() {
   const [callDuration, setCallDuration] = useState(0);
 
   const getVetId = () => {
-    return localStorage.getItem('userId');
+    const userId = localStorage.getItem('userId');
+    if (userId) return userId;
+    try {
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        const u = JSON.parse(userStr);
+        return u.id || u.vetId || u.user_id || null;
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    return null;
   };
 
   // const vetId = getVetId();
@@ -336,16 +347,6 @@ export default function DoctorConsultations() {
     return symptomsList;
   };
 
-  // Mock file attachments helper
-  const getMockFiles = (animalName, species) => {
-    const cleanName = animalName || 'Patient';
-    const cleanSpecies = (species || 'Animal').charAt(0).toUpperCase() + (species || 'Animal').slice(1).toLowerCase();
-    return [
-      { name: `${cleanName}_Health_Record.pdf`, size: '2.4 MB' },
-      { name: `${cleanSpecies}_Vaccination_Log.xlsx`, size: '1.1 MB' }
-    ];
-  };
-
   // Status Badge Renderer
   const getStatusBadge = (status) => {
     switch (status?.toLowerCase()) {
@@ -462,7 +463,6 @@ export default function DoctorConsultations() {
   const request = selectedRequestDetails;
   const notes = request?.reason_notes || request?.reason || '';
   const symptoms = request ? extractSymptoms(notes) : [];
-  const mockFiles = request ? getMockFiles(request.animal_name, request.animal_species) : [];
 
   return (
     <div className="space-y-6">
@@ -655,26 +655,6 @@ export default function DoctorConsultations() {
                     <span className="text-slate-400 font-medium">Email</span>
                     <span className="text-slate-800 font-bold truncate max-w-[170px]">{request.owner_email || 'Not provided'}</span>
                   </div>
-                </div>
-              </Card>
-
-              {/* Attachments Card */}
-              <Card className="p-6 border-slate-200 shadow-sm bg-white rounded-2xl space-y-4">
-                <div className="flex items-center gap-2 text-slate-800 font-bold border-b border-slate-100 pb-3">
-                  <FileText size={18} className="text-slate-400" />
-                  <span>Medical Records</span>
-                </div>
-
-                <div className="space-y-2">
-                  {mockFiles.map((file, i) => (
-                    <div key={i} className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-100 rounded-xl">
-                      <Paperclip size={16} className="text-slate-400 flex-shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-bold text-slate-800 truncate">{file.name}</p>
-                        <p className="text-[10px] text-slate-400 mt-0.5">{file.size}</p>
-                      </div>
-                    </div>
-                  ))}
                 </div>
               </Card>
 

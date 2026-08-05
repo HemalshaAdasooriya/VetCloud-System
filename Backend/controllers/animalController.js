@@ -49,12 +49,28 @@ export const getAnimalHistory = (req, res) => {
     });
 };
 
+const SPECIES_WEIGHT_LIMITS = {
+    Cattle: 3000,
+    Dog: 200,
+    Cat: 30,
+    Poultry: 10
+};
+
 // Create a new animal profile
 export const createNewAnimal = (req, res) => {
-    const { owner_id, name, species, breed, age, weight, status, image } = req.body;
+    const { owner_id, name, species, breed, age, weight, status, image, health_report } = req.body;
 
-    if (!owner_id || !name || !species || !breed || !age || !weight) {
+    if (!owner_id || !name || !species || !breed || !age || weight === undefined || weight === null || weight === "") {
         return res.status(400).json({ message: "Missing required fields." });
+    }
+
+    const weightFloat = parseFloat(weight);
+    const maxWeightLimit = SPECIES_WEIGHT_LIMITS[species] || null;
+    if (isNaN(weightFloat) || weightFloat <= 0 || (maxWeightLimit !== null && weightFloat > maxWeightLimit)) {
+        if (maxWeightLimit !== null) {
+            return res.status(400).json({ message: `Maximum weight allowed for ${species} is ${maxWeightLimit} kg (must be greater than 0).` });
+        }
+        return res.status(400).json({ message: "Animal weight must be a valid number greater than 0." });
     }
 
     const lastVisit = new Date().toLocaleDateString("en-GB", {
@@ -63,9 +79,16 @@ export const createNewAnimal = (req, res) => {
         year: "numeric"
     });
 
-    let animalImage = image;
-    if (req.file) {
+    let animalImage = image || null;
+    if (req.files && req.files['image'] && req.files['image'][0]) {
+        animalImage = `/uploads/${req.files['image'][0].filename}`;
+    } else if (req.file) {
         animalImage = `/uploads/${req.file.filename}`;
+    }
+
+    let healthReportPath = health_report || null;
+    if (req.files && req.files['healthReport'] && req.files['healthReport'][0]) {
+        healthReportPath = `/uploads/${req.files['healthReport'][0].filename}`;
     }
 
     const animalData = {
@@ -74,10 +97,11 @@ export const createNewAnimal = (req, res) => {
         species,
         breed,
         age,
-        weight,
+        weight: weightFloat,
         status: status || "Healthy",
         image: animalImage,
-        lastVisit
+        lastVisit,
+        health_report: healthReportPath
     };
 
     createAnimal(animalData, (err, result) => {
@@ -88,15 +112,9 @@ export const createNewAnimal = (req, res) => {
 
         const newAnimalId = result.insertId;
 
-        // Seed default medical records for the newly registered animal based on its species
-        seedDefaultHistory(newAnimalId, species, (seedErr) => {
-            if (seedErr) {
-                console.error("Error seeding default history for new animal:", seedErr);
-            }
-            return res.status(201).json({
-                message: "Animal registered successfully.",
-                animal: { id: newAnimalId, ...animalData }
-            });
+        return res.status(201).json({
+            message: "Animal registered successfully.",
+            animal: { id: newAnimalId, ...animalData }
         });
     });
 };
@@ -104,14 +122,23 @@ export const createNewAnimal = (req, res) => {
 // Update an existing animal profile
 export const updateAnimalProfile = (req, res) => {
     const { id } = req.params;
-    const { name, species, breed, age, weight, status, image } = req.body;
+    const { name, species, breed, age, weight, status, image, health_report } = req.body;
 
     if (!id) {
         return res.status(400).json({ message: "Animal ID parameter is required." });
     }
 
-    if (!name || !species || !breed || !age || !weight || !status) {
+    if (!name || !species || !breed || !age || weight === undefined || weight === null || weight === "" || !status) {
         return res.status(400).json({ message: "Missing required fields." });
+    }
+
+    const weightFloat = parseFloat(weight);
+    const maxWeightLimit = SPECIES_WEIGHT_LIMITS[species] || null;
+    if (isNaN(weightFloat) || weightFloat <= 0 || (maxWeightLimit !== null && weightFloat > maxWeightLimit)) {
+        if (maxWeightLimit !== null) {
+            return res.status(400).json({ message: `Maximum weight allowed for ${species} is ${maxWeightLimit} kg (must be greater than 0).` });
+        }
+        return res.status(400).json({ message: "Animal weight must be a valid number greater than 0." });
     }
 
     // Retain previous last visit date or set current one
@@ -126,8 +153,15 @@ export const updateAnimalProfile = (req, res) => {
         }
 
         let animalImage = image || existing.image;
-        if (req.file) {
+        if (req.files && req.files['image'] && req.files['image'][0]) {
+            animalImage = `/uploads/${req.files['image'][0].filename}`;
+        } else if (req.file) {
             animalImage = `/uploads/${req.file.filename}`;
+        }
+
+        let healthReportPath = health_report || existing.health_report || null;
+        if (req.files && req.files['healthReport'] && req.files['healthReport'][0]) {
+            healthReportPath = `/uploads/${req.files['healthReport'][0].filename}`;
         }
 
         const animalData = {
@@ -135,14 +169,15 @@ export const updateAnimalProfile = (req, res) => {
             species,
             breed,
             age,
-            weight,
+            weight: weightFloat,
             status,
             image: animalImage,
             lastVisit: existing.lastVisit || new Date().toLocaleDateString("en-GB", {
                 day: "2-digit",
                 month: "short",
                 year: "numeric"
-            })
+            }),
+            health_report: healthReportPath
         };
 
         updateAnimal(id, animalData, (updateErr, result) => {
