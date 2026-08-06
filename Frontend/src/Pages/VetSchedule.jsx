@@ -4,7 +4,7 @@ import {
   Calendar as CalendarIcon, Clock, ChevronRight, 
   ChevronLeft, Plus, Trash2, Check, X, AlertCircle, Loader2
 } from 'lucide-react';
-import { Button, Card, Badge } from '../components/ui/ui';
+import { Button, Card, Badge } from '../components/Ui/ui';
 
 export default function VetSchedule() {
   const [selectedDate, setSelectedDate] = useState(new Date());
