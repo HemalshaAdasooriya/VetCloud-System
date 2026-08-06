@@ -1,13 +1,13 @@
 import { useState, useMemo, useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import { 
-  Search, 
-  SlidersHorizontal, 
-  Plus, 
-  FileText, 
-  Pencil, 
-  Trash2, 
-  MoreVertical, 
+import {
+  Search,
+  SlidersHorizontal,
+  Plus,
+  FileText,
+  Pencil,
+  Trash2,
+  MoreVertical,
   X,
   Activity,
   CheckCircle2,
@@ -389,7 +389,7 @@ export default function MyAnimalsPage() {
   };
 
   // Form Submission
-  const handleSubmit = async(e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formName.trim() || !formBreed.trim() || formWeight === "") {
       toast.error("Please fill in all required fields");
@@ -447,7 +447,7 @@ export default function MyAnimalsPage() {
     formData.append("age", ageString);
     formData.append("weight", wFloat.toString());
     formData.append("status", formStatus);
-    
+
     if (formImageFile) {
       formData.append("image", formImageFile);
     } else {
@@ -581,7 +581,7 @@ export default function MyAnimalsPage() {
 
   return (
     <div className="max-w-[1400px] mx-auto space-y-6">
-      
+
       {/* 1. Page Header & Primary Action */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -589,7 +589,7 @@ export default function MyAnimalsPage() {
           <p className="text-slate-500 text-sm mt-1">Manage profiles, medical histories, and treatment courses.</p>
         </div>
 
-        <button 
+        <button
           onClick={handleOpenCreateModal}
           className="inline-flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 active:scale-95 text-white font-semibold text-[14px] px-6 py-3 rounded-full shadow-lg shadow-green-100 hover:shadow-green-200/80 transition-all cursor-pointer"
         >
@@ -604,16 +604,16 @@ export default function MyAnimalsPage() {
           {/* Search Input */}
           <div className="relative flex-1">
             <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input 
-              type="text" 
+            <input
+              type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by name, species or breed..." 
+              placeholder="Search by name, species or breed..."
               className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-12 pr-4 py-3 text-sm placeholder:text-slate-400 text-slate-700 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all"
             />
             {searchQuery && (
-              <button 
-                onClick={() => setSearchQuery("")} 
+              <button
+                onClick={() => setSearchQuery("")}
                 className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 font-bold text-xs"
               >
                 Clear
@@ -622,13 +622,12 @@ export default function MyAnimalsPage() {
           </div>
 
           {/* Filter Panel Toggle */}
-          <button 
+          <button
             onClick={() => setShowFilterPanel(!showFilterPanel)}
-            className={`flex items-center justify-center gap-2 px-5 py-3 rounded-xl border text-sm font-semibold transition-all cursor-pointer ${
-              showFilterPanel 
-                ? "bg-green-50 border-green-200 text-green-700 shadow-inner" 
+            className={`flex items-center justify-center gap-2 px-5 py-3 rounded-xl border text-sm font-semibold transition-all cursor-pointer ${showFilterPanel
+                ? "bg-green-50 border-green-200 text-green-700 shadow-inner"
                 : "bg-white border-slate-200 hover:border-slate-300 text-slate-600 hover:text-slate-800"
-            }`}
+              }`}
           >
             <SlidersHorizontal size={16} />
             Filter & Sort
@@ -642,7 +641,7 @@ export default function MyAnimalsPage() {
             {/* Species filter */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-slate-500">Species</label>
-              <select 
+              <select
                 value={filterType}
                 onChange={(e) => setFilterType(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm text-slate-700 focus:ring-1 focus:ring-green-500 focus:border-green-500"
@@ -658,7 +657,7 @@ export default function MyAnimalsPage() {
             {/* Health status filter */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-slate-500">Health Status</label>
-              <select 
+              <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm text-slate-700 focus:ring-1 focus:ring-green-500 focus:border-green-500"
@@ -673,7 +672,7 @@ export default function MyAnimalsPage() {
             {/* Sort parameter */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-slate-500">Sort By</label>
-              <select 
+              <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm text-slate-700 focus:ring-1 focus:ring-green-500 focus:border-green-500"
@@ -689,7 +688,7 @@ export default function MyAnimalsPage() {
       </div>
 
       {/* 3. Main animal profile cards grid */}
-       {isLoadingData ? (
+      {isLoadingData ? (
         <div className="flex flex-col items-center justify-center py-20 space-y-4 bg-white rounded-2xl border border-slate-200/60 shadow-sm">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
           <p className="text-slate-500 font-semibold text-sm">Loading your registered animals...</p>
@@ -697,22 +696,22 @@ export default function MyAnimalsPage() {
       ) : filteredAnimals.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {filteredAnimals.map((animal) => (
-            <div 
-              key={animal.id} 
+            <div
+              key={animal.id}
               onClick={() => handleOpenHistoryModal(animal)}
               className="bg-white rounded-2xl border border-slate-200/60 overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-1.5 transition-all duration-300 flex flex-col group relative cursor-pointer"
               title="Click to view medical history"
             >
               {/* Card Image */}
               <div className="h-44 w-full bg-slate-100 overflow-hidden relative">
-                <img 
+                <img
                   src={
-                    animal.image && animal.image.startsWith('/uploads/') 
-                      ? `${import.meta.env.VITE_BACKEND_URL}${animal.image}` 
+                    animal.image && animal.image.startsWith('/uploads/')
+                      ? `${import.meta.env.VITE_BACKEND_URL}${animal.image}`
                       : (animal.image || SPECIES_IMAGES[animal.species] || SPECIES_IMAGES.Other)
-                  } 
-                  alt={animal.name} 
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                  }
+                  alt={animal.name}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   onError={(e) => {
                     const fallback = SPECIES_IMAGES[animal.species] || SPECIES_IMAGES.Other;
                     if (e.target.src !== fallback) {
@@ -720,18 +719,18 @@ export default function MyAnimalsPage() {
                     }
                   }}
                 />
-                
+
                 {/* Health Status Badge overlay */}
                 <span className={`absolute top-4 left-4 text-xs font-bold px-2.5 py-1 rounded-full border shadow-sm backdrop-blur-md ${getStatusBadgeStyle(animal.status)}`}>
                   {animal.status}
                 </span>
 
                 {/* Options button with dropdown actions */}
-                <div 
+                <div
                   className="absolute top-4 right-4 z-20"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <button 
+                  <button
                     onClick={() => setActiveMenuId(activeMenuId === animal.id ? null : animal.id)}
                     className="p-1.5 bg-white/90 hover:bg-white text-slate-600 rounded-full border border-slate-200 shadow-sm focus:outline-none hover:scale-105 active:scale-95 transition-all cursor-pointer"
                   >
@@ -741,15 +740,15 @@ export default function MyAnimalsPage() {
                   {/* Context Actions Dropdown menu */}
                   {activeMenuId === animal.id && (
                     <>
-                      <div 
-                        className="fixed inset-0 z-10" 
+                      <div
+                        className="fixed inset-0 z-10"
                         onClick={(e) => {
                           e.stopPropagation();
                           setActiveMenuId(null);
                         }}
                       />
                       <div className="absolute right-0 mt-2 w-44 bg-white border border-slate-200 rounded-xl shadow-lg py-1.5 z-20 animate-in fade-in slide-in-from-top-2 duration-150">
-                        <button 
+                        <button
                           onClick={(e) => {
                             e.stopPropagation();
                             handleOpenHistoryModal(animal);
@@ -759,7 +758,7 @@ export default function MyAnimalsPage() {
                           <FileText size={15} className="text-slate-400" />
                           Medical History
                         </button>
-                        <button 
+                        <button
                           onClick={(e) => {
                             e.stopPropagation();
                             handleOpenEditModal(animal);
@@ -770,7 +769,7 @@ export default function MyAnimalsPage() {
                           Edit Profile
                         </button>
                         <div className="border-t border-slate-100 my-1" />
-                        <button 
+                        <button
                           onClick={(e) => {
                             e.stopPropagation();
                             handleOpenDeleteConfirm(animal.id);
@@ -830,7 +829,7 @@ export default function MyAnimalsPage() {
               We couldn't find any animals matching your filter or search query. Try broadening your criteria.
             </p>
           </div>
-          <button 
+          <button
             onClick={() => {
               setSearchQuery("");
               setFilterType("All");
@@ -852,7 +851,7 @@ export default function MyAnimalsPage() {
               <h3 className="font-extrabold text-slate-800 text-lg">
                 {editingAnimal ? `Edit Profile: ${editingAnimal.name}` : "Register New Animal"}
               </h3>
-              <button 
+              <button
                 onClick={() => setShowFormModal(false)}
                 className="p-1 hover:bg-slate-100 text-slate-400 hover:text-slate-600 rounded-lg transition-colors cursor-pointer"
               >
@@ -866,9 +865,9 @@ export default function MyAnimalsPage() {
                 {/* Animal Name */}
                 <div className="col-span-2 space-y-1.5">
                   <label className="text-xs font-semibold text-slate-500">Animal Name *</label>
-                  <input 
-                    type="text" 
-                    required 
+                  <input
+                    type="text"
+                    required
                     placeholder="e.g. Bessie, Rocky"
                     value={formName}
                     onChange={(e) => setFormName(e.target.value)}
@@ -879,7 +878,7 @@ export default function MyAnimalsPage() {
                 {/* Species Selector */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-slate-500">Species *</label>
-                  <select 
+                  <select
                     value={formSpecies}
                     onChange={(e) => setFormSpecies(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm text-slate-700 focus:ring-1 focus:ring-green-500 focus:border-green-500"
@@ -895,9 +894,9 @@ export default function MyAnimalsPage() {
                 {/* Breed Field */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-slate-500">Breed *</label>
-                  <input 
-                    type="text" 
-                    required 
+                  <input
+                    type="text"
+                    required
                     placeholder="e.g. Holstein, Golden Retriever"
                     value={formBreed}
                     onChange={(e) => setFormBreed(e.target.value)}
@@ -911,7 +910,7 @@ export default function MyAnimalsPage() {
                   <div className="grid grid-cols-3 gap-2">
                     <div>
                       <span className="text-[11px] text-slate-400 font-medium block mb-1">Years</span>
-                      <input 
+                      <input
                         type="number"
                         min="0"
                         max="100"
@@ -923,7 +922,7 @@ export default function MyAnimalsPage() {
                     </div>
                     <div>
                       <span className="text-[11px] text-slate-400 font-medium block mb-1">Months</span>
-                      <input 
+                      <input
                         type="number"
                         min="0"
                         max="11"
@@ -935,7 +934,7 @@ export default function MyAnimalsPage() {
                     </div>
                     <div>
                       <span className="text-[11px] text-slate-400 font-medium block mb-1">Days</span>
-                      <input 
+                      <input
                         type="number"
                         min="0"
                         max="31"
@@ -951,12 +950,12 @@ export default function MyAnimalsPage() {
                 {/* Weight Field */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-slate-500">Weight *</label>
-                  <input 
-                    type="number" 
+                  <input
+                    type="number"
                     step="0.1"
                     min="0.1"
                     max={SPECIES_WEIGHT_LIMITS[formSpecies] || undefined}
-                    required 
+                    required
                     placeholder="e.g. 45.5"
                     value={formWeight}
                     onChange={(e) => setFormWeight(e.target.value)}
@@ -967,7 +966,7 @@ export default function MyAnimalsPage() {
                 {/* Health Status */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-slate-500">Health Status *</label>
-                  <select 
+                  <select
                     value={formStatus}
                     onChange={(e) => setFormStatus(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm text-slate-700 focus:ring-1 focus:ring-green-500 focus:border-green-500"
@@ -982,8 +981,8 @@ export default function MyAnimalsPage() {
                 <div className="col-span-2 space-y-1.5">
                   <label className="text-xs font-semibold text-slate-500">Health Report / Vaccination Card</label>
                   <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-                    <input 
-                      type="file" 
+                    <input
+                      type="file"
                       accept=".pdf,image/*,.doc,.docx"
                       onChange={(e) => {
                         if (e.target.files && e.target.files[0]) {
@@ -994,7 +993,7 @@ export default function MyAnimalsPage() {
                       className="hidden"
                     />
                     <div className="flex items-center gap-3">
-                      <label 
+                      <label
                         htmlFor="healthReportUpload"
                         className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 rounded-lg text-xs font-bold shadow-xs cursor-pointer active:scale-95 transition-all"
                       >
@@ -1015,9 +1014,9 @@ export default function MyAnimalsPage() {
                       ) : (formHealthReport ? (
                         <div className="flex items-center gap-2 text-xs text-emerald-600 font-medium">
                           <span>Report Uploaded</span>
-                          <a 
+                          <a
                             href={getFileUrl(formHealthReport)}
-                            target="_blank" 
+                            target="_blank"
                             rel="noopener noreferrer"
                             className="underline text-emerald-700 font-bold"
                           >
@@ -1035,20 +1034,20 @@ export default function MyAnimalsPage() {
                 <div className="col-span-2 space-y-2">
                   <label className="text-xs font-semibold text-slate-500">Profile Picture</label>
                   <div className="flex flex-col sm:flex-row items-center gap-4 p-3 bg-slate-50 rounded-xl border border-slate-200">
-                    <img 
+                    <img
                       src={
-                        formImageFile 
-                          ? URL.createObjectURL(formImageFile) 
+                        formImageFile
+                          ? URL.createObjectURL(formImageFile)
                           : (formImage && (formImage.startsWith('http') || formImage.startsWith('/uploads'))
-                              ? (formImage.startsWith('/uploads') ? `${import.meta.env.VITE_BACKEND_URL}${formImage}` : formImage)
-                              : (SPECIES_IMAGES[formSpecies] || SPECIES_IMAGES.Other))
+                            ? (formImage.startsWith('/uploads') ? `${import.meta.env.VITE_BACKEND_URL}${formImage}` : formImage)
+                            : (SPECIES_IMAGES[formSpecies] || SPECIES_IMAGES.Other))
                       }
-                      alt="Preview" 
+                      alt="Preview"
                       className="w-16 h-16 rounded-xl object-cover border border-slate-200 bg-white"
                     />
                     <div className="flex-1 space-y-1">
-                      <input 
-                        type="file" 
+                      <input
+                        type="file"
                         accept="image/*"
                         onChange={(e) => {
                           if (e.target.files && e.target.files[0]) {
@@ -1058,7 +1057,7 @@ export default function MyAnimalsPage() {
                         id="animalImageUpload"
                         className="hidden"
                       />
-                      <label 
+                      <label
                         htmlFor="animalImageUpload"
                         className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 rounded-lg text-xs font-bold shadow-xs cursor-pointer active:scale-95 transition-all"
                       >
@@ -1081,14 +1080,14 @@ export default function MyAnimalsPage() {
 
               {/* Action Buttons */}
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 mt-6">
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={() => setShowFormModal(false)}
                   className="px-5 py-2.5 rounded-lg border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 active:scale-95 transition-all cursor-pointer"
                 >
                   Cancel
                 </button>
-                <button 
+                <button
                   type="submit"
                   className="px-5 py-2.5 rounded-lg bg-green-600 hover:bg-green-700 active:scale-95 text-white text-sm font-semibold shadow-md shadow-green-50 hover:shadow-lg transition-all cursor-pointer"
                 >
@@ -1114,7 +1113,7 @@ export default function MyAnimalsPage() {
                   Full clinical and preventative history for {selectedHistoryAnimal.name} ({selectedHistoryAnimal.breed})
                 </p>
               </div>
-              <button 
+              <button
                 onClick={() => setShowHistoryModal(false)}
                 className="p-1 hover:bg-slate-100 text-slate-400 hover:text-slate-600 rounded-lg transition-colors cursor-pointer"
               >
@@ -1151,15 +1150,15 @@ export default function MyAnimalsPage() {
                   {/* Inline Image Preview if file is an image */}
                   {/\.(jpg|jpeg|png|webp|gif)$/i.test(selectedHistoryAnimal.health_report) && (
                     <div className="mt-2 pt-3 border-t border-emerald-200/60 flex justify-center">
-                      <a 
+                      <a
                         href={getFileUrl(selectedHistoryAnimal.health_report)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="group relative block overflow-hidden rounded-xl border border-emerald-200 shadow-xs max-h-56 w-full max-w-md bg-white text-center"
                       >
-                        <img 
-                          src={getFileUrl(selectedHistoryAnimal.health_report)} 
-                          alt="Vaccination Card / Health Report Preview" 
+                        <img
+                          src={getFileUrl(selectedHistoryAnimal.health_report)}
+                          alt="Vaccination Card / Health Report Preview"
                           className="w-full h-auto max-h-52 object-contain mx-auto p-1 transition-transform duration-300 group-hover:scale-105"
                         />
                         <div className="absolute inset-0 bg-slate-900/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-1">
@@ -1170,7 +1169,7 @@ export default function MyAnimalsPage() {
                   )}
                 </div>
               )}
-             {isLoadingHistory ? (
+              {isLoadingHistory ? (
                 <div className="flex flex-col items-center justify-center py-10 space-y-3">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
                   <p className="text-xs text-slate-400">Retrieving clinical records...</p>
@@ -1183,18 +1182,18 @@ export default function MyAnimalsPage() {
                       <span className="absolute -left-[31px] top-0.5 bg-white border-2 border-green-500 rounded-full h-4.5 w-4.5 flex items-center justify-center shadow-sm">
                         <span className="h-2 w-2 bg-green-500 rounded-full" />
                       </span>
-                      
+
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-xs">
                         <span className="font-bold text-slate-400">{record.date}</span>
                         <span className="inline-block bg-slate-100 text-slate-600 border border-slate-200/50 px-2 py-0.5 rounded-full font-bold">
                           {record.type}
                         </span>
                       </div>
-                      
+
                       <h4 className="font-extrabold text-slate-700 text-sm leading-tight">
                         {record.title}
                       </h4>
-                      
+
                       <p className="text-xs text-slate-500 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100 font-medium">
                         {formatNotesContent(record.notes)}
                       </p>
@@ -1222,7 +1221,7 @@ export default function MyAnimalsPage() {
                     <CheckCircle2 size={24} />
                   </div>
                   <div className="space-y-1">
-                    <h4 className="text-sm font-bold text-slate-700">No medical files</h4>
+                    <h4 className="text-sm font-bold text-slate-700">No medical History/Records</h4>
                     <p className="text-xs text-slate-400 max-w-sm mx-auto">
                       There are currently no clinical history notes or procedure files registered for {selectedHistoryAnimal.name}.
                     </p>
@@ -1233,7 +1232,7 @@ export default function MyAnimalsPage() {
 
             {/* Modal Footer */}
             <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/50 flex justify-end">
-              <button 
+              <button
                 onClick={() => setShowHistoryModal(false)}
                 className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-sm font-semibold active:scale-95 transition-all cursor-pointer"
               >
@@ -1261,13 +1260,13 @@ export default function MyAnimalsPage() {
             </div>
 
             <div className="flex justify-end gap-3 pt-2">
-              <button 
+              <button
                 onClick={() => setShowDeleteConfirm(false)}
                 className="px-4 py-2 rounded-lg border border-slate-200 text-sm font-semibold text-slate-500 hover:bg-slate-50 active:scale-95 transition-all cursor-pointer"
               >
                 Cancel
               </button>
-              <button 
+              <button
                 onClick={handleDelete}
                 className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-sm font-semibold shadow-md shadow-rose-50 hover:shadow-lg transition-all cursor-pointer"
               >

@@ -43,27 +43,9 @@ import { sendEmail, getMedicalReportTemplate } from "../config/email.js";
 
 
 
-//Hemalsha 2026/05/30 ... Profile Picture Upload Functionality
+import { uploadToSupabase } from "../config/supabaseClient.js";
 
-import { fileURLToPath } from "url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const uploadDir = path.join(__dirname, '../uploads');
-if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, uploadDir);
-    },
-    filename: (req, file, cb) => {
-        // unique filename
-        cb(null, file.fieldname + '-' + Date.now() + path.extname(file.originalname));
-    }
-});
+const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
 const userRouter = express.Router();
@@ -111,16 +93,21 @@ userRouter.get("/feedback/vet/:id", getVetFeedback);
 //... Hemalsha
 
 // Chat Room File Upload Endpoint
-userRouter.post("/chat-upload", upload.single('file'), (req, res) => {
+userRouter.post("/chat-upload", upload.single('file'), async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });
     }
-    const fileUrl = `/uploads/${req.file.filename}`;
-    res.status(200).json({
-        url: fileUrl,
-        name: req.file.originalname,
-        size: req.file.size
-    });
+    try {
+        const fileUrl = await uploadToSupabase(req.file, "chat");
+        return res.status(200).json({
+            url: fileUrl,
+            name: req.file.originalname,
+            size: req.file.size
+        });
+    } catch (err) {
+        console.error("Chat file upload error:", err);
+        return res.status(500).json({ message: "Failed to upload file" });
+    }
 });
 
 // Chat Room Email Prescription Endpoint

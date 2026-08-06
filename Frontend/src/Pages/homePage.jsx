@@ -1,4 +1,4 @@
-import { ArrowRight, CalendarCheck, CalendarCheck2, FileText, HeartPulse, HeartPulseIcon, LucideHeartPulse, MapPin, Phone, Play, ShieldCheck, Star, Stethoscope, StethoscopeIcon, Video, VideoIcon } from "lucide-react";
+import { ArrowRight, CalendarCheck, CalendarCheck2, FileText, HeartPulse, HeartPulseIcon, LucideHeartPulse, MapPin, Phone, ShieldCheck, Star, Stethoscope, StethoscopeIcon, Video, VideoIcon } from "lucide-react";
 import { Button, Card } from "../components/Ui/ui";
 import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";

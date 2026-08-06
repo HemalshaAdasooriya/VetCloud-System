@@ -156,7 +156,7 @@ export default function Feedback() {
 
     const filteredFeedback = feedbacks.filter(fb => 
         (fb.comment && fb.comment.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        fb.ownerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (fb.ownerName && fb.ownerName.toLowerCase().includes(searchQuery.toLowerCase())) ||
         (fb.vetName && fb.vetName.toLowerCase().includes(searchQuery.toLowerCase()))
     );
 
@@ -216,10 +216,10 @@ export default function Feedback() {
                                 <div className="flex items-start justify-between gap-4">
                                     <div className="flex gap-3">
                                         <div className="h-9 w-9 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-800 font-bold text-xs shrink-0">
-                                            {fb.ownerName.charAt(0)}
+                                            {fb.ownerName?.charAt(0) || 'U'}
                                         </div>
                                         <div>
-                                            <p className="font-bold text-slate-800 text-sm leading-tight mb-1">{fb.ownerName}</p>
+                                            <p className="font-bold text-slate-800 text-sm leading-tight mb-1">{fb.ownerName || 'Anonymous Owner'}</p>
                                             <div className="flex items-center gap-2">
                                                 {renderStars(fb.rating)}
                                                 <span className="text-[10px] text-slate-400 font-semibold">•</span>

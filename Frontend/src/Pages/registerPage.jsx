@@ -161,9 +161,11 @@ export default function RegisterPage() {
             return;
         }
 
+        const normalizedEmail = email.trim().toLowerCase();
+
         // Email structure validation
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
+        if (!emailRegex.test(normalizedEmail)) {
             setSubmitMessage({ text: "Please enter a valid email address (e.g., user@example.com).", isError: true });
             toast.error("Please enter a valid email address.");
             return;
@@ -193,7 +195,7 @@ export default function RegisterPage() {
         const formData = new FormData();
         formData.append("firstName", firstName);
         formData.append("lastName", lastName);
-        formData.append("email", email);
+        formData.append("email", normalizedEmail);
         formData.append("password", password);
         formData.append("contact_No", phone);
         formData.append("role", backendRole);

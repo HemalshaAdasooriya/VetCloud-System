@@ -7,7 +7,7 @@ import toast from "react-hot-toast";
 
 export default function DoctorDashboard() {
     const navigate = useNavigate();
-    
+
     // State data
     const [doctorProfile, setDoctorProfile] = useState(null);
     const [appointments, setAppointments] = useState([]);
@@ -78,11 +78,12 @@ export default function DoctorDashboard() {
     const todayStr = getLocalTodayDateString();
 
     // ── METRICS CALCULATIONS ────────────────────────────────────────────────
-    
+    const safeAppointments = Array.isArray(appointments) ? appointments : [];
+
     // Today's Patients (approved or completed appointments scheduled for today)
-    const todayAppointments = appointments.filter(a => 
-        (a.status?.toLowerCase() === "approved" || a.status?.toLowerCase() === "completed") && 
-        a.appointment_date && (a.appointment_date.split("T")[0] === todayStr)
+    const todayAppointments = safeAppointments.filter(a =>
+        (a.status?.toLowerCase() === "approved" || a.status?.toLowerCase() === "completed") &&
+        a.appointment_date === todayStr
     );
     const todayCount = todayAppointments.length;
 
@@ -92,8 +93,8 @@ export default function DoctorDashboard() {
 
     // Earnings calculation (Completed appointments * consultation fee)
     const consultationFee = parseFloat(doctorProfile?.consultation_fee) || 0;
-    const completedAppointments = appointments.filter(a => a.status?.toLowerCase() === "completed");
-    
+    const completedAppointments = safeAppointments.filter(a => a.status?.toLowerCase() === "completed");
+
     // Weekly earnings (completed in the last 7 days)
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -101,7 +102,7 @@ export default function DoctorDashboard() {
         const completedDate = new Date(a.updated_at || a.created_at);
         return completedDate >= sevenDaysAgo;
     });
-    
+
     const weeklyEarnings = weeklyCompleted.length * consultationFee;
     const totalEarnings = completedAppointments.length * consultationFee;
 
@@ -120,7 +121,7 @@ export default function DoctorDashboard() {
     };
 
     // Filter today's schedule based on search input
-    const filteredTodaySchedule = todayAppointments.filter(apt => 
+    const filteredTodaySchedule = todayAppointments.filter(apt =>
         apt.animal_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         apt.owner_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         apt.animal_species?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -177,8 +178,8 @@ export default function DoctorDashboard() {
         );
     }
 
-    const doctorName = doctorProfile?.lastName 
-        ? `Dr. ${doctorProfile.firstName || ""} ${doctorProfile.lastName}` 
+    const doctorName = doctorProfile?.lastName
+        ? `Dr. ${doctorProfile.firstName || ""} ${doctorProfile.lastName}`
         : doctorProfile?.fullName || "Doctor";
 
     const generateDoctorReport = () => {
@@ -296,16 +297,14 @@ export default function DoctorDashboard() {
                     </p>
                 </div>
                 <div className="flex items-center gap-3 flex-wrap">
-                    <button 
+                    <button
                         onClick={generateDoctorReport}
                         className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-xl transition-all shadow-sm"
                     >
                         <Printer size={14} />
                         Print Overall Report
                     </button>
-                    <Badge variant="success" className="px-3 py-1 text-sm font-medium bg-green-100 text-green-700 border-none">
-                        <span className="w-2 h-2 rounded-full bg-green-500 mr-2 animate-pulse inline-block"></span> Available
-                    </Badge>
+
                 </div>
             </div>
 
@@ -319,8 +318,8 @@ export default function DoctorDashboard() {
                     <p className="text-3xl font-bold text-slate-900">{todayCount}</p>
                     <p className="text-sm text-green-600 mt-2 flex items-center gap-1">Scheduled for today</p>
                 </Card>
-                
-                <Card 
+
+                <Card
                     className="p-6 bg-amber-50/50 border-amber-100 cursor-pointer hover:shadow-md transition-all duration-200"
                     onClick={() => navigate("/dashboard/doctor/consultations", { state: { activeTab: "pending" } })}
                 >
@@ -332,7 +331,7 @@ export default function DoctorDashboard() {
                     <p className="text-sm text-amber-600 mt-2 flex items-center gap-1">Requires attention</p>
                 </Card>
 
-                <Card 
+                <Card
                     className="p-6 bg-blue-50/50 border-blue-100 cursor-pointer hover:shadow-md transition-all duration-200"
                     onClick={() => navigate("/dashboard/doctor/settings")}
                 >
@@ -356,15 +355,15 @@ export default function DoctorDashboard() {
                             </h3>
                             <div className="relative w-full sm:w-64">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                                <Input 
-                                    placeholder="Search patient or owner..." 
+                                <Input
+                                    placeholder="Search patient or owner..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="pl-9 h-9 text-sm" 
+                                    className="pl-9 h-9 text-sm"
                                 />
                             </div>
                         </div>
-                        
+
                         <div className="space-y-4 max-h-[500px] overflow-y-auto pr-1">
                             {filteredTodaySchedule.length > 0 ? (
                                 filteredTodaySchedule.map((apt) => {
@@ -373,11 +372,10 @@ export default function DoctorDashboard() {
                                     const isCompleted = apt.status?.toLowerCase() === "completed";
 
                                     return (
-                                        <div 
-                                            key={apt.id} 
-                                            className={`flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-xl border gap-4 transition-all duration-200 ${
-                                                !isCompleted ? "bg-green-50/20 border-green-100 hover:border-green-300" : "bg-slate-50 border-slate-100 opacity-80"
-                                            }`}
+                                        <div
+                                            key={apt.id}
+                                            className={`flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-xl border gap-4 transition-all duration-200 ${!isCompleted ? "bg-green-50/20 border-green-100 hover:border-green-300" : "bg-slate-50 border-slate-100 opacity-80"
+                                                }`}
                                         >
                                             <div className="flex items-start gap-4 w-full sm:w-auto">
                                                 <div className="bg-white border shadow-sm p-2.5 rounded-xl flex flex-col items-center justify-center min-w-[75px]">
@@ -403,7 +401,7 @@ export default function DoctorDashboard() {
                                                     <p className="text-xs text-slate-500 font-medium">Owner: {apt.owner_name}</p>
                                                     <div className="flex items-center gap-3 text-[11px] text-slate-400 mt-2 font-medium">
                                                         <span className="flex items-center gap-1">
-                                                            {isVideo ? <Video size={13} className="text-blue-500" /> : <MessageSquare size={13} className="text-indigo-500" />} 
+                                                            {isVideo ? <Video size={13} className="text-blue-500" /> : <MessageSquare size={13} className="text-indigo-500" />}
                                                             {isVideo ? "Video Consult" : "Chat Consult"}
                                                         </span>
                                                         <span className="flex items-center gap-1">
@@ -412,27 +410,27 @@ export default function DoctorDashboard() {
                                                     </div>
                                                 </div>
                                             </div>
-                                            
+
                                             <div className="flex items-center gap-2 w-full sm:w-auto justify-end mt-2 sm:mt-0">
                                                 {!isCompleted && (
-                                                    <Button 
-                                                        variant={isVideo ? "primary" : "secondary"} 
-                                                        size="sm" 
+                                                    <Button
+                                                        variant={isVideo ? "primary" : "secondary"}
+                                                        size="sm"
                                                         className="px-4 py-2 font-semibold text-xs rounded-lg cursor-pointer"
-                                                        onClick={() => navigate("/dashboard/doctor/consultations", { 
-                                                            state: { 
-                                                                appointmentId: apt.id, 
-                                                                startCall: isVideo, 
-                                                                startChat: isChat 
-                                                            } 
+                                                        onClick={() => navigate("/dashboard/doctor/consultations", {
+                                                            state: {
+                                                                appointmentId: apt.id,
+                                                                startCall: isVideo,
+                                                                startChat: isChat
+                                                            }
                                                         })}
                                                     >
                                                         {isVideo ? "Join Call" : "Open Chat"}
                                                     </Button>
                                                 )}
-                                                <Button 
-                                                    variant="ghost" 
-                                                    size="sm" 
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
                                                     className="px-3 py-2 text-xs font-semibold rounded-lg"
                                                     onClick={() => navigate("/dashboard/doctor/consultations", { state: { appointmentId: apt.id } })}
                                                 >
@@ -463,7 +461,7 @@ export default function DoctorDashboard() {
                             </h3>
                             <Badge variant="warning" className="border-none">{pendingCount}</Badge>
                         </div>
-                        
+
                         <div className="space-y-4 max-h-[500px] overflow-y-auto pr-1">
                             {pendingRequests.length > 0 ? (
                                 pendingRequests.slice(0, 3).map((req) => (
@@ -476,25 +474,25 @@ export default function DoctorDashboard() {
                                             <span className="text-[10px] text-slate-400 font-medium whitespace-nowrap">{timeAgo(req.created_at)}</span>
                                         </div>
                                         <p className="text-xs text-slate-500 mb-2">Owner: <span className="font-semibold text-slate-600">{req.owner_name}</span></p>
-                                        
+
                                         {req.reason_notes && (
                                             <p className="text-xs italic text-amber-800 bg-amber-50 p-2 rounded-md mb-4 border border-amber-100/50 truncate">
                                                 "{req.reason_notes}"
                                             </p>
                                         )}
-                                        
+
                                         <div className="flex gap-2">
-                                            <Button 
-                                                size="sm" 
+                                            <Button
+                                                size="sm"
                                                 className="flex-1 text-[11px] font-bold bg-green-600 hover:bg-green-700 text-white border-none cursor-pointer h-8 rounded-lg"
                                                 onClick={() => navigate("/dashboard/doctor/consultations", { state: { requestId: req.id, activeTab: "pending" } })}
                                                 disabled={actionLoading[req.id]}
                                             >
                                                 Review & Accept
                                             </Button>
-                                            <Button 
-                                                variant="outline" 
-                                                size="sm" 
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
                                                 className="flex-1 text-[11px] font-bold text-slate-600 border-slate-200 hover:border-red-600 hover:text-red-600 cursor-pointer h-8 rounded-lg"
                                                 onClick={() => handleDeclineRequest(req.id)}
                                                 disabled={actionLoading[req.id]}
@@ -514,8 +512,8 @@ export default function DoctorDashboard() {
                         </div>
 
                         {pendingCount > 3 && (
-                            <Button 
-                                variant="ghost" 
+                            <Button
+                                variant="ghost"
                                 className="w-full mt-4 text-xs font-bold text-amber-600 hover:text-amber-700 hover:bg-amber-50 cursor-pointer"
                                 onClick={() => navigate("/dashboard/doctor/consultations", { state: { activeTab: "pending" } })}
                             >

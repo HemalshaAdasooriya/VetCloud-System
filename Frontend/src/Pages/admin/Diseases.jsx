@@ -105,10 +105,10 @@ export default function Diseases() {
         setIncubation(disease.incubation || "");
         setEmergencyProtocol(disease.emergencyProtocol || "");
         
-        setSpeciesStr((disease.species || []).join("\n"));
-        setClinicalSignsStr((disease.clinicalSigns || []).join("\n"));
-        setPreventionStepsStr((disease.preventionSteps || []).join("\n"));
-        setTreatmentStepsStr((disease.treatmentSteps || []).join("\n"));
+        setSpeciesStr((Array.isArray(disease.species) ? disease.species : []).join("\n"));
+        setClinicalSignsStr((Array.isArray(disease.clinicalSigns) ? disease.clinicalSigns : []).join("\n"));
+        setPreventionStepsStr((Array.isArray(disease.preventionSteps) ? disease.preventionSteps : []).join("\n"));
+        setTreatmentStepsStr((Array.isArray(disease.treatmentSteps) ? disease.treatmentSteps : []).join("\n"));
         
         setShowFormModal(true);
     };
@@ -185,7 +185,7 @@ export default function Diseases() {
 
     // Filter Logic
     const filteredDiseases = diseases.filter(d => {
-        const matchesSearch = d.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        const matchesSearch = (d.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
                              (d.symptoms && d.symptoms.toLowerCase().includes(searchQuery.toLowerCase())) ||
                              (d.description && d.description.toLowerCase().includes(searchQuery.toLowerCase()));
         const matchesCategory = selectedCategory === "All Types" || d.category === selectedCategory;

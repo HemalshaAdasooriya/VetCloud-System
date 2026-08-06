@@ -46,7 +46,7 @@ export default function Overview() {
                 toast.success("Doctor approved successfully");
                 fetchData();
             } else {
-                const vet = recentVets.find(v => v.id === id);
+                const vet = (data?.recentVets || []).find(v => v.id === id);
                 setVetToReject(vet);
                 setShowConfirmRejectModal(true);
             }

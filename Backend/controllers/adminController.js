@@ -34,8 +34,8 @@ export const getOverviewStats = async (req, res) => {
     try {
         const [ownersCount] = await queryPromise("SELECT COUNT(*) AS count FROM pet_owners");
         const [vetsCount] = await queryPromise("SELECT COUNT(*) AS count FROM veterinarians");
-        const [appointmentsCount] = await queryPromise("SELECT COUNT(*) AS count FROM appointments");
-        const [revenueSum] = await queryPromise("SELECT SUM(fee) AS sum FROM consultations");
+        const [appointmentsCount] = await queryPromise("SELECT (SELECT COUNT(*) FROM appointments) + (SELECT COUNT(*) FROM consultations) AS count");
+        const [revenueSum] = await queryPromise("SELECT (COALESCE((SELECT SUM(fee) FROM consultations), 0) + COALESCE((SELECT SUM(v.consultation_fee) FROM appointments a JOIN veterinarians v ON a.veterinarian_id = v.id WHERE a.payment_status = 'Paid'), 0)) AS sum");
         const [pendingVetsCount] = await queryPromise("SELECT COUNT(*) AS count FROM veterinarians WHERE is_Active = 0");
         
         // Fetch recent registrations
@@ -62,7 +62,15 @@ export const getOverviewStats = async (req, res) => {
 // 2. User Management
 export const getUsers = async (req, res) => {
     try {
-        const users = await queryPromise("SELECT id, email, fullName, contact_No, address, numberOfAnimals, is_Active, image, provider FROM pet_owners ORDER BY id DESC");
+        const users = await queryPromise(`
+            SELECT p.id, p.email, p.fullName, p.contact_No, p.address, 
+                   COALESCE(COUNT(a.id), p.numberOfAnimals, 0) AS numberOfAnimals, 
+                   p.is_Active, p.image, p.provider 
+            FROM pet_owners p
+            LEFT JOIN animals a ON p.id = a.owner_id
+            GROUP BY p.id, p.email, p.fullName, p.contact_No, p.address, p.numberOfAnimals, p.is_Active, p.image, p.provider
+            ORDER BY p.id DESC
+        `);
         res.status(200).json(users);
     } catch (error) {
         console.error("Error in getUsers:", error);
@@ -100,6 +108,15 @@ export const updateUserStatus = async (req, res) => {
 export const deleteUser = async (req, res) => {
     const { id } = req.params;
     try {
+        // Clean up child tables to satisfy foreign key constraints
+        await queryPromise("DELETE FROM appointment_slots WHERE appointment_id IN (SELECT id FROM appointments WHERE pet_owner_id = ?)", [id]);
+        await queryPromise("DELETE FROM appointments WHERE pet_owner_id = ?", [id]);
+        await queryPromise("DELETE FROM consultations WHERE owner_id = ?", [id]);
+        await queryPromise("DELETE FROM pet_owner_profiles WHERE owner_id = ?", [id]);
+        await queryPromise("DELETE FROM feedbacks WHERE pet_owner_id = ?", [id]);
+        await queryPromise("DELETE FROM user_sessions WHERE user_id = ? AND user_role IN ('farmer', 'Farmer/PetOwner')", [id]);
+        await queryPromise("DELETE FROM notifications WHERE user_id = ? AND user_role IN ('farmer', 'Farmer/PetOwner')", [id]);
+        await queryPromise("DELETE FROM animals WHERE owner_id = ?", [id]);
         await queryPromise("DELETE FROM pet_owners WHERE id = ?", [id]);
         res.status(200).json({ message: "User deleted successfully" });
     } catch (error) {
@@ -114,9 +131,17 @@ export const getDoctors = async (req, res) => {
         const doctors = await queryPromise(`
             SELECT v.id, v.email, v.fullName, v.contact_No, v.license_number, v.specialization, 
                    v.years_of_experience, v.consultation_fee, v.is_Active, v.image,
-                   vp.bio, vp.professional_title 
+                   vp.bio, vp.professional_title,
+                   COALESCE(vpm.bank_name, vbd.bank_name) AS bank_name,
+                   COALESCE(vpm.account_number, vbd.account_number) AS account_number,
+                   COALESCE(vpm.account_name, vbd.account_name) AS account_name
             FROM veterinarians v 
             LEFT JOIN veterinarian_profiles vp ON v.id = vp.vet_id
+            LEFT JOIN veterinarian_payment_methods vpm ON v.id = vpm.vet_id
+            LEFT JOIN veterinarian_bank_details vbd ON v.id = vbd.vet_id
+            GROUP BY v.id, v.email, v.fullName, v.contact_No, v.license_number, v.specialization, 
+                     v.years_of_experience, v.consultation_fee, v.is_Active, v.image,
+                     vp.bio, vp.professional_title, vpm.bank_name, vbd.bank_name, vpm.account_number, vbd.account_number, vpm.account_name, vbd.account_name
             ORDER BY v.id DESC
         `);
         res.status(200).json(doctors);
@@ -156,6 +181,19 @@ export const updateDoctorStatus = async (req, res) => {
 export const deleteDoctor = async (req, res) => {
     const { id } = req.params;
     try {
+        // Clean up child tables to satisfy foreign key constraints
+        await queryPromise("DELETE FROM veterinarian_profiles WHERE vet_id = ?", [id]);
+        await queryPromise("DELETE FROM clinics WHERE veterinarian_id = ?", [id]);
+        await queryPromise("DELETE FROM veterinarian_bank_details WHERE vet_id = ?", [id]);
+        await queryPromise("DELETE FROM veterinarian_payment_methods WHERE vet_id = ?", [id]);
+        await queryPromise("DELETE FROM vet_schedule WHERE veterinarian_id = ?", [id]);
+        await queryPromise("DELETE FROM payouts WHERE veterinarian_id = ?", [id]);
+        await queryPromise("DELETE FROM feedbacks WHERE veterinarian_id = ?", [id]);
+        await queryPromise("DELETE FROM appointment_slots WHERE appointment_id IN (SELECT id FROM appointments WHERE veterinarian_id = ?)", [id]);
+        await queryPromise("DELETE FROM appointments WHERE veterinarian_id = ?", [id]);
+        await queryPromise("DELETE FROM consultations WHERE doctor_id = ?", [id]);
+        await queryPromise("DELETE FROM user_sessions WHERE user_id = ? AND user_role IN ('doctor', 'Veterinary Doctor')", [id]);
+        await queryPromise("DELETE FROM notifications WHERE user_id = ? AND user_role IN ('doctor', 'Veterinary Doctor')", [id]);
         await queryPromise("DELETE FROM veterinarians WHERE id = ?", [id]);
         res.status(200).json({ message: "Doctor deleted successfully" });
     } catch (error) {
@@ -169,18 +207,20 @@ export const getPayments = async (req, res) => {
     try {
         const transactions = await queryPromise(`
             SELECT c.id, c.appointment_date, c.appointment_time, c.consultation_type, c.fee, c.status, 
-                   p.fullName AS ownerName, v.fullName AS vetName 
+                   COALESCE(p.fullName, 'Unknown Owner') AS ownerName, 
+                   COALESCE(v.fullName, 'Unknown Vet') AS vetName 
             FROM consultations c 
-            JOIN pet_owners p ON c.owner_id = p.id 
-            JOIN veterinarians v ON c.doctor_id = v.id 
+            LEFT JOIN pet_owners p ON c.owner_id = p.id 
+            LEFT JOIN veterinarians v ON c.doctor_id = v.id 
             ORDER BY c.id DESC
         `);
 
         const payouts = await queryPromise(`
             SELECT p.id, p.amount, p.status, p.payout_date, p.bank_name, p.account_number, p.created_at, 
-                   v.fullName AS vetName, v.email AS vetEmail 
+                   COALESCE(v.fullName, 'Unknown Vet') AS vetName, 
+                   COALESCE(v.email, 'N/A') AS vetEmail 
             FROM payouts p 
-            JOIN veterinarians v ON p.veterinarian_id = v.id 
+            LEFT JOIN veterinarians v ON p.veterinarian_id = v.id 
             ORDER BY p.id DESC
         `);
 
@@ -203,6 +243,17 @@ export const getPayments = async (req, res) => {
     } catch (error) {
         console.error("Error in getPayments:", error);
         res.status(500).json({ message: "Failed to fetch payments data" });
+    }
+};
+
+export const deleteTransaction = async (req, res) => {
+    const { id } = req.params;
+    try {
+        await queryPromise("DELETE FROM consultations WHERE id = ?", [id]);
+        res.status(200).json({ message: "Consultation transaction record deleted successfully" });
+    } catch (error) {
+        console.error("Error in deleteTransaction:", error);
+        res.status(500).json({ message: "Failed to delete transaction record" });
     }
 };
 
@@ -318,9 +369,10 @@ export const getFeedback = async (req, res) => {
     try {
         const feedback = await queryPromise(`
             SELECT f.id, f.rating, f.comment, f.created_at, f.show_on_homepage,
-                   p.fullName AS ownerName, v.fullName AS vetName 
+                   COALESCE(p.fullName, 'Anonymous Owner') AS ownerName, 
+                   v.fullName AS vetName 
             FROM feedbacks f 
-            JOIN pet_owners p ON f.pet_owner_id = p.id 
+            LEFT JOIN pet_owners p ON f.pet_owner_id = p.id 
             LEFT JOIN veterinarians v ON f.veterinarian_id = v.id 
             ORDER BY f.id DESC
         `);
@@ -357,13 +409,15 @@ export const toggleFeedbackHomepage = async (req, res) => {
 // 7. Reports & Analytics
 export const getReports = async (req, res) => {
     try {
-        // 1. User Signup & Consultation Growth (last 6 months)
+        // 1. User Signup & Consultation Growth (last 6 months real data)
         const ownerGrowth = await queryPromise(`
-            SELECT DATE_FORMAT(created_at, '%b %Y') AS month, COUNT(*) AS count
-            FROM appointments
-            WHERE created_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
-            GROUP BY month
-            ORDER BY MIN(created_at)
+            SELECT month, SUM(cnt) AS count FROM (
+                SELECT DATE_FORMAT(created_at, '%b %Y') AS month, DATE_FORMAT(created_at, '%Y-%m') AS ym, COUNT(*) AS cnt FROM appointments WHERE created_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH) GROUP BY ym, month
+                UNION ALL
+                SELECT DATE_FORMAT(created_at, '%b %Y') AS month, DATE_FORMAT(created_at, '%Y-%m') AS ym, COUNT(*) AS cnt FROM consultations WHERE created_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH) GROUP BY ym, month
+            ) combined
+            GROUP BY ym, month
+            ORDER BY ym ASC
         `);
 
         // 2. Consultations by status
@@ -382,10 +436,10 @@ export const getReports = async (req, res) => {
         `);
 
         // 4. Financial Summary
-        const [grossRevenue] = await queryPromise(`SELECT COALESCE(SUM(fee), 0) AS total FROM consultations`);
+        const [grossRevenue] = await queryPromise(`SELECT (COALESCE((SELECT SUM(fee) FROM consultations), 0) + COALESCE((SELECT SUM(v.consultation_fee) FROM appointments a JOIN veterinarians v ON a.veterinarian_id = v.id WHERE a.payment_status = 'Paid'), 0)) AS total`);
         const [paidPayouts] = await queryPromise(`SELECT COALESCE(SUM(amount), 0) AS total FROM payouts WHERE status = 'Paid'`);
         const [pendingPayouts] = await queryPromise(`SELECT COALESCE(SUM(amount), 0) AS total FROM payouts WHERE status = 'Pending'`);
-        const [totalConsultationsCount] = await queryPromise(`SELECT COUNT(*) AS count FROM consultations`);
+        const [totalConsultationsCount] = await queryPromise(`SELECT ((SELECT COUNT(*) FROM consultations) + (SELECT COUNT(*) FROM appointments)) AS count`);
 
         const financialSummary = {
             grossRevenue: parseFloat(grossRevenue.total || 0),
@@ -401,11 +455,12 @@ export const getReports = async (req, res) => {
                 v.fullName, 
                 v.specialization, 
                 v.consultation_fee,
-                COUNT(DISTINCT c.id) AS totalConsultations, 
-                COALESCE(SUM(c.fee), 0) AS totalRevenue,
+                (COUNT(DISTINCT c.id) + COUNT(DISTINCT a.id)) AS totalConsultations, 
+                (COALESCE(SUM(c.fee), 0) + COALESCE(SUM(CASE WHEN a.payment_status = 'Paid' THEN v.consultation_fee ELSE 0 END), 0)) AS totalRevenue,
                 COALESCE(AVG(f.rating), 5.0) AS avgRating
             FROM veterinarians v
             LEFT JOIN consultations c ON v.id = c.doctor_id
+            LEFT JOIN appointments a ON v.id = a.veterinarian_id
             LEFT JOIN feedbacks f ON v.id = f.veterinarian_id
             GROUP BY v.id, v.fullName, v.specialization, v.consultation_fee
             ORDER BY totalConsultations DESC, totalRevenue DESC
@@ -431,19 +486,34 @@ export const getReports = async (req, res) => {
 
         // 7. Recent Financial Audit Logs / Transactions
         const recentTransactions = await queryPromise(`
-            SELECT 
-                c.id, 
-                'Consultation Fee' AS type, 
-                c.fee AS amount, 
-                c.status, 
-                c.consultation_type AS mode,
-                c.created_at AS date,
-                v.fullName AS doctorName,
-                p.fullName AS ownerName
-            FROM consultations c
-            LEFT JOIN veterinarians v ON c.doctor_id = v.id
-            LEFT JOIN pet_owners p ON c.owner_id = p.id
-            ORDER BY c.created_at DESC
+            SELECT * FROM (
+                SELECT 
+                    c.id, 
+                    'Consultation Fee' AS type, 
+                    c.fee AS amount, 
+                    c.status, 
+                    c.consultation_type AS mode,
+                    c.created_at AS date,
+                    v.fullName AS doctorName,
+                    p.fullName AS ownerName
+                FROM consultations c
+                LEFT JOIN veterinarians v ON c.doctor_id = v.id
+                LEFT JOIN pet_owners p ON c.owner_id = p.id
+                UNION ALL
+                SELECT 
+                    a.id,
+                    'Appointment Fee' AS type,
+                    v.consultation_fee AS amount,
+                    a.status,
+                    a.consultation_type AS mode,
+                    a.created_at AS date,
+                    v.fullName AS doctorName,
+                    p.fullName AS ownerName
+                FROM appointments a
+                LEFT JOIN veterinarians v ON a.veterinarian_id = v.id
+                LEFT JOIN pet_owners p ON a.pet_owner_id = p.id
+            ) combined_tx
+            ORDER BY date DESC
             LIMIT 20
         `);
 
@@ -476,6 +546,12 @@ export const updateAdminProfile = async (req, res) => {
         let params = [fullName, contact_No || null, email];
 
         if (password && password.trim() !== "") {
+            const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/;
+            if (!passwordRegex.test(password)) {
+                return res.status(400).json({ 
+                    message: "Password must be at least 8 characters long and include an uppercase letter, a lowercase letter, a number, and a special character/symbol." 
+                });
+            }
             const hashedPassword = bcrypt.hashSync(password, 11);
             sql += ", password = ?";
             params.push(hashedPassword);

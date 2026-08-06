@@ -5,6 +5,7 @@ import db from "../config/db.js";
 export const createPetOwner = (userData, callback) => {
     // Factory Assembly 1: Stitch the first and last name together
     const fullName = `${userData.firstName || ''} ${userData.lastName || ''}`.trim();
+    const cleanEmail = String(userData.email || '').trim().toLowerCase();
 
     // Factory Assembly 2: Stitch the address parts together safely
     const fullAddress = [
@@ -19,7 +20,7 @@ export const createPetOwner = (userData, callback) => {
     `;
 
     const mainValues = [
-        userData.email,
+        cleanEmail,
         userData.password,
         fullName,
         userData.contact_No,
@@ -66,6 +67,7 @@ export const createPetOwner = (userData, callback) => {
 export const createVeterinarian = (userData, callback) => {
     // Stitch the name together for the main table
     const fullName = `${userData.firstName || ''} ${userData.lastName || ''}`.trim();
+    const cleanEmail = String(userData.email || '').trim().toLowerCase();
 
     // Step 1: Insert core data into the main veterinarians table
     const insertMainSql = `
@@ -75,7 +77,7 @@ export const createVeterinarian = (userData, callback) => {
     `;
 
     const mainValues = [
-        userData.email,
+        cleanEmail,
         userData.password,
         fullName,
         userData.contact_No,
@@ -123,13 +125,14 @@ export const createVeterinarian = (userData, callback) => {
 
 // 3. Check if email exists in EITHER table
 export const checkEmailExists = (email, callback) => {
+    const cleanEmail = String(email || '').trim().toLowerCase();
     const sql = `
-        SELECT email FROM pet_owners WHERE email = ?
+        SELECT email, 'farmer' AS role FROM pet_owners WHERE LOWER(TRIM(email)) = ?
         UNION
-        SELECT email FROM veterinarians WHERE email = ?
+        SELECT email, 'doctor' AS role FROM veterinarians WHERE LOWER(TRIM(email)) = ?
     `;
 
-    db.query(sql, [email, email], callback);
+    db.query(sql, [cleanEmail, cleanEmail], callback);
 };
 
 // 4. Fetch User for Login Verification
@@ -147,9 +150,10 @@ export const getUserByEmailAndRole = (email, role, callback) => {
         return callback({ message: "Invalid role selected" }, null);
     }
 
-    const sql = `SELECT * FROM ${tableName} WHERE email = ?`;
+    const cleanEmail = String(email || '').trim().toLowerCase();
+    const sql = `SELECT * FROM ${tableName} WHERE LOWER(TRIM(email)) = ?`;
     
-    db.query(sql, [email], callback);
+    db.query(sql, [cleanEmail], callback);
 };
 
 

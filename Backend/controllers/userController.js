@@ -40,13 +40,14 @@ import fs from "fs";
 import path from "path";
 import db from "../config/db.js";
 import { updatePayoutSettings } from "../models/Payment.js";
+import { uploadToSupabase } from "../config/supabaseClient.js";
 
 
 
 const googleClientId = process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID;
 const googleClient = new OAuth2Client(googleClientId);
 
-export function registerUser(req, res) {
+export async function registerUser(req, res) {
     const data = req.body;
 
     // 1. Basic validation
@@ -56,9 +57,11 @@ export function registerUser(req, res) {
         });
     }
 
+    const cleanEmail = String(data.email).trim().toLowerCase();
+
     // 2. Email format validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(data.email)) {
+    if (!emailRegex.test(cleanEmail)) {
         return res.status(400).json({
             message: "Please enter a valid email address."
         });
@@ -87,10 +90,17 @@ export function registerUser(req, res) {
         }
     }
 
-    const imagePath = req.file ? `/uploads/${req.file.filename}` : "/default.jpg";
+    let imagePath = "/default.jpg";
+    if (req.file) {
+        try {
+            imagePath = (await uploadToSupabase(req.file, "profile")) || "/default.jpg";
+        } catch (err) {
+            console.error("Failed to upload profile image to Supabase:", err);
+        }
+    }
 
     // 2. Check if email already exists in either table
-    checkEmailExists(data.email, (err, results) => {
+    checkEmailExists(cleanEmail, (err, results) => {
         if (err) {
             return res.status(500).json(err);
         }
@@ -109,7 +119,7 @@ export function registerUser(req, res) {
             if (data.role === "Farmer/PetOwner") {
                 createPetOwner(
                     {
-                        email: data.email,
+                        email: cleanEmail,
                         password: hashedPassword,
                         firstName: data.firstName,
                         lastName: data.lastName,
@@ -127,9 +137,9 @@ export function registerUser(req, res) {
                         if (err) return res.status(500).json(err);
                         //isuri-user notification
                         // Send verification email in background
-                        const verifyHtml = getAccountVerificationTemplate(`${data.firstName} ${data.lastName}`, data.email);
+                        const verifyHtml = getAccountVerificationTemplate(`${data.firstName} ${data.lastName}`, cleanEmail);
                         sendEmail({
-                            to: data.email,
+                            to: cleanEmail,
                             subject: "Verify your VetCloud Account",
                             html: verifyHtml,
                             text: `Welcome to VetCloud, ${data.firstName}! Please verify your account.`
@@ -141,11 +151,11 @@ export function registerUser(req, res) {
                             createAdminNotification(io, {
                                 type: "new_user_registration",
                                 title: "New User Registered",
-                                message: `New Pet Owner/Farmer registered: ${data.firstName} ${data.lastName} (${data.email}).`
+                                message: `New Pet Owner/Farmer registered: ${data.firstName} ${data.lastName} (${cleanEmail}).`
                             });
                         }).catch(console.error);
                         // Automatically log in the user after creation
-                        getUserByEmailAndRole(data.email, "farmer", (fetchErr, userResults) => {
+                        getUserByEmailAndRole(cleanEmail, "farmer", (fetchErr, userResults) => {
                             if (fetchErr || userResults.length === 0) {
                                 return res.status(201).json({ message: "Pet Owner registered successfully. Please log in manually." });
                             }
@@ -158,7 +168,7 @@ export function registerUser(req, res) {
             else if (data.role === "Veterinary Doctor") {
                 createVeterinarian(
                     {
-                        email: data.email,
+                        email: cleanEmail,
                         password: hashedPassword,
                         firstName: data.firstName,
                         lastName: data.lastName,
@@ -180,9 +190,9 @@ export function registerUser(req, res) {
                         }
                         //isuri-user notification
                         // Send verification email in background
-                        const verifyHtml = getAccountVerificationTemplate(`${data.firstName} ${data.lastName}`, data.email);
+                        const verifyHtml = getAccountVerificationTemplate(`${data.firstName} ${data.lastName}`, cleanEmail);
                         sendEmail({
-                            to: data.email,
+                            to: cleanEmail,
                             subject: "Verify your VetCloud Account",
                             html: verifyHtml,
                             text: `Welcome to VetCloud, ${data.firstName}! Please verify your account.`
@@ -194,11 +204,11 @@ export function registerUser(req, res) {
                             createAdminNotification(io, {
                                 type: "new_vet_registration",
                                 title: "New Vet Registration Request",
-                                message: `New veterinarian registered: Dr. ${data.firstName} ${data.lastName} (${data.email}, License: ${data.license_number}). Pending approval.`
+                                message: `New veterinarian registered: Dr. ${data.firstName} ${data.lastName} (${cleanEmail}, License: ${data.license_number}). Pending approval.`
                             });
                         }).catch(console.error);
                         // Do not automatically log in if they are inactive (which they are by default)
-                        getUserByEmailAndRole(data.email, "doctor", (fetchErr, userResults) => {
+                        getUserByEmailAndRole(cleanEmail, "doctor", (fetchErr, userResults) => {
                             return res.status(201).json({
                                 message: "Please wait for administrator approval. Thank you.",
                                 isPendingApproval: true
@@ -364,6 +374,7 @@ export async function facebookLogin(req, res) {
 
 // --- Helper Function to avoid repeating code for Social Logins ---
 function handleSocialLogin(req, res, email, name, image, role, provider, extraDetails = {}) {
+    const cleanEmail = String(email || '').trim().toLowerCase();
     const nameParts = name.split(" ");
     const splitFirstName = nameParts[0] || "";
     const splitLastName = nameParts.slice(1).join(" ") || "";
@@ -371,7 +382,7 @@ function handleSocialLogin(req, res, email, name, image, role, provider, extraDe
     const dbRole = (role === "Farmer/PetOwner" || role === "farmer" || role === "Farmer") ? "farmer" : "doctor";
 
     // Lookup user ONLY in the preferred (selected) role
-    getUserByEmailAndRole(email, dbRole, (errPreferred, preferredResults) => {
+    getUserByEmailAndRole(cleanEmail, dbRole, (errPreferred, preferredResults) => {
         if (errPreferred) {
             console.error(`${dbRole} lookup failed during social login:`, errPreferred);
             return res.status(500).json({ message: "Database error during social login." });
@@ -383,7 +394,7 @@ function handleSocialLogin(req, res, email, name, image, role, provider, extraDe
         }
 
         // Before creating a NEW account, verify if the email is already registered under the OTHER role
-        checkEmailExists(email, (errCheck, checkResults) => {
+        checkEmailExists(cleanEmail, (errCheck, checkResults) => {
             if (errCheck) {
                 console.error("Email existence check failed during social login:", errCheck);
                 return res.status(500).json({ message: "Database error during social login check." });
@@ -413,7 +424,7 @@ function handleSocialLogin(req, res, email, name, image, role, provider, extraDe
 
             // No existing user found in either role: proceed to register as a new user with selected role
             const userData = {
-                email,
+                email: cleanEmail,
                 password: null,
                 firstName: splitFirstName,
                 lastName: splitLastName,
@@ -430,7 +441,7 @@ function handleSocialLogin(req, res, email, name, image, role, provider, extraDe
                 if (regErr) return res.status(500).json(regErr);
 
                 // Fetch the newly created user to issue a proper session
-                getUserByEmailAndRole(email, dbRole, (fetchErr, userResults) => {
+                getUserByEmailAndRole(cleanEmail, dbRole, (fetchErr, userResults) => {
                     if (fetchErr || userResults.length === 0) return res.status(500).json({ message: "Database error during social registration." });
 
                     if (dbRole === "doctor") {
@@ -440,7 +451,7 @@ function handleSocialLogin(req, res, email, name, image, role, provider, extraDe
                             createAdminNotification(io, {
                                 type: "new_vet_registration",
                                 title: "New Vet Registration Request",
-                                message: `New veterinarian registered via Google: Dr. ${splitFirstName} ${splitLastName} (${email}, License: ${userData.license_number}). Pending approval.`
+                                message: `New veterinarian registered via Google: Dr. ${splitFirstName} ${splitLastName} (${cleanEmail}, License: ${userData.license_number}). Pending approval.`
                             });
                         }).catch(console.error);
 
@@ -703,7 +714,7 @@ export async function resetPassword(req, res) {
 //... Navindu
 
 //Hemalsha 2026/05/30 ... Profile Picture Upload Functionality
-export const updateProfilePhoto = (req, res) => {
+export const updateProfilePhoto = async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });
     }
@@ -722,8 +733,8 @@ export const updateProfilePhoto = (req, res) => {
         const userId = decoded.id;
         const userRole = decoded.role;
 
-        // 3. Create the URL
-        const imageUrl = `/uploads/${req.file.filename}`;
+        // 3. Upload to Supabase Storage
+        const imageUrl = await uploadToSupabase(req.file, "profile");
 
         // 4. Update the Database
         updateUserImage(userId, userRole, imageUrl, (err, result) => {
@@ -736,7 +747,8 @@ export const updateProfilePhoto = (req, res) => {
         });
 
     } catch (error) {
-        return res.status(401).json({ message: "Unauthorized: Invalid token" });
+        console.error("Error updating profile photo:", error);
+        return res.status(500).json({ message: "Failed to upload image" });
     }
 };
 
@@ -787,49 +799,78 @@ export const updateUserProfile = (req, res) => {
         const userRole = decoded.role;
         const profileData = req.body; // The payload we sent from React
 
-        // 3. Route to the correct database update function
-        if (userRole === "Farmer/PetOwner" || userRole === "farmer") {
+        const performUpdate = () => {
+            // 3. Route to the correct database update function
+            if (userRole === "Farmer/PetOwner" || userRole === "farmer") {
 
-            updatePetOwnerProfile(userId, profileData, (err, result) => {
-                if (err) return res.status(500).json({ message: "Database error during update" });
+                updatePetOwnerProfile(userId, profileData, (err, result) => {
+                    if (err) return res.status(500).json({ message: "Database error during update" });
 
-                // Send security alert email
-                getUserByIdAndRole(userId, 'farmer', (errUser, userInfo) => {
-                    if (!errUser && userInfo) {
-                        sendEmail({
-                            to: userInfo.email,
-                            subject: "Security Alert: Profile Information Updated",
-                            html: `<h3>Profile Updated</h3><p>Dear ${userInfo.fullName}, your VetCloud account profile information has been successfully updated.</p>`,
-                            text: `Dear ${userInfo.fullName}, your VetCloud account profile information has been updated.`
-                        }).catch(console.error);
-                    }
+                    // Send security alert email
+                    getUserByIdAndRole(userId, 'farmer', (errUser, userInfo) => {
+                        if (!errUser && userInfo) {
+                            sendEmail({
+                                to: userInfo.email,
+                                subject: "Security Alert: Profile Information Updated",
+                                html: `<h3>Profile Updated</h3><p>Dear ${userInfo.fullName}, your VetCloud account profile information has been successfully updated.</p>`,
+                                text: `Dear ${userInfo.fullName}, your VetCloud account profile information has been updated.`
+                            }).catch(console.error);
+                        }
+                    });
+
+                    return res.status(200).json({ message: "Profile updated successfully" });
                 });
 
-                return res.status(200).json({ message: "Profile updated successfully" });
-            });
+            } else if (userRole === "Veterinary Doctor" || userRole === "doctor") {
 
-        } else if (userRole === "Veterinary Doctor" || userRole === "doctor") {
+                updateVeterinarianProfile(userId, profileData, (err, result) => {
+                    if (err) return res.status(500).json({ message: "Database error during update" });
 
-            updateVeterinarianProfile(userId, profileData, (err, result) => {
-                if (err) return res.status(500).json({ message: "Database error during update" });
+                    // Send security alert email
+                    getUserByIdAndRole(userId, 'doctor', (errUser, userInfo) => {
+                        if (!errUser && userInfo) {
+                            sendEmail({
+                                to: userInfo.email,
+                                subject: "Security Alert: Profile Information Updated",
+                                html: `<h3>Profile Updated</h3><p>Dear ${userInfo.fullName}, your VetCloud account profile information has been successfully updated.</p>`,
+                                text: `Dear ${userInfo.fullName}, your VetCloud account profile information has been updated.`
+                            }).catch(console.error);
+                        }
+                    });
 
-                // Send security alert email
-                getUserByIdAndRole(userId, 'doctor', (errUser, userInfo) => {
-                    if (!errUser && userInfo) {
-                        sendEmail({
-                            to: userInfo.email,
-                            subject: "Security Alert: Profile Information Updated",
-                            html: `<h3>Profile Updated</h3><p>Dear ${userInfo.fullName}, your VetCloud account profile information has been successfully updated.</p>`,
-                            text: `Dear ${userInfo.fullName}, your VetCloud account profile information has been updated.`
-                        }).catch(console.error);
-                    }
+                    return res.status(200).json({ message: "Profile updated successfully" });
                 });
 
-                return res.status(200).json({ message: "Profile updated successfully" });
-            });
+            } else {
+                return res.status(400).json({ message: "Invalid user role" });
+            }
+        };
 
+        if (profileData.email) {
+            const cleanNewEmail = String(profileData.email).trim().toLowerCase();
+            checkEmailExists(cleanNewEmail, (errCheck, results) => {
+                if (errCheck) return res.status(500).json({ message: "Database error during email validation" });
+
+                // If email exists, ensure it doesn't belong to a DIFFERENT account
+                if (results && results.length > 0) {
+                    const currentRoleKey = (userRole === "Farmer/PetOwner" || userRole === "farmer") ? "farmer" : "doctor";
+                    getUserByIdAndRole(userId, currentRoleKey, (errCurr, currUser) => {
+                        if (!errCurr && currUser) {
+                            const currentUserEmail = String(currUser.email || '').trim().toLowerCase();
+                            if (currentUserEmail !== cleanNewEmail) {
+                                return res.status(400).json({
+                                    message: "An account with this email address is already registered. A single email address cannot be used for both Doctor and Farmer accounts."
+                                });
+                            }
+                        }
+                        performUpdate();
+                    });
+                } else {
+                    performUpdate();
+                }
+            });
         } else {
-            return res.status(400).json({ message: "Invalid user role" });
+            performUpdate();
         }
 
     } catch (error) {

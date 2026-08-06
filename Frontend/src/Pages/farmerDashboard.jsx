@@ -25,6 +25,16 @@ const SPECIES_WEIGHT_LIMITS = {
   Sheep: 200
 };
 
+const SPECIES_IMAGES = {
+  Cattle: "https://images.unsplash.com/photo-1570042225831-d98fa7577f1e?auto=format&fit=crop&q=80&w=600",
+  Dog: "https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&q=80&w=600",
+  Poultry: "https://images.unsplash.com/photo-1548550023-2bdb3c5beed7?auto=format&fit=crop&q=80&w=600",
+  Cat: "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?auto=format&fit=crop&q=80&w=600",
+  Horse: "https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&q=80&w=600",
+  Sheep: "https://images.unsplash.com/photo-1484557052118-f32bd25b45b5?auto=format&fit=crop&q=80&w=600",
+  Other: "https://images.unsplash.com/photo-1535268647977-a403b69fc756?auto=format&fit=crop&q=80&w=600"
+};
+
 const getFileUrl = (url) => {
   if (!url) return "#";
   if (url.startsWith("http://") || url.startsWith("https://")) return url;
@@ -63,9 +73,9 @@ export default function FarmerDashboard() {
     }
   }, [showRegisterModal]);
 
-  // Retrieve user session info
+  // Retrieve user session info robustly
   const user = JSON.parse(localStorage.getItem("user") || "null");
-  const ownerId = user ? user.id : null;
+  const ownerId = localStorage.getItem("userId") || (user ? (user.id || user.userId || user.user_id) : null);
   const token = localStorage.getItem("token") || "";
 
   // Personalize name
@@ -557,6 +567,7 @@ export default function FarmerDashboard() {
 
                 {/* Add Animal Shortcut Button */}
                 <button
+                  type="button"
                   onClick={() => setShowRegisterModal(true)}
                   className="mt-2 border border-dashed border-slate-200 hover:border-green-600 hover:bg-green-50/20 rounded-xl py-3 w-full text-slate-500 hover:text-green-600 text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                 >
@@ -568,6 +579,7 @@ export default function FarmerDashboard() {
               <div className="text-center py-8 space-y-3">
                 <p className="text-sm text-slate-400">No animals registered yet.</p>
                 <button
+                  type="button"
                   onClick={() => setShowRegisterModal(true)}
                   className="inline-flex items-center gap-1.5 text-xs bg-green-50 border border-green-100 text-green-700 hover:bg-green-100 font-bold px-3.5 py-2 rounded-xl transition-all cursor-pointer"
                 >
@@ -652,7 +664,7 @@ export default function FarmerDashboard() {
                   <div className="grid grid-cols-3 gap-2">
                     <div>
                       <span className="text-[11px] text-slate-400 font-medium block mb-1">Years</span>
-                      <input 
+                      <input
                         type="number"
                         min="0"
                         max="100"
@@ -664,7 +676,7 @@ export default function FarmerDashboard() {
                     </div>
                     <div>
                       <span className="text-[11px] text-slate-400 font-medium block mb-1">Months</span>
-                      <input 
+                      <input
                         type="number"
                         min="0"
                         max="11"
@@ -676,7 +688,7 @@ export default function FarmerDashboard() {
                     </div>
                     <div>
                       <span className="text-[11px] text-slate-400 font-medium block mb-1">Days</span>
-                      <input 
+                      <input
                         type="number"
                         min="0"
                         max="31"
@@ -723,8 +735,8 @@ export default function FarmerDashboard() {
                 <div className="col-span-2 space-y-1.5">
                   <label className="text-xs font-semibold text-slate-500">Health Report / Vaccination Card</label>
                   <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-                    <input 
-                      type="file" 
+                    <input
+                      type="file"
                       accept=".pdf,image/*,.doc,.docx"
                       onChange={(e) => {
                         if (e.target.files && e.target.files[0]) {
@@ -735,7 +747,7 @@ export default function FarmerDashboard() {
                       className="hidden"
                     />
                     <div className="flex items-center gap-3">
-                      <label 
+                      <label
                         htmlFor="healthReportUploadDashboard"
                         className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 rounded-lg text-xs font-bold shadow-xs cursor-pointer active:scale-95 transition-all"
                       >
@@ -756,9 +768,9 @@ export default function FarmerDashboard() {
                       ) : (formHealthReport ? (
                         <div className="flex items-center gap-2 text-xs text-emerald-600 font-medium">
                           <span>Report Uploaded</span>
-                          <a 
+                          <a
                             href={getFileUrl(formHealthReport)}
-                            target="_blank" 
+                            target="_blank"
                             rel="noopener noreferrer"
                             className="underline text-emerald-700 font-bold"
                           >
@@ -841,6 +853,7 @@ export default function FarmerDashboard() {
           </div>
         </div>
       )}
+
     </div>
   );
 }
