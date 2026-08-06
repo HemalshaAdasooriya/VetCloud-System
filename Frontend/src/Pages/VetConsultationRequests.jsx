@@ -955,30 +955,43 @@ export default function VetConsultationRequests() {
                   </button>
                 </div>
 
-                {/* Primary Reason for Visit */}
-                <div className="space-y-2">
-                  <h4 className="text-sm font-semibold text-slate-700">Primary Reason for Visit</h4>
-                  <div className="bg-red-50/50 border border-red-100 rounded-lg p-4 flex gap-3">
-                    <AlertCircle className="text-red-500 flex-shrink-0 mt-0.5" size={18} />
-                    <p className="text-sm text-red-900 leading-relaxed font-medium">
-                      {notes || 'No description provided.'}
-                    </p>
+                {/* Diagnostic Symptoms & Primary Case Reason */}
+                <div className="space-y-4 bg-slate-50/80 p-5 rounded-2xl border border-slate-200/80">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/60 pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="text-amber-500 flex-shrink-0" size={18} />
+                      <h4 className="text-sm font-extrabold text-slate-800 tracking-tight">Diagnostic Symptoms & Case Details</h4>
+                    </div>
+                    {getUrgencyBadge(notes)}
                   </div>
-                </div>
 
-                {/* Reported Symptoms */}
-                {symptoms.length > 0 && (
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-semibold text-slate-700">Reported Symptoms</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {symptoms.map((symptom, i) => (
-                        <Badge key={i} className="bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200 font-medium px-3 py-1 text-xs">
-                          {symptom}
-                        </Badge>
-                      ))}
+                  {/* Farmer's Description & Notes */}
+                  <div className="space-y-1.5">
+                    <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Farmer's Description & Primary Reason</span>
+                    <div className="bg-white border border-slate-200 rounded-xl p-3.5 text-sm font-medium text-slate-700 leading-relaxed shadow-2xs">
+                      {notes || 'No description notes provided by the client.'}
                     </div>
                   </div>
-                )}
+
+                  {/* Identified Diagnostic Symptoms Tags */}
+                  <div className="space-y-1.5">
+                    <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Identified Symptom Indicators</span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {symptoms.length > 0 ? (
+                        symptoms.map((sym, idx) => (
+                          <Badge key={idx} className="bg-amber-100/90 text-amber-900 border-amber-200/90 font-bold px-3 py-1 rounded-lg text-xs flex items-center gap-1.5 shadow-2xs">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                            {sym}
+                          </Badge>
+                        ))
+                      ) : (
+                        <Badge className="bg-slate-200/70 text-slate-600 border-slate-300 text-xs px-3 py-1 font-semibold">
+                          General Symptoms
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </Card>
 
               {/* Patient Medical Record History Timeline Card */}

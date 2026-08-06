@@ -338,8 +338,8 @@ function DiseaseGuideModal({ disease, onClose }) {
           <button
             onClick={() => setActiveTab('overview')}
             className={`py-4 px-4 text-sm font-bold border-b-2 transition-all cursor-pointer whitespace-nowrap ${activeTab === 'overview'
-                ? 'border-green-600 text-green-700'
-                : 'border-transparent text-slate-500 hover:text-slate-700'
+              ? 'border-green-600 text-green-700'
+              : 'border-transparent text-slate-500 hover:text-slate-700'
               }`}
           >
             Overview & Symptoms
@@ -347,8 +347,8 @@ function DiseaseGuideModal({ disease, onClose }) {
           <button
             onClick={() => setActiveTab('prevention')}
             className={`py-4 px-4 text-sm font-bold border-b-2 transition-all cursor-pointer whitespace-nowrap ${activeTab === 'prevention'
-                ? 'border-green-600 text-green-700'
-                : 'border-transparent text-slate-500 hover:text-slate-700'
+              ? 'border-green-600 text-green-700'
+              : 'border-transparent text-slate-500 hover:text-slate-700'
               }`}
           >
             Prevention & Biosecurity
@@ -356,8 +356,8 @@ function DiseaseGuideModal({ disease, onClose }) {
           <button
             onClick={() => setActiveTab('treatment')}
             className={`py-4 px-4 text-sm font-bold border-b-2 transition-all cursor-pointer whitespace-nowrap ${activeTab === 'treatment'
-                ? 'border-green-600 text-green-700'
-                : 'border-transparent text-slate-500 hover:text-slate-700'
+              ? 'border-green-600 text-green-700'
+              : 'border-transparent text-slate-500 hover:text-slate-700'
               }`}
           >
             Treatment & Protocol
@@ -697,8 +697,8 @@ export default function DiseasesPage() {
               key={category}
               onClick={() => setSelectedCategory(category)}
               className={`h-9 px-6 rounded-full text-sm font-semibold shrink-0 cursor-pointer shadow-sm transition-all duration-200 ${selectedCategory === category
-                  ? 'bg-slate-900 text-white hover:bg-slate-800 scale-102'
-                  : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                ? 'bg-slate-900 text-white hover:bg-slate-800 scale-102'
+                : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300 hover:bg-slate-50'
                 }`}
             >
               {category}
