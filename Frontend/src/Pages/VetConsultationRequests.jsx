@@ -113,6 +113,23 @@ export default function VetConsultationRequests() {
 
   const API_BASE = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
+  // Auto-fetch patient animal medical history whenever selectedRequestDetails changes
+  useEffect(() => {
+    const animalId = selectedRequestDetails?.animalId || selectedRequestDetails?.animal_id || selectedRequestDetails?.originalData?.animal_id;
+    if (animalId) {
+      setLoadingHistory(true);
+      const token = localStorage.getItem("token") || "";
+      axios.get(`${API_BASE}/api/animals/${animalId}/history`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+        .then(res => setSelectedAnimalHistory(res.data || []))
+        .catch(err => console.error("Failed to auto-fetch animal history:", err))
+        .finally(() => setLoadingHistory(false));
+    } else {
+      setSelectedAnimalHistory([]);
+    }
+  }, [selectedRequestDetails]);
+
   // Fetch vet's schedule slots as fallbacks if request has no slots
   useEffect(() => {
     if (selectedRequestDetails && (!selectedRequestDetails.slots || selectedRequestDetails.slots.length === 0)) {
@@ -934,7 +951,7 @@ export default function VetConsultationRequests() {
                     className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer"
                   >
                     <FileText size={16} />
-                    View Patient Medical History
+                    View Patient Medical History Modal
                   </button>
                 </div>
 
@@ -960,6 +977,50 @@ export default function VetConsultationRequests() {
                         </Badge>
                       ))}
                     </div>
+                  </div>
+                )}
+              </Card>
+
+              {/* Patient Medical Record History Timeline Card */}
+              <Card className="p-6 border-slate-200 shadow-sm bg-white rounded-2xl space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div className="flex items-center gap-2 text-slate-800 font-bold">
+                    <FileText size={18} className="text-blue-600" />
+                    <span>Medical Record History & Past Consultations</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenPatientHistory(request.animalId || request.originalData?.animal_id)}
+                    className="text-xs text-blue-600 hover:text-blue-800 font-bold cursor-pointer underline"
+                  >
+                    Expand Modal ({selectedAnimalHistory.length})
+                  </button>
+                </div>
+
+                {loadingHistory ? (
+                  <div className="flex items-center justify-center py-6 gap-2 text-slate-500 text-xs font-medium">
+                    <Loader2 size={18} className="animate-spin text-blue-600" />
+                    <span>Loading patient medical history...</span>
+                  </div>
+                ) : selectedAnimalHistory && selectedAnimalHistory.length > 0 ? (
+                  <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
+                    {selectedAnimalHistory.map((rec, idx) => (
+                      <div key={idx} className="p-3.5 bg-slate-50 border border-slate-100 rounded-xl text-xs space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-slate-800 text-sm">{rec.title}</span>
+                          <Badge className="bg-blue-100 text-blue-700 border-blue-200 text-[10px] px-2 py-0.5 font-bold">{rec.type}</Badge>
+                        </div>
+                        <p className="text-slate-600 leading-relaxed font-medium">{formatNotesContent(rec.notes)}</p>
+                        <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1.5 border-t border-slate-200/60 font-medium">
+                          <span>Date: {rec.date}</span>
+                          <span>Attending Vet: {rec.vet}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-6 bg-slate-50 border border-slate-100 rounded-xl text-center text-xs text-slate-500 font-medium">
+                    No prior medical history records or past consultations logged for this animal yet.
                   </div>
                 )}
               </Card>
