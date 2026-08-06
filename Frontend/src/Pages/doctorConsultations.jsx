@@ -43,7 +43,19 @@ export default function DoctorConsultations() {
   const [isTyping, setIsTyping] = useState(false);
 
   const getVetId = () => {
-    return localStorage.getItem('userId');
+    const userId = localStorage.getItem('userId');
+    if (userId) return userId;
+    try {
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        const u = JSON.parse(userStr);
+        return u.id || u.vetId || u.user_id || null;
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    return null;
+    // return localStorage.getItem('userId');
   };
 
   const vetId = getVetId();
