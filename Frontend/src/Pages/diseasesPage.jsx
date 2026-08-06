@@ -1,9 +1,8 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import Navigation from '../layouts/navigation';
 import Footer from '../layouts/footer';
 import { Badge, Button, Card, Input } from '../components/Ui/ui';
-import { Search, BookOpen, AlertTriangle, ShieldCheck, Activity, Info, X, ChevronRight, Database } from 'lucide-react';
+import { Search, BookOpen, AlertTriangle, ShieldCheck, Activity, Info, X, ChevronRight } from 'lucide-react';
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -582,22 +581,13 @@ export default function DiseasesPage() {
         {/* Header Block */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
           <div>
-            <div className="flex flex-wrap items-center gap-3 mb-2">
+            <div className="flex items-center gap-3 mb-2">
               <div className="bg-green-50 border border-green-100 text-green-600 p-2.5 rounded-2xl shadow-sm">
                 <BookOpen size={24} />
               </div>
               <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
                 Animal Disease Database
               </h1>
-              {currentUser?.role === 'admin' && (
-                <Link
-                  to="/dashboard/admin/diseases"
-                  className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all ml-2"
-                >
-                  <Database size={14} />
-                  <span>Manage Diseases</span>
-                </Link>
-              )}
             </div>
             <p className="text-slate-600 max-w-xl text-sm leading-relaxed ml-0.5">
               Search and learn about common animal diseases, their symptoms, prevention methods, and treatments to keep your animals healthy.
