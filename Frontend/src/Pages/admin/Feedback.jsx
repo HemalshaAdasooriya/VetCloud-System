@@ -8,15 +8,7 @@ export default function Feedback() {
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
 
-    // Admin add review states
-    const [owners, setOwners] = useState([]);
-    const [vets, setVets] = useState([]);
-    const [showAddModal, setShowAddModal] = useState(false);
-    const [selectedOwnerId, setSelectedOwnerId] = useState("");
-    const [selectedVetId, setSelectedVetId] = useState("");
-    const [newRating, setNewRating] = useState(5);
-    const [newComment, setNewComment] = useState("");
-    const [submitting, setSubmitting] = useState(false);
+
 
     const fetchFeedback = async () => {
         try {
@@ -36,32 +28,8 @@ export default function Feedback() {
         }
     };
 
-    const fetchOwnersAndVets = async () => {
-        try {
-            const token = localStorage.getItem("token");
-            const ownersRes = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/admin/users`, {
-                headers: { "Authorization": `Bearer ${token}` }
-            });
-            if (ownersRes.ok) {
-                const ownersData = await ownersRes.json();
-                setOwners(ownersData);
-            }
-
-            const vetsRes = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/admin/doctors`, {
-                headers: { "Authorization": `Bearer ${token}` }
-            });
-            if (vetsRes.ok) {
-                const vetsData = await vetsRes.json();
-                setVets(vetsData);
-            }
-        } catch (error) {
-            console.error("Error fetching owners/vets:", error);
-        }
-    };
-
     useEffect(() => {
         fetchFeedback();
-        fetchOwnersAndVets();
     }, []);
 
     const handleDeleteFeedback = async (id) => {
@@ -102,43 +70,7 @@ export default function Feedback() {
         }
     };
 
-    const handleAddFeedback = async (e) => {
-        e.preventDefault();
-        if (!selectedOwnerId) {
-            return toast.error("Please select a pet owner");
-        }
-        setSubmitting(true);
-        try {
-            const token = localStorage.getItem("token");
-            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/admin/feedback`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    petOwnerId: selectedOwnerId,
-                    veterinarianId: selectedVetId || null,
-                    rating: newRating,
-                    comment: newComment
-                })
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.message || "Failed to add feedback");
-            toast.success("Feedback review added successfully!");
-            setShowAddModal(false);
-            setSelectedOwnerId("");
-            setSelectedVetId("");
-            setNewRating(5);
-            setNewComment("");
-            fetchFeedback();
-        } catch (error) {
-            console.error("Feedback add error:", error);
-            toast.error(error.message || "Failed to add review");
-        } finally {
-            setSubmitting(false);
-        }
-    };
+
 
     // Calculate feedback stats
     const totalReviews = feedbacks.length;
@@ -201,12 +133,6 @@ export default function Feedback() {
                                     className="pl-9 h-10 text-sm" 
                                 />
                             </div>
-                            <Button 
-                                onClick={() => setShowAddModal(true)} 
-                                className="bg-green-600 hover:bg-green-700 text-white shrink-0 h-10 px-4 font-semibold text-sm rounded-lg cursor-pointer"
-                            >
-                                Add Review
-                            </Button>
                         </div>
                     </div>
 
@@ -315,110 +241,7 @@ export default function Feedback() {
                 </div>
             </Card>
 
-      {showAddModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <Card className="w-full max-w-md bg-white p-6 rounded-2xl shadow-xl border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex flex-col space-y-4 w-full">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <h3 className="text-lg font-bold text-slate-800">Add New Review</h3>
-                <button 
-                  onClick={() => setShowAddModal(false)}
-                  className="text-slate-400 hover:text-slate-600 font-bold cursor-pointer"
-                >
-                  ✕
-                </button>
-              </div>
 
-              <form onSubmit={handleAddFeedback} className="space-y-4">
-                {/* Pet Owner selection */}
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-600">Pet Owner / Farmer</label>
-                  <select
-                    value={selectedOwnerId}
-                    onChange={(e) => setSelectedOwnerId(e.target.value)}
-                    required
-                    className="w-full p-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-700 bg-white"
-                  >
-                    <option value="">Select User...</option>
-                    {owners.map(o => (
-                      <option key={o.id} value={o.id}>{o.fullName} ({o.email})</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Veterinarian selection */}
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-600">Veterinarian (Optional)</label>
-                  <select
-                    value={selectedVetId}
-                    onChange={(e) => setSelectedVetId(e.target.value)}
-                    className="w-full p-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-700 bg-white"
-                  >
-                    <option value="">No Doctor / System Feedback</option>
-                    {vets.map(v => (
-                      <option key={v.id} value={v.id}>Dr. {v.fullName} ({v.specialization})</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Rating selection */}
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-600">Rating (Stars)</label>
-                  <div className="flex gap-2 py-1">
-                    {[1, 2, 3, 4, 5].map((starValue) => (
-                      <button
-                        key={starValue}
-                        type="button"
-                        onClick={() => setNewRating(starValue)}
-                        className="transform transition-transform hover:scale-110 focus:outline-none cursor-pointer"
-                      >
-                        <Star
-                          size={24}
-                          className={
-                            starValue <= newRating
-                              ? "fill-amber-400 text-amber-400"
-                              : "text-slate-200"
-                          }
-                        />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Comment area */}
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-600">Review Comment</label>
-                  <textarea
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    placeholder="Enter review text..."
-                    className="w-full h-24 p-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500 resize-none text-slate-700"
-                  />
-                </div>
-
-                <div className="flex gap-3 pt-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="flex-1 border-slate-200 text-slate-600 font-medium h-10 cursor-pointer"
-                    onClick={() => setShowAddModal(false)}
-                    disabled={submitting}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    className="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium h-10 cursor-pointer"
-                    disabled={submitting}
-                  >
-                    {submitting ? 'Submitting...' : 'Add Review'}
-                  </Button>
-                </div>
-              </form>
-            </div>
-          </Card>
-        </div>
-      )}
     </div>
   );
 }
