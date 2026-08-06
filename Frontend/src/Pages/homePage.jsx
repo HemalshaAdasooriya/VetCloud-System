@@ -117,14 +117,6 @@ export default function HomePage() {
                                         />
                                     </div>
 
-                                    {/* 30% Off Badge */}
-                                    <div className="absolute -top-4 -left-4 w-32 h-32 bg-slate-900 rounded-full flex items-center justify-center shadow-xl">
-                                        <div className="text-center">
-                                            <p className="text-3xl font-bold text-white">30%</p>
-                                            <p className="text-xs text-white/90 font-medium">OFF</p>
-                                        </div>
-                                    </div>
-
                                     {/* Emergency Hotline */}
                                     <div className="absolute -bottom-6 right-8 bg-green-600 px-6 py-4 rounded-full shadow-2xl">
                                         <div className="text-center text-white">
