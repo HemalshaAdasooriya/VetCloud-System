@@ -13,11 +13,11 @@ const DISEASES_DATA = [
     species: ['Cattle', 'Swine', 'Sheep', 'Goats'],
     category: 'Cattle',
     risk: 'High Risk',
-    image: '/cows.jpg',
+    image: 'https://fmuznyrfnjdwxbqsdijw.supabase.co/storage/v1/object/public/uploads/Cows.jpg',
     symptoms: 'Fever, Blisters in mouth, Lameness, Drop in milk production',
     prevention: 'Vaccination, strict biosecurity, quarantine of new stock',
     treatment: 'No specific treatment. Affected animals are isolated; supportive care can manage discomfort.',
-    
+
     description: 'A highly contagious viral disease affecting cloven-hoofed animals. It is characterized by high fever and vesicle formation in the mouth, muzzle, teats, and feet, leading to significant productivity loss.',
     transmission: 'Direct contact with infected animals, airborne transmission (up to several kilometers in humid conditions), or indirect contact via contaminated vehicles, footwear, or uncooked food scraps.',
     incubation: '2 - 14 days',
@@ -48,11 +48,11 @@ const DISEASES_DATA = [
     species: ['Dogs'],
     category: 'Dogs',
     risk: 'High Risk',
-    image: '/dog.jpg',
+    image: 'https://fmuznyrfnjdwxbqsdijw.supabase.co/storage/v1/object/public/uploads/dog.jpg',
     symptoms: 'Lethargy, Severe vomiting, Bloody diarrhea, Loss of appetite',
     prevention: 'Core vaccination starting at 6-8 weeks of age.',
     treatment: 'Intensive hospital care, IV fluids, anti-nausea medication',
-    
+
     description: 'A highly contagious viral disease of dogs causing severe, acute gastrointestinal illness. The virus is extremely resilient in the environment and can survive on surfaces and in soil for months or years.',
     transmission: 'Direct contact with infected dogs, or indirectly by contact with contaminated surfaces, feces, footwear, clothing, or cage equipment.',
     incubation: '3 - 7 days',
@@ -81,12 +81,12 @@ const DISEASES_DATA = [
     species: ['Poultry'],
     category: 'Poultry',
     risk: 'Critical Risk',
-    image: '/poultry.jpg',
+    image: 'https://fmuznyrfnjdwxbqsdijw.supabase.co/storage/v1/object/public/uploads/poultry.jpg',
     symptoms: 'Sudden death, Swollen head, Purple discoloration, Respiratory distress',
     prevention: 'Keep flocks away from wild birds, secure housing',
     treatment: 'Highly contagious and often fatal. Immediate reporting is required.',
-    
-     description: 'A highly contagious viral infection affecting domestic poultry and wild birds. Highly Pathogenic Avian Influenza (HPAI) strains cause rapid system failure and near-total mortality in domestic flocks.',
+
+    description: 'A highly contagious viral infection affecting domestic poultry and wild birds. Highly Pathogenic Avian Influenza (HPAI) strains cause rapid system failure and near-total mortality in domestic flocks.',
     transmission: 'Direct nose/beak contact with infected wild birds (particularly waterfowl) or contact with contaminated feces, water, feed, cages, and clothing.',
     incubation: '1 - 7 days',
     clinicalSigns: [
@@ -114,11 +114,11 @@ const DISEASES_DATA = [
     species: ['Cattle'],
     category: 'Cattle',
     risk: 'Medium Risk',
-    image: '/cows.jpg',
+    image: 'https://fmuznyrfnjdwxbqsdijw.supabase.co/storage/v1/object/public/uploads/Cows.jpg',
     symptoms: 'Fever, Nasal discharge, Coughing, Rapid breathing',
     prevention: 'Vaccination, minimizing stress during transport',
     treatment: 'Antibiotics, anti-inflammatory drugs, supportive care',
-   
+
     description: 'Also known as "shipping fever," Bovine Respiratory Disease (BRD) is a complex respiratory infection caused by a combination of viral agents, bacterial pathogens, and environmental stressors like transport or weather shifts.',
     transmission: 'Airborne droplets (coughing/sneezing) and direct nose-to-nose contact. Easily spread in overcrowded, stressed, or poorly ventilated environments.',
     incubation: '2 - 10 days post-stress',
@@ -147,11 +147,11 @@ const DISEASES_DATA = [
     species: ['Cats'],
     category: 'Cats',
     risk: 'High Risk',
-    image: '/vetcat.jpg',
+    image: 'https://fmuznyrfnjdwxbqsdijw.supabase.co/storage/v1/object/public/uploads/vetcat.jpg',
     symptoms: 'Severe lethargy, Vomiting, Bloody diarrhea, High fever',
     prevention: 'Core FVRCP vaccination starting at 6-8 weeks of age.',
     treatment: 'Aggressive supportive care, IV fluids, anti-emetics',
-   
+
     description: 'Feline Panleukopenia, commonly called feline distemper, is a highly contagious, life-threatening viral disease caused by the feline parvovirus. It attacks rapidly dividing cells, especially in the bone marrow, lymph nodes, and intestinal lining.',
     transmission: 'Direct contact with infected cats, or indirect contact with contaminated bedding, food bowls, grooming tools, and environments. The virus is highly resistant to freezing and heat.',
     incubation: '2 - 10 days',
@@ -180,12 +180,12 @@ const DISEASES_DATA = [
     species: ['Swine'],
     category: 'Swine',
     risk: 'Critical Risk',
-    image: '/pig.jpg',
+    image: 'https://fmuznyrfnjdwxbqsdijw.supabase.co/storage/v1/object/public/uploads/pig.jpg',
     symptoms: 'High fever, Loss of appetite, Skin hemorrhages, Sudden death',
     prevention: 'Strict biosecurity, ban feeding swill, quarantine, control wild boars',
     treatment: 'Highly contagious. No treatment or vaccine exists. Immediate reporting required.',
-    
-    
+
+
   }
 ];
 
@@ -216,33 +216,33 @@ const getDiseaseImage = (disease) => {
     }
     return `${import.meta.env.VITE_BACKEND_URL}${disease.image}`;
   }
-  
+
   const name = disease.name ? disease.name.toLowerCase() : '';
   const category = disease.category ? disease.category.toLowerCase() : '';
   const speciesList = Array.isArray(disease.species)
     ? disease.species
     : typeof disease.species === 'string' && disease.species
-    ? disease.species.split(',').map(s => s.trim())
-    : [];
+      ? disease.species.split(',').map(s => s.trim())
+      : [];
   const species = speciesList.map(s => (s || '').toLowerCase());
 
   if (name.includes('foot') || name.includes('mouth') || name.includes('mastitis') || species.includes('cattle') || category.includes('cattle')) {
-    return '/cows.jpg';
+    return 'https://fmuznyrfnjdwxbqsdijw.supabase.co/storage/v1/object/public/uploads/Cows.jpg';
   }
   if (name.includes('avian') || name.includes('influenza') || species.includes('poultry') || species.includes('birds') || category.includes('poultry')) {
-    return '/poultry.jpg';
+    return 'https://fmuznyrfnjdwxbqsdijw.supabase.co/storage/v1/object/public/uploads/poultry.jpg';
   }
   if (name.includes('parvovirus') || species.includes('dogs') || category.includes('dogs')) {
-    return '/dog.jpg';
+    return 'https://fmuznyrfnjdwxbqsdijw.supabase.co/storage/v1/object/public/uploads/dog.jpg';
   }
   if (name.includes('swine') || species.includes('pigs') || category.includes('pigs') || category.includes('swine')) {
-    return '/pig.jpg';
+    return 'https://fmuznyrfnjdwxbqsdijw.supabase.co/storage/v1/object/public/uploads/pig.jpg';
   }
   if (name.includes('feline') || name.includes('panleukopenia') || species.includes('cats') || category.includes('cats')) {
-    return '/vetcat.jpg';
+    return 'https://fmuznyrfnjdwxbqsdijw.supabase.co/storage/v1/object/public/uploads/vetcat.jpg';
   }
-  
-  return '/cows.jpg';
+
+  return 'https://fmuznyrfnjdwxbqsdijw.supabase.co/storage/v1/object/public/uploads/Cows.jpg';
 };
 
 function DiseaseGuideModal({ disease, onClose }) {
@@ -252,26 +252,26 @@ function DiseaseGuideModal({ disease, onClose }) {
   const speciesList = Array.isArray(disease.species)
     ? disease.species
     : typeof disease.species === 'string' && disease.species
-    ? disease.species.split(',').map(s => s.trim())
-    : [];
+      ? disease.species.split(',').map(s => s.trim())
+      : [];
 
   const clinicalSignsList = Array.isArray(disease.clinicalSigns)
     ? disease.clinicalSigns
     : typeof disease.clinicalSigns === 'string' && disease.clinicalSigns
-    ? [disease.clinicalSigns]
-    : [];
+      ? [disease.clinicalSigns]
+      : [];
 
   const preventionStepsList = Array.isArray(disease.preventionSteps)
     ? disease.preventionSteps
     : typeof disease.preventionSteps === 'string' && disease.preventionSteps
-    ? [disease.preventionSteps]
-    : [];
+      ? [disease.preventionSteps]
+      : [];
 
   const treatmentStepsList = Array.isArray(disease.treatmentSteps)
     ? disease.treatmentSteps
     : typeof disease.treatmentSteps === 'string' && disease.treatmentSteps
-    ? [disease.treatmentSteps]
-    : [];
+      ? [disease.treatmentSteps]
+      : [];
 
   // Close on Escape key press
   useEffect(() => {
@@ -308,7 +308,7 @@ function DiseaseGuideModal({ disease, onClose }) {
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent" />
-          
+
           {/* Close button */}
           <button
             onClick={onClose}
@@ -334,31 +334,28 @@ function DiseaseGuideModal({ disease, onClose }) {
         <div className="flex border-b border-slate-100 bg-slate-50/50 px-6 overflow-x-auto shrink-0 scrollbar-none">
           <button
             onClick={() => setActiveTab('overview')}
-            className={`py-4 px-4 text-sm font-bold border-b-2 transition-all cursor-pointer whitespace-nowrap ${
-              activeTab === 'overview'
+            className={`py-4 px-4 text-sm font-bold border-b-2 transition-all cursor-pointer whitespace-nowrap ${activeTab === 'overview'
                 ? 'border-green-600 text-green-700'
                 : 'border-transparent text-slate-500 hover:text-slate-700'
-            }`}
+              }`}
           >
             Overview & Symptoms
           </button>
           <button
             onClick={() => setActiveTab('prevention')}
-            className={`py-4 px-4 text-sm font-bold border-b-2 transition-all cursor-pointer whitespace-nowrap ${
-              activeTab === 'prevention'
+            className={`py-4 px-4 text-sm font-bold border-b-2 transition-all cursor-pointer whitespace-nowrap ${activeTab === 'prevention'
                 ? 'border-green-600 text-green-700'
                 : 'border-transparent text-slate-500 hover:text-slate-700'
-            }`}
+              }`}
           >
             Prevention & Biosecurity
           </button>
           <button
             onClick={() => setActiveTab('treatment')}
-            className={`py-4 px-4 text-sm font-bold border-b-2 transition-all cursor-pointer whitespace-nowrap ${
-              activeTab === 'treatment'
+            className={`py-4 px-4 text-sm font-bold border-b-2 transition-all cursor-pointer whitespace-nowrap ${activeTab === 'treatment'
                 ? 'border-green-600 text-green-700'
                 : 'border-transparent text-slate-500 hover:text-slate-700'
-            }`}
+              }`}
           >
             Treatment & Protocol
           </button>
@@ -550,9 +547,9 @@ export default function DiseasesPage() {
       const speciesList = Array.isArray(disease.species)
         ? disease.species
         : typeof disease.species === 'string' && disease.species
-        ? [disease.species]
-        : [];
-      
+          ? [disease.species]
+          : [];
+
       const query = searchQuery.toLowerCase().trim();
 
       const matchesSearch =
@@ -577,7 +574,7 @@ export default function DiseasesPage() {
 
       {/* Main Database Content */}
       <main className="flex-grow container mx-auto px-4 py-12">
-        
+
         {/* Header Block */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
           <div>
@@ -605,7 +602,7 @@ export default function DiseasesPage() {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
             {searchQuery && (
-              <button 
+              <button
                 onClick={() => setSearchQuery('')}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-full hover:bg-slate-100"
               >
@@ -617,16 +614,15 @@ export default function DiseasesPage() {
 
         {/* Filters Buttons */}
         <div className="flex items-center gap-3 overflow-x-auto pb-4 scrollbar-none mb-10 border-b border-slate-100">
-          
+
           {categories.map((category) => (
             <button
               key={category}
               onClick={() => setSelectedCategory(category)}
-              className={`h-9 px-6 rounded-full text-sm font-semibold shrink-0 cursor-pointer shadow-sm transition-all duration-200 ${
-                selectedCategory === category
+              className={`h-9 px-6 rounded-full text-sm font-semibold shrink-0 cursor-pointer shadow-sm transition-all duration-200 ${selectedCategory === category
                   ? 'bg-slate-900 text-white hover:bg-slate-800 scale-102'
                   : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-              }`}
+                }`}
             >
               {category}
             </button>
@@ -653,8 +649,8 @@ export default function DiseasesPage() {
             const speciesList = Array.isArray(disease.species)
               ? disease.species
               : typeof disease.species === 'string' && disease.species
-              ? disease.species.split(',').map(s => s.trim())
-              : [];
+                ? disease.species.split(',').map(s => s.trim())
+                : [];
             return (
               <Card
                 key={disease.id}
@@ -668,7 +664,7 @@ export default function DiseasesPage() {
                     className="w-full h-full object-cover"
                   />
                   {/* Risk Badge on Image */}
-                   <span className={`absolute top-4 left-4 z-10 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold tracking-wide uppercase border shadow-sm ${riskStyles.badge} bg-white/95 backdrop-blur-xs`}>
+                  <span className={`absolute top-4 left-4 z-10 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold tracking-wide uppercase border shadow-sm ${riskStyles.badge} bg-white/95 backdrop-blur-xs`}>
                     <span className={`w-1.5 h-1.5 rounded-full ${riskStyles.indicator}`} />
                     {disease.risk}
                   </span>
