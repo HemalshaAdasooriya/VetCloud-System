@@ -567,7 +567,7 @@ export default function RegisterPage() {
                                     <CheckCircle2 className="absolute text-white w-3 h-3 opacity-0 peer-checked:opacity-100 transition-opacity" />
                                 </div>
                                 <span className="text-sm text-slate-600 leading-relaxed">
-                                    I agree to the <Link to="#" className={`font-semibold hover:underline ${role === 'vet' ? 'text-blue-600' : 'text-green-600'}`}>Terms & Conditions</Link> and <Link to="#" className={`font-semibold hover:underline ${role === 'vet' ? 'text-blue-600' : 'text-green-600'}`}>Privacy Policy</Link>, and consent to the processing of my data.
+                                    I agree to the <Link to="/terms" className={`font-semibold hover:underline ${role === 'vet' ? 'text-blue-600' : 'text-green-600'}`}>Terms & Conditions</Link> and <Link to="/privacy" className={`font-semibold hover:underline ${role === 'vet' ? 'text-blue-600' : 'text-green-600'}`}>Privacy Policy</Link>, and consent to the processing of my data.
                                 </span>
                             </label>
 
