@@ -29,6 +29,7 @@ export default function DoctorDashboard() {
             console.error(e);
         }
         return null;
+        // return localStorage.getItem("userId");
     };
 
     const fetchDashboardData = async () => {
@@ -36,46 +37,26 @@ export default function DoctorDashboard() {
         setError(null);
         try {
             const token = localStorage.getItem("token");
-            let vetId = getVetId();
-            if (!token) {
-                throw new Error("Authentication token not found. Please log in again.");
+            const vetId = getVetId();
+            if (!vetId || !token) {
+                throw new Error("Veterinarian ID or Token not found. Please log in again.");
             }
 
             // 1. Fetch Veterinarian Profile
-            try {
-                const profileRes = await axios.get(`${import.meta.env.VITE_BACKEND_URL || "http://localhost:5000"}/api/users/profile`, {
-                    headers: { "Authorization": `Bearer ${token}` }
-                });
-                if (profileRes.data) {
-                    setDoctorProfile(profileRes.data);
-                    if (profileRes.data.id) {
-                        vetId = profileRes.data.id;
-                    }
-                }
-            } catch (profErr) {
-                console.warn("Failed to fetch doctor profile:", profErr);
-            }
-
-            if (!vetId) {
-                throw new Error("Veterinarian ID not found. Please log in again.");
+            const profileRes = await fetch(`${import.meta.env.VITE_BACKEND_URL || "http://localhost:5000"}/api/users/profile`, {
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+            if (profileRes.ok) {
+                const profileData = await profileRes.json();
+                setDoctorProfile(profileData);
             }
 
             // 2. Fetch Appointments
-            try {
-                const appointmentsRes = await axios.get(`${import.meta.env.VITE_BACKEND_URL || "http://localhost:5000"}/api/vet-appointments/vet/${vetId}`);
-                if (Array.isArray(appointmentsRes.data)) {
-                    setAppointments(appointmentsRes.data);
-                } else {
-                    console.warn("Appointments API returned non-array:", appointmentsRes.data);
-                    setAppointments([]);
-                }
-            } catch (aptErr) {
-                console.error("Failed to fetch doctor appointments:", aptErr);
-                setAppointments([]);
-            }
+            const appointmentsRes = await axios.get(`${import.meta.env.VITE_BACKEND_URL || "http://localhost:5000"}/api/vet-appointments/vet/${vetId}`);
+            setAppointments(appointmentsRes.data || []);
         } catch (err) {
             console.error("Error loading dashboard data:", err);
-            setError(err.message || "Failed to load dashboard statistics. Please try again later.");
+            setError("Failed to load dashboard statistics. Please try again later.");
         } finally {
             setLoading(false);
         }
@@ -107,7 +88,7 @@ export default function DoctorDashboard() {
     const todayCount = todayAppointments.length;
 
     // Pending Requests
-    const pendingRequests = safeAppointments.filter(a => a.status?.toLowerCase() === "pending");
+    const pendingRequests = appointments.filter(a => a.status?.toLowerCase() === "pending");
     const pendingCount = pendingRequests.length;
 
     // Earnings calculation (Completed appointments * consultation fee)
@@ -211,7 +192,7 @@ export default function DoctorDashboard() {
         const rowsHtml = appointments.map(a => `
             <tr>
                 <td style="padding: 10px; border-bottom: 1px solid #eee;">${a.appointment_date || 'N/A'} ${a.appointment_time || ''}</td>
-                <td style="padding: 10px; border-bottom: 1px solid #eee;">${a.ownerName || a.pet_owner_name || 'Patient Owner'}</td>
+                <td style="padding: 10px; border-bottom: 1px solid #eee;">${a.owner_name || a.ownerName || a.pet_owner_name || 'Patient Owner'}</td>
                 <td style="padding: 10px; border-bottom: 1px solid #eee;">${a.animal_name || a.animalName || 'Pet'}</td>
                 <td style="padding: 10px; border-bottom: 1px solid #eee; text-transform: capitalize;">${a.consultation_type || 'Video'}</td>
                 <td style="padding: 10px; border-bottom: 1px solid #eee; font-weight: bold;">LKR ${consultationFee.toFixed(2)}</td>
@@ -223,7 +204,7 @@ export default function DoctorDashboard() {
             <!DOCTYPE html>
             <html>
                 <head>
-                    <title>VetCloud - Doctor Practice & Earnings Report</title>
+                    <title>Doctor's Full Report</title>
                     <style>
                         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 30px; color: #1e293b; }
                         .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #10b981; padding-bottom: 15px; margin-bottom: 25px; }
@@ -236,12 +217,22 @@ export default function DoctorDashboard() {
                         table { width: 100%; border-collapse: collapse; margin-top: 15px; }
                         th { background: #f1f5f9; text-align: left; padding: 10px; font-size: 12px; color: #475569; text-transform: uppercase; }
                         .footer { margin-top: 40px; font-size: 11px; color: #94a3b8; text-align: center; border-top: 1px solid #eee; padding-top: 15px; }
+                        .no-print { display: flex; justify-content: flex-end; margin-bottom: 20px; }
+                        .print-btn { background: #059669; color: white; border: none; padding: 10px 20px; font-size: 14px; font-weight: bold; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+                        .print-btn:hover { background: #047857; }
+                        @media print { .no-print { display: none !important; } body { padding: 0; } }
                     </style>
                 </head>
                 <body>
+                    <div class="no-print">
+                        <button class="print-btn" onclick="window.print()">
+                            🖨️ Print Report
+                        </button>
+                    </div>
+
                     <div class="header">
                         <div>
-                            <h1 class="title">VetCloud Doctor Practice & Earnings Report</h1>
+                            <h1 class="title">Doctor's Full Report</h1>
                             <div class="subtitle">Generated for <strong>${doctorName}</strong> | ${new Date().toLocaleDateString()}</div>
                         </div>
                         <div style="font-weight: bold; color: #059669; font-size: 18px;">VetCloud System</div>
@@ -280,12 +271,8 @@ export default function DoctorDashboard() {
                     </table>
 
                     <div class="footer">
-                        Confidential Practice Report &bull; Issued by VetCloud Automated System
+                        Confidential Practice Report &bull; Issued by VetCloud System
                     </div>
-
-                    <script>
-                        window.onload = function() { window.print(); }
-                    </script>
                 </body>
             </html>
         `);
@@ -315,7 +302,7 @@ export default function DoctorDashboard() {
                         className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-xl transition-all shadow-sm"
                     >
                         <Printer size={14} />
-                        Export Practice Report
+                        Print Overall Report
                     </button>
 
                 </div>
@@ -334,7 +321,7 @@ export default function DoctorDashboard() {
 
                 <Card
                     className="p-6 bg-amber-50/50 border-amber-100 cursor-pointer hover:shadow-md transition-all duration-200"
-                    onClick={() => navigate("/dashboard/doctor/requests")}
+                    onClick={() => navigate("/dashboard/doctor/consultations", { state: { activeTab: "pending" } })}
                 >
                     <div className="flex items-center justify-between mb-4">
                         <h3 className="font-semibold text-slate-700">Pending Requests</h3>
@@ -498,10 +485,10 @@ export default function DoctorDashboard() {
                                             <Button
                                                 size="sm"
                                                 className="flex-1 text-[11px] font-bold bg-green-600 hover:bg-green-700 text-white border-none cursor-pointer h-8 rounded-lg"
-                                                onClick={() => navigate("/dashboard/doctor/requests", { state: { requestId: req.id } })}
+                                                onClick={() => navigate("/dashboard/doctor/consultations", { state: { requestId: req.id, activeTab: "pending" } })}
                                                 disabled={actionLoading[req.id]}
                                             >
-                                                Accept
+                                                Review & Accept
                                             </Button>
                                             <Button
                                                 variant="outline"
@@ -528,7 +515,7 @@ export default function DoctorDashboard() {
                             <Button
                                 variant="ghost"
                                 className="w-full mt-4 text-xs font-bold text-amber-600 hover:text-amber-700 hover:bg-amber-50 cursor-pointer"
-                                onClick={() => navigate("/dashboard/doctor/requests")}
+                                onClick={() => navigate("/dashboard/doctor/consultations", { state: { activeTab: "pending" } })}
                             >
                                 View all requests ({pendingCount} total)
                             </Button>

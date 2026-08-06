@@ -121,7 +121,7 @@ export default function DoctorSettings() {
     { id: 'profile', name: 'Personal Profile', icon: User },
     { id: 'clinic', name: 'Clinic Details', icon: Building2 },
     { id: 'security', name: 'Security & Login', icon: Shield },
-    { id: 'billing', name: 'Billing & Payouts', icon: Wallet },
+    { id: 'billing', name: 'Consultation Fees', icon: Wallet },
   ];
 
   // ─── Fetch Doctor Profile ─────────────────────────────────────────────────
@@ -137,16 +137,45 @@ export default function DoctorSettings() {
 
         if (response.ok) {
           const data = await response.json();
-          // Add this new block!
+          let savedUser = {};
+          try {
+            savedUser = JSON.parse(localStorage.getItem("user") || "{}");
+          } catch (e) {
+            console.error(e);
+          }
+
+          let fName = data.firstName || '';
+          let lName = data.lastName || '';
+          if (!fName && !lName && (data.fullName || savedUser.fullName)) {
+            const nameToSplit = data.fullName || savedUser.fullName;
+            const parts = nameToSplit.trim().split(" ");
+            fName = parts[0] || '';
+            lName = parts.slice(1).join(" ") || '';
+          }
+
           setLoginInfo({
-            email: data.email || '',
-            is2FAEnabled: Boolean(data.is_two_factor_enabled) // Converts MySQL 1/0 to true/false
+            email: data.email || savedUser.email || '',
+            is2FAEnabled: Boolean(data.is_two_factor_enabled)
           });
+          const specFromDB = data.specialization || savedUser.specialization || '';
+          const options = [
+            "Livestock & Large Animals", "Small Pets", "Small Pets (Dogs, Cats)", "Poultry", 
+            "Exotic Animals", "Aquatic Animals", "Veterinary Surgery", 
+            "Veterinary Dermatology", "Veterinary Cardiology", 
+            "Veterinary Ophthalmology", "Veterinary Oncology", "Veterinary Reproduction"
+          ];
+
+          let matchedSpec = specFromDB;
+          if (specFromDB) {
+            const found = options.find(opt => opt.toLowerCase() === specFromDB.toLowerCase() || opt.toLowerCase().includes(specFromDB.toLowerCase()) || specFromDB.toLowerCase().includes(opt.toLowerCase()));
+            if (found) matchedSpec = found;
+          }
+
           setPersonalInfo({
-            firstName: data.firstName || '',
-            lastName: data.lastName || '',
+            firstName: fName,
+            lastName: lName,
             professional_title: data.professional_title || '',
-            specializations: data.specialization || '',
+            specializations: matchedSpec,
             bio: data.bio || ''
           });
           setClinicInfo({
@@ -234,6 +263,14 @@ export default function DoctorSettings() {
 
   const handleSaveClinic = async (e) => {
     if (e) e.preventDefault();
+    
+    // Clinic Phone validation: must be exactly 10 digits
+    const phoneClean = (clinicInfo.clinicPhone || '').trim();
+    if (phoneClean && (!/^\d+$/.test(phoneClean) || phoneClean.length !== 10)) {
+      showToast("Clinic phone number must be exactly 10 digits (e.g. 0712345678).", "error");
+      return;
+    }
+
     setIsSaving(true);
     try {
       const token = localStorage.getItem("token");
@@ -487,8 +524,25 @@ export default function DoctorSettings() {
                     <Input value={personalInfo.professional_title} onChange={(e) => setPersonalInfo({ ...personalInfo, professional_title: e.target.value })} placeholder="e.g., DVM, MS - Senior Veterinarian" />
                   </div>
                   <div className="space-y-1.5 sm:col-span-2">
-                    <label className="text-sm font-medium text-slate-700">Specializations (comma separated)</label>
-                    <Input value={personalInfo.specializations} onChange={(e) => setPersonalInfo({ ...personalInfo, specializations: e.target.value })} placeholder="e.g., Large Animals, Equine Medicine" />
+                    <label className="text-sm font-medium text-slate-700">Specialization</label>
+                    <select 
+                      value={personalInfo.specializations} 
+                      onChange={(e) => setPersonalInfo({ ...personalInfo, specializations: e.target.value })} 
+                      className="w-full h-11 px-3 rounded-lg border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-colors cursor-pointer"
+                    >
+                      <option value="">Select Specialization</option>
+                      <option value="Livestock & Large Animals">Livestock & Large Animals</option>
+                      <option value="Small Pets">Small Pets (Dogs, Cats)</option>
+                      <option value="Poultry">Poultry</option>
+                      <option value="Exotic Animals">Exotic Animals</option>
+                      <option value="Aquatic Animals">Aquatic Animals</option>
+                      <option value="Veterinary Surgery">Veterinary Surgery</option>
+                      <option value="Veterinary Dermatology">Veterinary Dermatology</option>
+                      <option value="Veterinary Cardiology">Veterinary Cardiology</option>
+                      <option value="Veterinary Ophthalmology">Veterinary Ophthalmology</option>
+                      <option value="Veterinary Oncology">Veterinary Oncology</option>
+                      <option value="Veterinary Reproduction">Veterinary Reproduction</option>
+                    </select>
                   </div>
                   <div className="space-y-1.5 sm:col-span-2">
                     <label className="text-sm font-medium text-slate-700">Bio / About</label>
@@ -533,11 +587,29 @@ export default function DoctorSettings() {
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-slate-700">Zip / Postal Code</label>
-                  <Input value={clinicInfo.zipCode} onChange={(e) => setClinicInfo({ ...clinicInfo, zipCode: e.target.value })} />
+                  <Input 
+                    type="text"
+                    placeholder="e.g., 10100"
+                    maxLength={10}
+                    value={clinicInfo.zipCode} 
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, '');
+                      setClinicInfo({ ...clinicInfo, zipCode: val });
+                    }} 
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-slate-700">Clinic Phone</label>
-                  <Input value={clinicInfo.clinicPhone} onChange={(e) => setClinicInfo({ ...clinicInfo, clinicPhone: e.target.value })} />
+                  <Input 
+                    type="tel"
+                    maxLength={10}
+                    placeholder="0712345678" 
+                    value={clinicInfo.clinicPhone} 
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                      setClinicInfo({ ...clinicInfo, clinicPhone: val });
+                    }} 
+                  />
                 </div>
                 <div className="sm:col-span-2 flex justify-end pt-4">
                   <Button type="submit" disabled={isSaving} className="bg-green-600 hover:bg-green-700 text-white">
@@ -656,261 +728,27 @@ export default function DoctorSettings() {
           ══════════════════════════════════════════════════════════════════ */}
           {activeTab === 'billing' && (
             <>
-              {/* ── 1. Payment Methods ───────────────────────────────────────── */}
+              {/* ── Consultation Fees ─────────────────────────────────────── */}
               <Card className="p-6 border-slate-200 shadow-sm animate-in fade-in">
-                <div className="flex items-center justify-between mb-5 border-b border-slate-100 pb-3">
-                  <h3 className="text-lg font-semibold text-slate-800">Payment Methods</h3>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={fetchPaymentMethods}
-                      title="Refresh"
-                      className="p-1.5 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
-                    >
-                      <RefreshCw size={15} className={pmLoading ? 'animate-spin' : ''} />
-                    </button>
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        setShowAddPayment(!showAddPayment);
-                        setNewPaymentData({ bankName: '', accountName: '', accountNumber: '', branchCode: '' });
-                      }}
-                      className="bg-green-600 hover:bg-green-700 text-white h-9"
-                    >
-                      <Plus size={16} className="mr-1" /> Add Method
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Add Payment Form */}
-                {showAddPayment && (
-                  <div className="mb-6 p-5 bg-green-50 border border-green-100 rounded-xl">
-                    <h4 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
-                      <Building size={16} className="text-green-600" /> New Bank Account
-                    </h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-1.5 sm:col-span-2">
-                        <label className="text-sm font-medium text-slate-700">Bank Name <span className="text-red-500">*</span></label>
-                        <Input
-                          value={newPaymentData.bankName}
-                          onChange={(e) => setNewPaymentData({ ...newPaymentData, bankName: e.target.value })}
-                          placeholder="e.g., Bank of Ceylon (BOC)"
-                        />
-                      </div>
-                      <div className="space-y-1.5 sm:col-span-2">
-                        <label className="text-sm font-medium text-slate-700">Account Holder Name <span className="text-red-500">*</span></label>
-                        <Input
-                          value={newPaymentData.accountName}
-                          onChange={(e) => setNewPaymentData({ ...newPaymentData, accountName: e.target.value })}
-                          placeholder="Full name as on bank account"
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="text-sm font-medium text-slate-700">Account Number <span className="text-red-500">*</span></label>
-                        <Input
-                          value={newPaymentData.accountNumber}
-                          onChange={(e) => setNewPaymentData({ ...newPaymentData, accountNumber: e.target.value })}
-                          placeholder="e.g., 0012345678"
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="text-sm font-medium text-slate-700">Branch Code / Name <span className="text-red-500">*</span></label>
-                        <Input
-                          value={newPaymentData.branchCode}
-                          onChange={(e) => setNewPaymentData({ ...newPaymentData, branchCode: e.target.value })}
-                          placeholder="e.g., 001 or Colombo Main"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex gap-3 mt-4 pt-4 border-t border-green-200">
-                      <Button size="sm" onClick={handleAddPaymentMethod} disabled={isSaving} className="bg-green-600 hover:bg-green-700 text-white">
-                        <Check size={15} className="mr-2" /> {isSaving ? "Saving..." : "Save Payment Method"}
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => setShowAddPayment(false)} className="bg-white">
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Primary payout account (from profile) */}
-                {payoutInfo.bankName && (
-                  <div className="mb-4 p-4 rounded-xl border border-green-200 bg-white flex items-center justify-between shadow-sm">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-lg bg-green-50 flex items-center justify-center">
-                        <Building className="text-green-600" size={22} />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-semibold text-slate-800">{payoutInfo.bankName}</p>
-                          <span className="px-2.5 py-0.5 bg-green-100 text-green-700 text-xs font-bold rounded-md">Primary</span>
-                        </div>
-                        <p className="text-sm text-slate-500 mt-0.5">{payoutInfo.accountName} · {maskAccount(payoutInfo.accountNumber)}</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Saved Methods List */}
-                {pmLoading ? (
-                  <div className="flex items-center justify-center py-8 text-slate-400">
-                    <RefreshCw size={18} className="animate-spin mr-2" /> Loading payment methods...
-                  </div>
-                ) : paymentMethods.length === 0 && !payoutInfo.bankName ? (
-                  <div className="flex flex-col items-center justify-center py-10 text-slate-400">
-                    <CreditCard size={32} className="mb-2 opacity-40" />
-                    <p className="text-sm">No payment methods added yet.</p>
-                    <p className="text-xs mt-1">Click "Add Method" to add a bank account.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {paymentMethods.map((method) => (
-                      <div key={method.id} className="flex items-center justify-between p-4 rounded-xl border border-slate-200 hover:border-green-200 hover:bg-slate-50 transition-colors">
-                        <div className="flex items-center gap-4">
-                          <div className="w-11 h-11 rounded-lg bg-slate-100 flex items-center justify-center">
-                            <Building className="text-slate-500" size={20} />
-                          </div>
-                          <div>
-                            <p className="font-medium text-slate-800 text-sm">{method.bank_name}</p>
-                            <p className="text-xs text-slate-500 mt-0.5">{method.account_name} · {maskAccount(method.account_number)}</p>
-                            {method.branch_code && <p className="text-xs text-slate-400">Branch: {method.branch_code}</p>}
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => handleDeletePaymentMethod(method.id)}
-                          className="p-2 text-red-400 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors"
-                          title="Remove"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </Card>
-
-              {/* ── 2. Payout Settings ───────────────────────────────────────── */}
-              <Card className="p-6 border-slate-200 shadow-sm animate-in fade-in">
-                <h3 className="text-lg font-semibold text-slate-800 mb-5 border-b border-slate-100 pb-3">Payout Settings</h3>
+                <h3 className="text-lg font-semibold text-slate-800 mb-5 border-b border-slate-100 pb-3">Consultation Fee</h3>
 
                 <div className="space-y-5">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                    {/* Payout Schedule */}
-                    <div className="space-y-1.5">
-                      <label className="text-sm font-medium text-slate-700">Payout Schedule</label>
-                      <select
-                        value={payoutSchedule}
-                        onChange={(e) => setPayoutSchedule(e.target.value)}
-                        className="w-full h-10 px-3 rounded-md border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500"
-                      >
-                        <option value="daily">Daily</option>
-                        <option value="weekly">Weekly (Every Monday)</option>
-                        <option value="biweekly">Bi-weekly</option>
-                        <option value="monthly">Monthly</option>
-                      </select>
-                    </div>
-                    {/* Minimum Payout */}
-                    <div className="space-y-1.5">
-                      <label className="text-sm font-medium text-slate-700">Minimum Payout Amount</label>
-                      <div className="relative">
-                        <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 text-sm font-medium">Rs.</span>
-                        <Input
-                          type="number"
-                          min="0"
-                          value={minPayout}
-                          onChange={(e) => setMinPayout(e.target.value)}
-                          className="pl-9"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Current Balance panel */}
-                  <div className="p-5 bg-gradient-to-br from-blue-50 to-blue-100/50 border border-blue-200 rounded-xl">
-                    <h4 className="font-semibold text-blue-900 text-sm mb-3">Current Balance</h4>
-                    <div className="flex items-baseline gap-2">
-                      <p className="text-3xl font-bold text-blue-900">
-                        Rs. {parseFloat(payoutInfo.current_balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </p>
-                      <p className="text-sm text-blue-600">available for payout</p>
-                    </div>
-                    <div className="mt-3 pt-3 border-t border-blue-200 flex justify-between text-sm">
-                      <span className="text-blue-700">Next scheduled payout:</span>
-                      <span className="font-semibold text-blue-900">{getNextPayoutDate(payoutSchedule)}</span>
-                    </div>
-                  </div>
-
-                  {/* Payout Notifications */}
-                  <div className="space-y-3">
-                    <h4 className="text-sm font-semibold text-slate-800">Payout Notifications</h4>
-                    <label className="flex items-start gap-3 p-3.5 rounded-xl border border-slate-200 hover:border-green-300 hover:bg-slate-50 cursor-pointer transition-colors">
-                      <input
-                        type="checkbox"
-                        checked={payoutNotifications.emailEnabled}
-                        onChange={(e) => setPayoutNotifications({ ...payoutNotifications, emailEnabled: e.target.checked })}
-                        className="mt-0.5 w-4 h-4 text-green-600 rounded border-slate-300 focus:ring-green-500"
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-slate-700">Standard Consultation Fee</label>
+                    <div className="relative">
+                      <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-xs font-semibold text-slate-400">
+                        Rs.
+                      </span>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={fees.consultation_fee}
+                        onChange={(e) => setFees({ ...fees, consultation_fee: e.target.value })}
+                        placeholder="e.g., 1500.00"
+                        className="pl-9"
                       />
-                      <div>
-                        <p className="font-medium text-slate-800 text-sm">Email notifications for payouts</p>
-                        <p className="text-xs text-slate-500 mt-0.5">Get notified when a payout is processed to your account.</p>
-                      </div>
-                    </label>
-                    <label className="flex items-start gap-3 p-3.5 rounded-xl border border-slate-200 hover:border-green-300 hover:bg-slate-50 cursor-pointer transition-colors">
-                      <input
-                        type="checkbox"
-                        checked={payoutNotifications.smsEnabled}
-                        onChange={(e) => setPayoutNotifications({ ...payoutNotifications, smsEnabled: e.target.checked })}
-                        className="mt-0.5 w-4 h-4 text-green-600 rounded border-slate-300 focus:ring-green-500"
-                      />
-                      <div>
-                        <p className="font-medium text-slate-800 text-sm">SMS notifications for large payouts</p>
-                        <p className="text-xs text-slate-500 mt-0.5">Receive SMS alerts for payouts exceeding $500.</p>
-                      </div>
-                    </label>
-                  </div>
-
-                  {/* Save Payout Settings Button */}
-                  <div className="flex justify-end pt-2">
-                    <Button
-                      onClick={handleSavePayoutSettings}
-                      disabled={isSavingPayout}
-                      className="bg-green-600 hover:bg-green-700 text-white"
-                    >
-                      <Save size={16} className="mr-2" /> {isSavingPayout ? "Saving..." : "Save Payout Settings"}
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-
-              {/* ── 3. Consultation Fees ─────────────────────────────────────── */}
-              <Card className="p-6 border-slate-200 shadow-sm animate-in fade-in">
-                <h3 className="text-lg font-semibold text-slate-800 mb-5 border-b border-slate-100 pb-3">Consultation Fees</h3>
-
-                <div className="space-y-5">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                    {[
-                      { label: "Online Consultation Fee", key: "consultation_fee", placeholder: "75" },
-                      { label: "Video Consultation Fee", key: "videoFee", placeholder: "50" },
-                      { label: "Farm Visit Fee (Base)", key: "farmFee", placeholder: "120" },
-                      { label: "Emergency Consultation Fee", key: "emergencyFee", placeholder: "150" },
-                    ].map(({ label, key, placeholder }) => (
-                      <div key={key} className="space-y-1.5">
-                        <label className="text-sm font-medium text-slate-700">{label}</label>
-                        <div className="relative">
-                          <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-xs font-semibold text-slate-400">
-                            Rs.
-                          </span>
-                          <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={fees[key]}
-                            onChange={(e) => setFees({ ...fees, [key]: e.target.value })}
-                            placeholder={placeholder}
-                            className="pl-9"
-                          />
-                        </div>
-                      </div>
-                    ))}
+                    </div>
                   </div>
 
                   {/* Platform fee notice */}
@@ -918,7 +756,7 @@ export default function DoctorSettings() {
                     <AlertCircle size={16} className="text-amber-600 mt-0.5 shrink-0" />
                     <p className="text-xs text-amber-800">
                       <strong>Platform Fee:</strong> VetCloud charges a <strong>{commissionPct}% platform fee</strong> on all consultations.
-                      Farmers are charged the amounts above; you receive {100 - commissionPct}% after the platform fee is deducted.
+                      Farmers are charged the amount above; you receive {100 - commissionPct}% after the platform fee is deducted.
                     </p>
                   </div>
 
@@ -926,22 +764,11 @@ export default function DoctorSettings() {
                   {fees.consultation_fee && (
                     <div className="p-4 bg-green-50 border border-green-100 rounded-xl">
                       <p className="text-xs font-semibold text-green-800 mb-2">Earnings Preview (after {commissionPct}% fee)</p>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                        {[
-                          { label: "Online", val: fees.consultation_fee },
-                          { label: "Video", val: fees.videoFee },
-                          { label: "Farm Visit", val: fees.farmFee },
-                          { label: "Emergency", val: fees.emergencyFee },
-                        ].map(({ label, val }) => (
-                          val ? (
-                            <div key={label} className="bg-white rounded-lg p-2.5 border border-green-100 text-center">
-                              <p className="text-xs text-slate-500">{label}</p>
-                              <p className="text-sm font-bold text-green-700 mt-1">
-                                LKR {(parseFloat(val) * (1 - commissionPct / 100)).toFixed(2)}
-                              </p>
-                            </div>
-                          ) : null
-                        ))}
+                      <div className="bg-white rounded-lg p-3 border border-green-100 text-center max-w-xs">
+                        <p className="text-xs text-slate-500">Net Earning per Consultation</p>
+                        <p className="text-lg font-bold text-green-700 mt-1">
+                          LKR {(parseFloat(fees.consultation_fee) * (1 - commissionPct / 100)).toFixed(2)}
+                        </p>
                       </div>
                     </div>
                   )}
