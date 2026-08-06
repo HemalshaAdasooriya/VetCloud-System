@@ -184,6 +184,16 @@ export function DashboardLayout() {
   const isUser = location.pathname.startsWith('/dashboard/user');
   const isVet = location.pathname.startsWith('/dashboard/doctor');
   const isAdmin = location.pathname.startsWith('/dashboard/admin');
+
+  const getRoleLabel = () => {
+    if (isUser) return "Farmer/Pet owner";
+    if (!user || !user.role) return "Guest";
+    const r = String(user.role).toLowerCase();
+    if (r === 'farmer' || r === 'user' || r === 'pet owner' || r === 'farmer/pet owner') return "Farmer/Pet owner";
+    if (r === 'doctor' || r === 'vet' || r === 'veterinarian') return "Veterinarian";
+    if (r === 'admin') return "Administrator";
+    return user.role;
+  };
   
   // Dynamic sidebar links based on role
   const links = isUser ? [
@@ -398,7 +408,7 @@ export function DashboardLayout() {
                     {user?.fullName || 'Loading...'}
                 </p>
                 <p className="text-slate-500 text-xs">
-                    {user?.role || 'Guest'}
+                    {getRoleLabel()}
                 </p>
               </div>
             </div>
