@@ -19,11 +19,11 @@ export function DashboardLayout() {
 
   useEffect(() => {
     const handleStorageChange = () => {
-        // When the signal fires, pull the fresh data from localStorage
-        const updatedUser = localStorage.getItem("user");
-        if (updatedUser) {
-            setUser(JSON.parse(updatedUser)); // Instantly updates the top-right header!
-        }
+      // When the signal fires, pull the fresh data from localStorage
+      const updatedUser = localStorage.getItem("user");
+      if (updatedUser) {
+        setUser(JSON.parse(updatedUser)); // Instantly updates the top-right header!
+      }
     };
 
     // Listen for our custom event
@@ -41,7 +41,7 @@ export function DashboardLayout() {
     
     // If it's a Google/Facebook image, it already starts with 'http'
     if (user.image.startsWith('http')) {
-        return user.image;
+      return user.image;
     }
     
     // If it's a local upload, glue the backend URL to the front
@@ -50,11 +50,11 @@ export function DashboardLayout() {
 
   const profileImageUrl = getProfileImage();
 
- const [notifications, setNotifications] = useState([]);//isuri-notification
+  const [notifications, setNotifications] = useState([]);//isuri-notification
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);//isuri-notification
 
   //isuri-user notification
-   const fetchNotifications = async () => {
+  const fetchNotifications = async () => {
     const token = localStorage.getItem("token");
     if (!token) return;
     try {
@@ -192,7 +192,7 @@ export function DashboardLayout() {
     { name: 'Book Appointment', path: '/dashboard/user/appoinment', icon: Calendar },
     { name: 'Consultations', path: '/dashboard/user/consultations', icon: Stethoscope },
     { name: 'Find Clinics', path: '/dashboard/user/clinics', icon: MapPin },
-    { name: 'Animal Diseases' , path: '/dashboard/user/diseases', icon: BsDatabaseCheck },
+    { name: 'Animal Diseases', path: '/dashboard/user/diseases', icon: BsDatabaseCheck },
     { name: 'Settings', path: '/dashboard/user/settings', icon: Settings },
   ] : isVet ? [
     { name: 'Doctor Dashboard', path: '/dashboard/doctor', icon: LayoutDashboard },
@@ -213,16 +213,16 @@ export function DashboardLayout() {
 
   // Sign Out Handler
   const handleSignOut = () => {
-    localStorage.removeItem("token"); 
-    localStorage.removeItem("user");  
-    navigate('/'); 
+    localStorage.removeItem("token");
+    localStorage.removeItem("user"); 
+    navigate('/');
   };
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden relative">
       {/* Backdrop for mobile sidebar */}
       {isSidebarOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-40 lg:hidden"
           onClick={() => setIsSidebarOpen(false)}
         />
@@ -241,7 +241,7 @@ export function DashboardLayout() {
             </div>
             <span className="text-xl font-bold tracking-tight text-slate-800">VetCloud</span>
           </Link>
-          <button 
+          <button
             onClick={() => setIsSidebarOpen(false)}
             className="lg:hidden p-1.5 hover:bg-slate-100 rounded-lg text-slate-500 cursor-pointer"
           >
