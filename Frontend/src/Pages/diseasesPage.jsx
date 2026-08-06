@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import Navigation from '../layouts/navigation';
 import Footer from '../layouts/footer';
 import { Badge, Button, Card, Input } from '../components/Ui/ui';
-import { Search, Filter, BookOpen, AlertTriangle, ShieldCheck, Activity, Info, X, ChevronRight } from 'lucide-react';
+import { Search, BookOpen, AlertTriangle, ShieldCheck, Activity, Info, X, ChevronRight } from 'lucide-react';
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -480,6 +480,29 @@ export default function DiseasesPage() {
   const [activeGuide, setActiveGuide] = useState(null);
   const [diseases, setDiseases] = useState(DISEASES_DATA);
 
+  const currentUser = useMemo(() => {
+    try {
+      const u = localStorage.getItem("user");
+      return u ? JSON.parse(u) : null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const safeParseArray = (val) => {
+    if (Array.isArray(val)) return val;
+    if (typeof val === 'string' && val.trim()) {
+      try {
+        const parsed = JSON.parse(val);
+        if (Array.isArray(parsed)) return parsed;
+      } catch {
+        return val.split(',').map(s => s.trim());
+      }
+      return [val.trim()];
+    }
+    return [];
+  };
+
   useEffect(() => {
     const fetchDiseases = async () => {
       try {
@@ -489,32 +512,13 @@ export default function DiseasesPage() {
           if (Array.isArray(data) && data.length > 0) {
             const normalizedData = data.map(d => ({
               ...d,
-              species: Array.isArray(d.species)
-                ? d.species
-                : typeof d.species === 'string' && d.species
-                ? d.species.split(',').map(s => s.trim())
-                : [],
-              clinicalSigns: Array.isArray(d.clinicalSigns)
-                ? d.clinicalSigns
-                : typeof d.clinicalSigns === 'string' && d.clinicalSigns
-                ? [d.clinicalSigns]
-                : [],
-              preventionSteps: Array.isArray(d.preventionSteps)
-                ? d.preventionSteps
-                : typeof d.preventionSteps === 'string' && d.preventionSteps
-                ? [d.preventionSteps]
-                : [],
-              treatmentSteps: Array.isArray(d.treatmentSteps)
-                ? d.treatmentSteps
-                : typeof d.treatmentSteps === 'string' && d.treatmentSteps
-                ? [d.treatmentSteps]
-                : []
+              species: safeParseArray(d.species),
+              clinicalSigns: safeParseArray(d.clinicalSigns),
+              preventionSteps: safeParseArray(d.preventionSteps),
+              treatmentSteps: safeParseArray(d.treatmentSteps)
             }));
 
-            // Merge DB diseases with static library to ensure added animal diseases show up seamlessly
-            const dbNames = new Set(normalizedData.map(d => (d.name || '').toLowerCase()));
-            const nonDuplicateDefault = DISEASES_DATA.filter(d => !dbNames.has((d.name || '').toLowerCase()));
-            setDiseases([...normalizedData, ...nonDuplicateDefault]);
+            setDiseases(normalizedData);
           }
         }
       } catch (error) {
@@ -613,11 +617,7 @@ export default function DiseasesPage() {
 
         {/* Filters Buttons */}
         <div className="flex items-center gap-3 overflow-x-auto pb-4 scrollbar-none mb-10 border-b border-slate-100">
-          <Button variant="outline" className="h-9 px-4 rounded-full bg-white shrink-0 shadow-sm hover:bg-slate-50 flex items-center gap-2 border-slate-200 text-slate-600 text-sm">
-            <Filter size={15} />
-            <span>Filters</span>
-          </Button>
-
+          
           {categories.map((category) => (
             <button
               key={category}

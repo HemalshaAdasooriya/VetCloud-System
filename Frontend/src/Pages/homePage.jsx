@@ -1,4 +1,4 @@
-import { ArrowRight, CalendarCheck, CalendarCheck2, FileText, HeartPulse, HeartPulseIcon, LucideHeartPulse, MapPin, Phone, Play, ShieldCheck, Star, Stethoscope, StethoscopeIcon, Video, VideoIcon } from "lucide-react";
+import { ArrowRight, CalendarCheck, CalendarCheck2, FileText, HeartPulse, HeartPulseIcon, LucideHeartPulse, MapPin, Phone, ShieldCheck, Star, Stethoscope, StethoscopeIcon, Video, VideoIcon } from "lucide-react";
 import { Button, Card } from "../components/Ui/ui";
 import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -81,14 +81,7 @@ export default function HomePage() {
                                     Animal care starts in the animal's condition, what treatment requires such as advance service, best medicine.
                                 </p>
 
-                                <div className="flex items-center gap-4 mb-10">
-                                    <Button size="lg" className="bg-green-600 hover:bg-green-700 text-white shadow-lg">
-                                        Read More
-                                    </Button>
-                                    <button className="w-14 h-14 rounded-full bg-slate-100 shadow-lg flex items-center justify-center text-green-600 hover:bg-green-50 transition-all">
-                                        <Play size={24} fill="currentColor" />
-                                    </button>
-                                </div>
+
 
                                {/* Service Icons */}
                                 <div className="flex items-center gap-4">
