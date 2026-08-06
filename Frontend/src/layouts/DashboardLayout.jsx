@@ -38,12 +38,12 @@ export function DashboardLayout() {
   // --- NEW: Profile Image Logic ---
   const getProfileImage = () => {
     if (!user || !user.image) return defaultAvatar;
-
+    
     // If it's a Google/Facebook image, it already starts with 'http'
     if (user.image.startsWith('http')) {
       return user.image;
     }
-
+    
     // If it's a local upload, glue the backend URL to the front
     return `${import.meta.env.VITE_BACKEND_URL}${user.image}`;
   };
@@ -70,21 +70,15 @@ export function DashboardLayout() {
     }
   };
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchNotifications();
     if (!user) return;
     const socket = io(import.meta.env.VITE_BACKEND_URL || "http://localhost:5000");
     socket.emit("register", { userId: user.id, role: user.role });
     socket.on("new-notification", (notification) => {
-      setNotifications((prev) => {
-        if (notification?.id && prev.some((n) => n.id === notification.id)) {
-          return prev;
-        }
-        toast.success(notification.title || "New notification");
-        // Fire a custom event to notify other pages (like farmerDashboard) to reload
-        window.dispatchEvent(new Event("notificationsUpdated"));
-        return [notification, ...prev];
-      });
+      setNotifications((prev) => [notification, ...prev]);
+      toast.success(notification.title || "New notification");
+      // Fire a custom event to notify other pages (like farmerDashboard) to reload
+      window.dispatchEvent(new Event("notificationsUpdated"));
     });
     // Listen to reload events from child pages
     const handleReload = () => {
@@ -190,7 +184,7 @@ export function DashboardLayout() {
   const isUser = location.pathname.startsWith('/dashboard/user');
   const isVet = location.pathname.startsWith('/dashboard/doctor');
   const isAdmin = location.pathname.startsWith('/dashboard/admin');
-
+  
   // Dynamic sidebar links based on role
   const links = isUser ? [
     { name: 'Dashboard', path: '/dashboard/user', icon: LayoutDashboard },
@@ -202,8 +196,7 @@ export function DashboardLayout() {
     { name: 'Settings', path: '/dashboard/user/settings', icon: Settings },
   ] : isVet ? [
     { name: 'Doctor Dashboard', path: '/dashboard/doctor', icon: LayoutDashboard },
-    { name: 'Upcoming Consultations', path: '/dashboard/doctor/consultations', icon: Stethoscope },
-    { name: 'Consultation Requests', path: '/dashboard/doctor/requests', icon: ClipboardList }, //Navindu 2026/06/19 ... vet consultation requests
+    { name: 'Consultations', path: '/dashboard/doctor/consultations', icon: Stethoscope },
     { name: 'Schedule', path: '/dashboard/doctor/schedule', icon: Calendar },
     { name: 'Ratings & Reviews', path: '/dashboard/doctor/ratings', icon: Star },
     { name: 'Settings', path: '/dashboard/doctor/settings', icon: Settings },
@@ -221,7 +214,7 @@ export function DashboardLayout() {
   // Sign Out Handler
   const handleSignOut = () => {
     localStorage.removeItem("token");
-    localStorage.removeItem("user");
+    localStorage.removeItem("user"); 
     navigate('/');
   };
 
@@ -264,8 +257,9 @@ export function DashboardLayout() {
                 key={link.path}
                 to={link.path}
                 onClick={() => setIsSidebarOpen(false)}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${isActive ? 'bg-green-50 text-green-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                  }`}
+                className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                  isActive ? 'bg-green-50 text-green-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                }`}
               >
                 <link.icon size={20} className={isActive ? 'text-green-600' : 'text-slate-400'} />
                 {link.name}
@@ -275,8 +269,8 @@ export function DashboardLayout() {
         </div>
 
         <div className="p-4 border-t border-slate-200 space-y-2">
-          <button
-            onClick={handleSignOut}
+          <button 
+            onClick={handleSignOut} 
             className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 w-full transition-colors"
           >
             <LogOut size={20} />
@@ -300,12 +294,12 @@ export function DashboardLayout() {
               {links.find((l) => l.path === location.pathname)?.name || 'Dashboard'}
             </h1>
           </div>
-
+          
           <div className="flex items-center gap-2 sm:gap-4">
             {isAdmin && (
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                <input
+                <input 
                   type="text"
                   placeholder="Search..."
                   className="pl-9 pr-4 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 w-28 sm:w-48 md:w-64 transition-all"
@@ -314,7 +308,7 @@ export function DashboardLayout() {
             )}
             {/*isuri-notification*/}
             <div className="relative">
-              <button
+              <button 
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                 className="relative p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-all cursor-pointer focus:outline-none"
               >
@@ -334,7 +328,7 @@ export function DashboardLayout() {
                     <div className="flex items-center justify-between px-4 pb-2 border-b border-slate-100 mb-1">
                       <h3 className="font-extrabold text-slate-800 text-sm">Notifications</h3>
                       {notifications.some((n) => !n.is_read) && (
-                        <button
+                        <button 
                           onClick={handleMarkAllAsRead}
                           className="text-xs font-extrabold text-green-600 hover:text-green-700 cursor-pointer transition-colors"
                         >
@@ -342,23 +336,25 @@ export function DashboardLayout() {
                         </button>
                       )}
                     </div>
-
+                    
                     {/* List */}
                     <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
                       {notifications.length > 0 ? (
                         notifications.map((n) => (
-                          <div
+                          <div 
                             key={n.id}
                             onClick={() => handleMarkAsRead(n.id)}
-                            className={`flex items-start gap-3 p-3.5 hover:bg-slate-50/80 cursor-pointer transition-all ${!n.is_read ? 'bg-green-50/10' : ''
-                              }`}
+                            className={`flex items-start gap-3 p-3.5 hover:bg-slate-50/80 cursor-pointer transition-all ${
+                              !n.is_read ? 'bg-green-50/10' : ''
+                            }`}
                           >
                             <div className="mt-0.5 shrink-0">
                               {getNotificationIcon(n.type)}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className={`text-[13px] leading-snug ${!n.is_read ? 'text-slate-900 font-extrabold' : 'text-slate-600 font-medium'
-                                }`}>
+                              <p className={`text-[13px] leading-snug ${
+                                !n.is_read ? 'text-slate-900 font-extrabold' : 'text-slate-600 font-medium'
+                              }`}>
                                 {n.title}
                               </p>
                               <p className="text-slate-500 text-xs mt-0.5 font-medium leading-relaxed">
@@ -388,23 +384,21 @@ export function DashboardLayout() {
               )}
             </div>
             <div className="flex items-center gap-2 sm:gap-3 border-l border-slate-200 pl-2 sm:pl-4">
-
+              
               {/* UPDATED: Dynamic Profile Display using our new logic */}
-              <img
-                src={profileImageUrl}
-                alt="Profile Avatar"
+              <img 
+                src={profileImageUrl} 
+                alt="Profile Avatar" 
                 className="w-8 h-8 rounded-full object-cover shadow-sm shrink-0"
                 referrerPolicy="no-referrer"
-                onError={(e) => { e.target.src = defaultAvatar; }}
+                onError={(e) => { e.target.src = defaultAvatar; }} 
               />
               <div className="text-sm hidden sm:block">
                 <p className="font-medium text-slate-700">
-                  {user?.fullName || 'Loading...'}
+                    {user?.fullName || 'Loading...'}
                 </p>
                 <p className="text-slate-500 text-xs">
-                  {isUser || (user?.role && (user.role.toLowerCase() === 'farmer' || user.role.toLowerCase().includes('farmer') || user.role.toLowerCase().includes('owner')))
-                    ? 'Farmer/PetOwner'
-                    : (user?.role || 'Guest')}
+                    {user?.role || 'Guest'}
                 </p>
               </div>
             </div>
