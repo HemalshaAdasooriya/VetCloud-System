@@ -1,8 +1,9 @@
 import { useState, useMemo, useEffect } from 'react';
+import { useLocation, Link } from 'react-router-dom';
 import Navigation from '../layouts/navigation';
 import Footer from '../layouts/footer';
 import { Badge, Button, Card, Input } from '../components/Ui/ui';
-import { Search, BookOpen, AlertTriangle, ShieldCheck, Activity, Info, X, ChevronRight } from 'lucide-react';
+import { Search, BookOpen, AlertTriangle, ShieldCheck, Activity, Info, X, ChevronRight, Stethoscope, MapPin, Calendar } from 'lucide-react';
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -247,6 +248,8 @@ const getDiseaseImage = (disease) => {
 
 function DiseaseGuideModal({ disease, onClose }) {
   const [activeTab, setActiveTab] = useState('overview');
+  const location = useLocation();
+  const isDashboard = location.pathname.startsWith('/dashboard');
   const riskStyles = getRiskStyles(disease.risk);
 
   const speciesList = Array.isArray(disease.species)
@@ -454,11 +457,53 @@ function DiseaseGuideModal({ disease, onClose }) {
                   </p>
                 </div>
               </div>
+
+              {/* Related Action Links */}
+              <div className="bg-emerald-50/80 border border-emerald-200/80 p-5 rounded-2xl space-y-3">
+                <div className="flex items-center gap-2 text-emerald-900 font-extrabold text-sm">
+                  <Stethoscope size={18} className="text-emerald-600" />
+                  Need Professional Veterinary Assistance?
+                </div>
+                <p className="text-xs text-slate-600 font-medium leading-relaxed">
+                  If your animal shows symptoms of {disease.name}, connect with registered veterinarians or find a local clinic for emergency diagnosis and treatment.
+                </p>
+                <div className="flex flex-wrap items-center gap-3 pt-1">
+                  <Link
+                    to={isDashboard ? "/dashboard/user/consultations" : "/consultation"}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-sm transition-colors"
+                  >
+                    <Stethoscope size={14} />
+                    Request Consultation
+                  </Link>
+                  <Link
+                    to={isDashboard ? "/dashboard/user/clinics" : "/clinics"}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold text-xs rounded-xl shadow-sm transition-colors"
+                  >
+                    <MapPin size={14} className="text-rose-500" />
+                    Find Nearby Clinics
+                  </Link>
+                </div>
+              </div>
             </div>
           )}
         </div>
         {/* Modal Footer */}
-        <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/50 flex justify-end shrink-0">
+        <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2">
+            <Link
+              to={isDashboard ? "/dashboard/user/consultations" : "/consultation"}
+              className="hidden sm:inline-flex items-center gap-1 text-xs font-bold text-emerald-700 hover:text-emerald-800"
+            >
+              <Stethoscope size={13} /> Consult a Vet
+            </Link>
+            <span className="hidden sm:inline text-slate-300">•</span>
+            <Link
+              to={isDashboard ? "/dashboard/user/clinics" : "/clinics"}
+              className="hidden sm:inline-flex items-center gap-1 text-xs font-bold text-slate-600 hover:text-slate-800"
+            >
+              <MapPin size={13} className="text-rose-500" /> Find Clinics
+            </Link>
+          </div>
           <button
             onClick={onClose}
             className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-full text-sm font-bold active:scale-95 transition-all cursor-pointer shadow-md"
@@ -472,6 +517,9 @@ function DiseaseGuideModal({ disease, onClose }) {
 }
 
 export default function DiseasesPage() {
+  const location = useLocation();
+  const isDashboard = location.pathname.startsWith('/dashboard');
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [activeGuide, setActiveGuide] = useState(null);
@@ -569,14 +617,14 @@ export default function DiseasesPage() {
 
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50">
-      <Navigation />
+    <div className={isDashboard ? "-m-8 flex flex-col min-h-screen bg-slate-50" : "flex flex-col min-h-screen bg-slate-50"}>
+      {!isDashboard && <Navigation />}
 
       {/* Main Database Content */}
-      <main className="flex-grow container mx-auto px-4 py-12">
+      <main className="flex-grow container mx-auto px-4 py-8">
 
         {/* Header Block */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6">
           <div>
             <div className="flex items-center gap-3 mb-2">
               <div className="bg-green-50 border border-green-100 text-green-600 p-2.5 rounded-2xl shadow-sm">
@@ -609,6 +657,35 @@ export default function DiseasesPage() {
                 <X size={14} />
               </button>
             )}
+          </div>
+        </div>
+
+        {/* Related Healthcare Links Banner */}
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-xl">
+              <Stethoscope size={20} />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-slate-800">Related Healthcare & Support</h4>
+              <p className="text-xs text-slate-500 font-medium">Need immediate medical attention for your livestock or pets?</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2.5 shrink-0">
+            <Link
+              to={isDashboard ? "/dashboard/user/consultations" : "/consultation"}
+              className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors"
+            >
+              <Stethoscope size={14} />
+              Book Vet Consultation
+            </Link>
+            <Link
+              to={isDashboard ? "/dashboard/user/clinics" : "/clinics"}
+              className="flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors"
+            >
+              <MapPin size={14} className="text-rose-500" />
+              Locate Clinics
+            </Link>
           </div>
         </div>
 
@@ -716,12 +793,22 @@ export default function DiseasesPage() {
                     </div>
                   </div>
 
-                  <button
-                    onClick={() => setActiveGuide(disease)}
-                    className="w-full mt-6 py-2.5 rounded-full border border-green-200 bg-white hover:bg-green-50 hover:border-green-300 text-green-700 font-bold text-sm transition-colors duration-200 flex items-center justify-center gap-1 shadow-sm cursor-pointer"
-                  >
-                    Read Full Guide <ChevronRight size={16} />
-                  </button>
+                  <div className="mt-6 flex flex-col sm:flex-row items-center gap-2">
+                    <button
+                      onClick={() => setActiveGuide(disease)}
+                      className="w-full sm:flex-1 py-2.5 rounded-full border border-green-200 bg-white hover:bg-green-50 hover:border-green-300 text-green-700 font-bold text-sm transition-colors duration-200 flex items-center justify-center gap-1 shadow-sm cursor-pointer"
+                    >
+                      Read Full Guide <ChevronRight size={16} />
+                    </button>
+                    <Link
+                      to={isDashboard ? "/dashboard/user/consultations" : "/consultation"}
+                      className="w-full sm:w-auto px-4 py-2.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-colors duration-200 flex items-center justify-center gap-1.5 shadow-sm"
+                      title="Consult a Vet for this disease"
+                    >
+                      <Stethoscope size={14} />
+                      Consult Vet
+                    </Link>
+                  </div>
                 </div>
               </Card>
             );
@@ -729,7 +816,7 @@ export default function DiseasesPage() {
         </div>
       </main>
 
-      <Footer />
+      {!isDashboard && <Footer />}
 
       {/* Disease Guide Modal Overlay */}
       <AnimatePresence>
