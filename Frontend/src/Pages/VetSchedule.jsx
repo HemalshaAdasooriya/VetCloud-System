@@ -18,9 +18,23 @@ export default function VetSchedule() {
   const [newSlotType, setNewSlotType] = useState('video');
   const [monthSlots, setMonthSlots] = useState({});
 
-  // Get vet ID from localStorage
+const API_BASE = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+  
+  // Get vet ID from localStorage with fallback
   const getVetId = () => {
-    return localStorage.getItem('userId');
+        const userId = localStorage.getItem('userId');
+        if (userId) return userId;
+        try {
+          const userStr = localStorage.getItem('user');
+          if (userStr) {
+            const u = JSON.parse(userStr);
+            return u.id || u.vetId || u.user_id || null;
+          }
+        } catch (e) {
+          console.error(e);
+        }
+        return null;
+        // return localStorage.getItem('userId');
   };
 
   // Fetch schedule for current month
@@ -45,7 +59,8 @@ export default function VetSchedule() {
       const month = currentMonth.getMonth() + 1;
 
       const response = await axios.get(
-        `http://localhost:5000/api/schedule/vet/${vetId}/month/${year}/${month}`
+        `${API_BASE}/api/schedule/vet/${vetId}/month/${year}/${month}`
+        // `http://localhost:5000/api/schedule/vet/${vetId}/month/${year}/${month}`
       );
       
       const grouped = {};
@@ -72,7 +87,8 @@ export default function VetSchedule() {
 
       const formattedDate = formatDateForAPI(date);
       const response = await axios.get(
-        `http://localhost:5000/api/schedule/vet/${vetId}/date/${formattedDate}`
+        `${API_BASE}/api/schedule/vet/${vetId}/date/${formattedDate}`
+        // `http://localhost:5000/api/schedule/vet/${vetId}/date/${formattedDate}`
       );
       
       const slots = response.data.map(slot => ({
@@ -138,7 +154,8 @@ export default function VetSchedule() {
       const formattedDate = formatDateForAPI(selectedDate);
       const formattedTime = formatTimeForAPI(newSlotTime);
 
-      await axios.post(`http://localhost:5000/api/schedule/vet/${vetId}/slot`, {
+      await axios.post(`${API_BASE}/api/schedule/vet/${vetId}/slot`, {
+      // await axios.post(`http://localhost:5000/api/schedule/vet/${vetId}/slot`, {
         slot_date: formattedDate,
         slot_time: formattedTime,
         consultation_type: newSlotType
@@ -175,7 +192,8 @@ export default function VetSchedule() {
       const vetId = getVetId();
       if (!vetId) throw new Error('Veterinarian ID not found');
 
-      await axios.delete(`http://localhost:5000/api/schedule/vet/${vetId}/slot/${id}`);
+      await axios.delete(`${API_BASE}/api/schedule/vet/${vetId}/slot/${id}`);
+      // await axios.delete(`http://localhost:5000/api/schedule/vet/${vetId}/slot/${id}`);
 
       setSuccessMessage('Slot removed successfully!');
       
@@ -201,7 +219,8 @@ export default function VetSchedule() {
       if (!vetId) throw new Error('Veterinarian ID not found');
 
       const formattedDate = formatDateForAPI(selectedDate);
-      await axios.delete(`http://localhost:5000/api/schedule/vet/${vetId}/day/${formattedDate}`);
+      await axios.delete(`${API_BASE}/api/schedule/vet/${vetId}/day/${formattedDate}`);
+      // await axios.delete(`http://localhost:5000/api/schedule/vet/${vetId}/day/${formattedDate}`);
 
       setSuccessMessage('All slots cleared successfully!');
       
@@ -231,7 +250,8 @@ export default function VetSchedule() {
       const vetId = getVetId();
       if (!vetId) throw new Error('Veterinarian ID not found');
 
-      await axios.post(`http://localhost:5000/api/schedule/vet/${vetId}/template`, {
+      await axios.post(`${API_BASE}/api/schedule/vet/${vetId}/template`, {
+      // await axios.post(`http://localhost:5000/api/schedule/vet/${vetId}/template`, {
         source_date: sourceDate,
         target_date: targetDate
       });
