@@ -22,19 +22,19 @@ export default function VetSchedule() {
   
   // Get vet ID from localStorage with fallback
   const getVetId = () => {
-      const userId = localStorage.getItem('userId');
-      if (userId) return userId;
-      try {
-        const userStr = localStorage.getItem('user');
-        if (userStr) {
-          const u = JSON.parse(userStr);
-          return u.id || u.vetId || u.user_id || null;
-        }
-      } catch (e) {
-        console.error(e);
+    const userId = localStorage.getItem('userId');
+    if (userId) return userId;
+    try {
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        const u = JSON.parse(userStr);
+        return u.id || u.vetId || u.user_id || null;
       }
-      return null;
-      // return localStorage.getItem('userId');
+    } catch (e) {
+      console.error(e);
+    }
+    return null;
+    // return localStorage.getItem('userId');
   };
 
   // Fetch schedule for current month
