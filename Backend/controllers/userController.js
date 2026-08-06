@@ -99,17 +99,15 @@ export async function registerUser(req, res) {
         }
     }
 
-    // 2. Check if email already exists for the selected role
-    const targetRole = data.role === "Veterinary Doctor" ? "doctor" : "farmer";
-    getUserByEmailAndRole(cleanEmail, targetRole, (err, results) => {
+    // 2. Check if email already exists in either table
+    checkEmailExists(cleanEmail, (err, results) => {
         if (err) {
             return res.status(500).json(err);
         }
 
-        if (results && results.length > 0) {
-            const roleTitle = targetRole === "doctor" ? "Veterinary Doctor" : "Pet Owner / Farmer";
+        if (results.length > 0) {
             return res.status(400).json({
-                message: `An account with this email address is already registered as a ${roleTitle}.`
+                message: "An account with this email address already exists on VetCloud. A single email address cannot be used for both Doctor and Farmer accounts."
             });
         }
 
@@ -395,71 +393,85 @@ function handleSocialLogin(req, res, email, name, image, role, provider, extraDe
             return issueTokenAndSession(req, res, preferredResults[0], dbRole);
         }
 
-        // Validate that new doctor registrations have required professional details and a valid 10-digit contact number
-        if (dbRole === "doctor") {
-            const phoneRegex = /^[0-9]{10}$/;
-            if (!extraDetails.contact_No || !phoneRegex.test(String(extraDetails.contact_No).trim()) ||
-                !extraDetails.license_number || !String(extraDetails.license_number).trim() ||
-                String(extraDetails.license_number).startsWith("TEMP-") ||
-                !extraDetails.specialization || !String(extraDetails.specialization).trim() ||
-                extraDetails.years_of_experience === undefined || extraDetails.years_of_experience === "" ||
-                extraDetails.consultation_fee === undefined || extraDetails.consultation_fee === "") {
+        // Before creating a NEW account, verify if the email is already registered under the OTHER role
+        checkEmailExists(cleanEmail, (errCheck, checkResults) => {
+            if (errCheck) {
+                console.error("Email existence check failed during social login:", errCheck);
+                return res.status(500).json({ message: "Database error during social login check." });
+            }
+
+            if (checkResults && checkResults.length > 0) {
+                const otherRoleName = dbRole === "doctor" ? "Pet Owner / Farmer" : "Veterinary Doctor";
                 return res.status(400).json({
-                    message: "Veterinary Doctor registration requires a valid 10-digit Contact Number and Professional Details (License Number, Specialization, Years of Experience, Consultation Fee) for administrator approval."
+                    message: `An account with this email address is already registered as a ${otherRoleName}. A single email address cannot be used for both Doctor and Farmer accounts.`
                 });
             }
-        }
 
-        // No existing user found in either role: proceed to register as a new user with selected role
-        const userData = {
-            email: cleanEmail,
-            password: null,
-            firstName: splitFirstName,
-            lastName: splitLastName,
-            image,
-            provider,
-            contact_No: extraDetails.contact_No || "",
-            license_number: extraDetails.license_number || ("TEMP-" + Math.random().toString(36).substring(2, 11).toUpperCase()),
-            specialization: extraDetails.specialization || "General",
-            years_of_experience: extraDetails.years_of_experience || 0,
-            consultation_fee: extraDetails.consultation_fee || 0
-        };
-
-        const callback = (regErr, result) => {
-            if (regErr) return res.status(500).json(regErr);
-
-            // Fetch the newly created user to issue a proper session
-            getUserByEmailAndRole(cleanEmail, dbRole, (fetchErr, userResults) => {
-                if (fetchErr || userResults.length === 0) return res.status(500).json({ message: "Database error during social registration." });
-
-                if (dbRole === "doctor") {
-                    // Notify admins of new veterinarian registration request via Social Login
-                    const io = req.app.get("io");
-                    import("../models/Notification.js").then(({ createAdminNotification }) => {
-                        createAdminNotification(io, {
-                            type: "new_vet_registration",
-                            title: "New Vet Registration Request",
-                            message: `New veterinarian registered via Google: Dr. ${splitFirstName} ${splitLastName} (${cleanEmail}, License: ${userData.license_number}). Pending approval.`
-                        });
-                    }).catch(console.error);
-
-                    return res.status(201).json({
-                        message: "Please wait for administrator approval. Thank you.",
-                        isPendingApproval: true
+            // Validate that new doctor registrations have required professional details and a valid 10-digit contact number
+            if (dbRole === "doctor") {
+                const phoneRegex = /^[0-9]{10}$/;
+                if (!extraDetails.contact_No || !phoneRegex.test(String(extraDetails.contact_No).trim()) ||
+                    !extraDetails.license_number || !String(extraDetails.license_number).trim() ||
+                    String(extraDetails.license_number).startsWith("TEMP-") ||
+                    !extraDetails.specialization || !String(extraDetails.specialization).trim() ||
+                    extraDetails.years_of_experience === undefined || extraDetails.years_of_experience === "" ||
+                    extraDetails.consultation_fee === undefined || extraDetails.consultation_fee === "") {
+                    return res.status(400).json({
+                        message: "Veterinary Doctor registration requires a valid 10-digit Contact Number and Professional Details (License Number, Specialization, Years of Experience, Consultation Fee) for administrator approval."
                     });
                 }
+            }
 
-                issueTokenAndSession(req, res, userResults[0], dbRole);
-            });
-        };
+            // No existing user found in either role: proceed to register as a new user with selected role
+            const userData = {
+                email: cleanEmail,
+                password: null,
+                firstName: splitFirstName,
+                lastName: splitLastName,
+                image,
+                provider,
+                contact_No: extraDetails.contact_No || "",
+                license_number: extraDetails.license_number || ("TEMP-" + Math.random().toString(36).substring(2, 11).toUpperCase()),
+                specialization: extraDetails.specialization || "General",
+                years_of_experience: extraDetails.years_of_experience || 0,
+                consultation_fee: extraDetails.consultation_fee || 0
+            };
 
-        if (dbRole === "farmer") {
-            createPetOwner(userData, callback);
-        } else {
-            createVeterinarian(userData, callback);
-        }
+            const callback = (regErr, result) => {
+                if (regErr) return res.status(500).json(regErr);
+
+                // Fetch the newly created user to issue a proper session
+                getUserByEmailAndRole(cleanEmail, dbRole, (fetchErr, userResults) => {
+                    if (fetchErr || userResults.length === 0) return res.status(500).json({ message: "Database error during social registration." });
+
+                    if (dbRole === "doctor") {
+                        // Notify admins of new veterinarian registration request via Social Login
+                        const io = req.app.get("io");
+                        import("../models/Notification.js").then(({ createAdminNotification }) => {
+                            createAdminNotification(io, {
+                                type: "new_vet_registration",
+                                title: "New Vet Registration Request",
+                                message: `New veterinarian registered via Google: Dr. ${splitFirstName} ${splitLastName} (${cleanEmail}, License: ${userData.license_number}). Pending approval.`
+                            });
+                        }).catch(console.error);
+
+                        return res.status(201).json({
+                            message: "Please wait for administrator approval. Thank you.",
+                            isPendingApproval: true
+                        });
+                    }
+
+                    issueTokenAndSession(req, res, userResults[0], dbRole);
+                });
+            };
+
+            if (dbRole === "farmer") {
+                createPetOwner(userData, callback);
+            } else {
+                createVeterinarian(userData, callback);
+            }
+        });
     });
-});
 }
 
 
@@ -836,19 +848,26 @@ export const updateUserProfile = (req, res) => {
 
         if (profileData.email) {
             const cleanNewEmail = String(profileData.email).trim().toLowerCase();
-            const currentRoleKey = (userRole === "Farmer/PetOwner" || userRole === "farmer") ? "farmer" : "doctor";
-            getUserByEmailAndRole(cleanNewEmail, currentRoleKey, (errCheck, results) => {
+            checkEmailExists(cleanNewEmail, (errCheck, results) => {
                 if (errCheck) return res.status(500).json({ message: "Database error during email validation" });
 
-                // If email exists for this role, ensure it doesn't belong to a DIFFERENT account
+                // If email exists, ensure it doesn't belong to a DIFFERENT account
                 if (results && results.length > 0) {
-                    if (Number(results[0].id) !== Number(userId)) {
-                        return res.status(400).json({
-                            message: "An account with this email address is already registered for this role."
-                        });
-                    }
+                    const currentRoleKey = (userRole === "Farmer/PetOwner" || userRole === "farmer") ? "farmer" : "doctor";
+                    getUserByIdAndRole(userId, currentRoleKey, (errCurr, currUser) => {
+                        if (!errCurr && currUser) {
+                            const currentUserEmail = String(currUser.email || '').trim().toLowerCase();
+                            if (currentUserEmail !== cleanNewEmail) {
+                                return res.status(400).json({
+                                    message: "An account with this email address is already registered. A single email address cannot be used for both Doctor and Farmer accounts."
+                                });
+                            }
+                        }
+                        performUpdate();
+                    });
+                } else {
+                    performUpdate();
                 }
-                performUpdate();
             });
         } else {
             performUpdate();
