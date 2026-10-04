@@ -502,7 +502,7 @@ export default function VetConsultationRequests() {
     setSuccessMessage('');
 
     try {
-      await axios.patch(`http://localhost:5000/api/vet-appointments/${requestId}/approve`, {
+      await axios.patch(`${API_BASE}/api/vet-appointments/${requestId}/approve`, {
         slotId: slotId
       });
       

@@ -2,12 +2,22 @@ import mysql from "mysql2";
 import dotenv from "dotenv";
 dotenv.config();
 
+const isSslNeeded = process.env.MYSQL_SSL === "true" ||
+    (process.env.MYSQLHOST && process.env.MYSQLHOST.includes("tidbcloud.com")) ||
+    String(process.env.MYSQLPORT) === "4000";
+
 const dbConfig = {
-    host: process.env.MYSQLHOST,
-    user: process.env.MYSQLUSER,
-    password: process.env.MYSQLPASSWORD,
-    database: process.env.MYSQLDATABASE,
-    port: process.env.MYSQLPORT
+    host: process.env.MYSQLHOST || "localhost",
+    user: process.env.MYSQLUSER || "root",
+    password: process.env.MYSQLPASSWORD || "",
+    database: process.env.MYSQLDATABASE || "vetcloud",
+    port: process.env.MYSQLPORT ? parseInt(process.env.MYSQLPORT, 10) : (isSslNeeded ? 4000 : 3306),
+    ...(isSslNeeded ? {
+        ssl: {
+            minVersion: "TLSv1.2",
+            rejectUnauthorized: process.env.MYSQL_SSL_REJECT_UNAUTHORIZED !== "false"
+        }
+    } : {})
 };
 
 let connection;
