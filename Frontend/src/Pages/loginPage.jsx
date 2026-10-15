@@ -45,6 +45,8 @@ export default function LoginPage({ defaultRole = null }) {
   `;
 
 
+    const backendUrl = (import.meta.env.VITE_BACKEND_URL || "").replace(/\/$/, "");
+
     async function handleLogin() {
         if (!role) {
             return toast.error("Please select a role");
@@ -53,8 +55,13 @@ export default function LoginPage({ defaultRole = null }) {
             return toast.error("Please enter email and password");
         }
 
+        if (!backendUrl) {
+            console.error("VITE_BACKEND_URL is not set in environment variables.");
+            return toast.error("Server URL not configured. Please set VITE_BACKEND_URL in hosting settings.");
+        }
+
         try {
-            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/login`, {
+            const response = await fetch(`${backendUrl}/api/users/login`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email, password, role })
@@ -98,7 +105,7 @@ export default function LoginPage({ defaultRole = null }) {
     const handleSubmit2FA = async (e) => {
         e.preventDefault();
         try {
-            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/verify-login-2fa`, {
+            const response = await fetch(`${backendUrl}/api/users/verify-login-2fa`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -147,8 +154,8 @@ export default function LoginPage({ defaultRole = null }) {
         setIsLoading(true);
 
         try {
-            console.log("Sending token to backend at:", `${import.meta.env.VITE_BACKEND_URL}/api/users/google-login`);
-            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/google-login`, {
+            console.log("Sending token to backend at:", `${backendUrl}/api/users/google-login`);
+            const response = await fetch(`${backendUrl}/api/users/google-login`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ token: tokenResponse.access_token, role: role === 'farmer' ? "Farmer/PetOwner" : role === 'doctor' ? "Veterinary Doctor" : "Admin" })
@@ -409,7 +416,7 @@ export default function LoginPage({ defaultRole = null }) {
                                     </div>
                                 </div>
 
-                                {defaultRole !== "admin" && (
+                                {defaultRole !== "admin" && Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID) && (
                                     <>
                                         <div className="relative flex items-center justify-center my-4">
                                             <div className="w-full border-t border-slate-200"></div>

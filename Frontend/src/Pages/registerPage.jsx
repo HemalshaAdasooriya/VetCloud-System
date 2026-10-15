@@ -604,13 +604,15 @@ export default function RegisterPage() {
                                 </p>
                             )}
 
-                            <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
-                                <CustomGoogleButton
-                                    onSuccess={handleGoogleSuccess}
-                                    onError={() => setSubmitMessage({ text: "Google Authentication failed.", isError: true })}
-                                    isLoading={isLoading}
-                                />
-                            </GoogleOAuthProvider>
+                            {Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID) && (
+                                <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
+                                    <CustomGoogleButton
+                                        onSuccess={handleGoogleSuccess}
+                                        onError={() => setSubmitMessage({ text: "Google Authentication failed.", isError: true })}
+                                        isLoading={isLoading}
+                                    />
+                                </GoogleOAuthProvider>
+                            )}
                         </div>
                     </form>
 

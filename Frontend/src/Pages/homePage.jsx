@@ -15,9 +15,13 @@ export default function HomePage() {
     const [testimonials, setTestimonials] = useState([]);
 
     const fetchTestimonials = async () => {
+        const backendUrl = (import.meta.env.VITE_BACKEND_URL || "").replace(/\/$/, "");
+        if (!backendUrl) return;
+
         try {
-            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/feedback/homepage`);
-            if (res.ok) {
+            const res = await fetch(`${backendUrl}/api/users/feedback/homepage`);
+            const contentType = res.headers.get("content-type");
+            if (res.ok && contentType && contentType.includes("application/json")) {
                 const data = await res.json();
                 setTestimonials(data);
             }
